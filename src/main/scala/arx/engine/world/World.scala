@@ -9,33 +9,14 @@ package arx.engine.world
 
 import java.util.concurrent.atomic.AtomicLong
 
-import arx.Prelude._
 import arx.application.Noto
 import arx.core.introspection._
-import arx.core.traits.{ArxGeneric, TSentinelable}
-
-import arx.core.vec._
-import arx.engine.data.{TAuxData, TDynamicAuxData}
+import arx.engine.data.{TAuxData, TMutableAuxData}
+import arx.engine.entity.Entity
 import arx.engine.event.GameEvent
-import com.carrotsearch.hppc.LongObjectOpenHashMap
-import overlock.atomicmap.AtomicMap
 
 import scala.reflect.ClassTag
 
-case class Entity(val id : Long) {
-	def data[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : T = view.data[T](this)
-	def data[T <: TAuxData](clazz : Clazz[T])(implicit view : WorldView) : T = view.data[T](clazz)(this)
-	def dataOpt[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Option[T] = view.dataOpt[T](this)
-	def apply[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : T = view.data[T](this)
-	def apply[T <: TAuxData](clazz : Clazz[T])(implicit view : WorldView) : T = view.data[T](clazz)(this)
-	def hasData[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Boolean = view.hasData[T](this)
-	def has[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Boolean = view.hasData[T](this)
-
-	override def toString: String = s"LEntity($id)"
-}
-object Entity {
-	val Sentinel = new Entity(-1L)
-}
 case class GameEventClock(time : Int) extends AnyVal {
 	def < (other : GameEventClock) : Boolean = this.time < other.time
 	def > (other : GameEventClock) : Boolean = this.time > other.time
@@ -132,7 +113,7 @@ protected[engine] class EntityDataWrapper[T](val data : T, val addedAt : GameEve
 protected[engine] case class EntityDataRegistration(entity : Entity, dataType : Class[_], atTime : GameEventClock)
 
 class World {
-	protected val entityCounter = new AtomicLong(0)
+	protected var entityCounter = new AtomicLong(0)
 	protected var dataRegistrations = Vector[EntityDataRegistration]()
 
 	var onEntityAddedCallbacks = List[Entity => Unit]()
@@ -154,9 +135,16 @@ class World {
 	// todo: rfind
 	def eventAt(eventClock : GameEventClock) = coreView.events.find(e => e.occurredAt == eventClock)
 
-	def register[T <: TAuxData]()(implicit tag : ClassTag[T]) : Unit = {
-		coreView.dataStores += tag.runtimeClass -> new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
-		currentView.dataStores += tag.runtimeClass -> new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
+	def register[T <: TAuxData]()(implicit tag : ClassTag[T]) : World = {
+		val coreDataStore = new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
+		coreView.dataStores += tag.runtimeClass -> coreDataStore
+		// mutable data shares references in all views, non-mutable data gets its own ledger based copy
+		if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) {
+			currentView.dataStores += tag.runtimeClass -> coreDataStore
+		} else {
+			currentView.dataStores += tag.runtimeClass -> new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
+		}
+		this
 	}
 
 	def registerClass(clazz : Class[_ <: TAuxData]) : Unit = {
@@ -179,12 +167,41 @@ class World {
 		newEnt
 	}
 
+	def data[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : T = {
+		coreView.dataStores.get(tag.runtimeClass) match {
+			case Some(store) =>
+				store.asInstanceOf[EntityDataStore[T]].getOrElseUpdate(entity, currentTime)
+			case None =>
+				register[T]()
+				data[T](entity)
+		}
+	}
+
+	def dataOpt[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : Option[T] = {
+		coreView.dataStores.get(tag.runtimeClass) match {
+			case Some(store) =>
+				store.asInstanceOf[EntityDataStore[T]].getOpt(entity)
+			case None =>
+				register[T]()
+				dataOpt[T](entity)
+		}
+	}
+
+	def hasData[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : Boolean = {
+		coreView.hasData[T](entity)
+	}
+
+	def worldData[T <: TMutableAuxData](implicit tag : ClassTag[T]) : T = {
+		data[T](selfEntity)
+	}
+
 	def attachData (entity : Entity) = {
 		new AttachDataBuilder(this, entity)
 	}
 
 	def attachData[T <: TAuxData](entity : Entity, data : T)(implicit tag : ClassTag[T]) : Unit = {
-		for (view <- List(coreView, currentView)) {
+		val viewsToAlter = if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) { List(coreView) } else { List(coreView, currentView) }
+		for (view <- viewsToAlter) {
 			view.dataStores.get(tag.runtimeClass) match {
 				case Some(dataStore) => {
 					val dataToProvide = if (!(view eq coreView)) {

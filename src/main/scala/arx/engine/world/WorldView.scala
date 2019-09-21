@@ -2,7 +2,8 @@ package arx.engine.world
 
 import arx.application.Noto
 import arx.core.introspection.{Clazz, CopyAssistant, Field}
-import arx.engine.data.TAuxData
+import arx.engine.data.{TAuxData, TMutableAuxData}
+import arx.engine.entity.Entity
 
 import scala.reflect.ClassTag
 
@@ -97,7 +98,15 @@ class WorldView(val world : World) {
 		view.entities = this.entities.filter(e => e.addedAt <= atTime)
 
 		val entitySet = view.entities.map(e => e.entity.id).toSet
-		view.dataStores = this.dataStores.map { case (k,v) => (k, v.copyForEntitiesAtTime(entitySet, atTime).asInstanceOf[EntityDataStore[_ <: TAuxData]]) }.toMap
+		view.dataStores = this.dataStores.map { case (k,v) => {
+			if (classOf[TMutableAuxData].isAssignableFrom(k)) {
+				// mutable aux data shares references across all views, but views are _encouraged_ not to allow modification
+				(k, v)
+			} else {
+				// non mutable data gets independent copies
+				(k, v.copyForEntitiesAtTime(entitySet, atTime).asInstanceOf[EntityDataStore[_ <: TAuxData]])
+			}
+		} }.toMap
 
 		val upToModificationIndex = view.events.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
 		view.modifications = this.modifications.take(upToModificationIndex)

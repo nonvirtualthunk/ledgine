@@ -218,11 +218,15 @@ abstract class EngineCore {
 		// Make the OpenGL context current
 		glfwMakeContextCurrent(window)
 		// Enable v-sync
-		glfwSwapInterval(0)
+		glfwSwapInterval(1)
 
 //		// Make the window visible
 		glfwShowWindow(window)
+
+		onInit()
 	}
+
+	def onInit() {}
 
 	def keyCallback(key: Int, scancode: Int, action: Int, mods: Int): Unit = {
 
@@ -281,6 +285,10 @@ abstract class EngineCore {
 		var lastLoop = GLFW.glfwGetTime()
 		var lastUpdated = GLFW.glfwGetTime()
 
+		val earlyCounter = Metrics.counter("EngineCore.update.early")
+		val notEarlyCounter = Metrics.counter("EngineCore.update.not-early")
+		val longUpdateMeter = Metrics.meter("EngineCore.long-update")
+
 		// Run the rendering loop until the user has attempted to close
 		// the window or has pressed the ESCAPE key.
 		while (!glfwWindowShouldClose(window)) {
@@ -289,8 +297,10 @@ abstract class EngineCore {
 			val curTime = GLFW.glfwGetTime()
 			val deltaSeconds = curTime - lastLoop
 			if (deltaSeconds < 0.01) {
+				earlyCounter.inc()
 				LockSupport.parkNanos(100000L)
 			} else {
+				notEarlyCounter.inc()
 				if (hasFocus && !fullPause && doesNeedDraw) {
 					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) // clear the framebuffer
 
@@ -303,7 +313,7 @@ abstract class EngineCore {
 				lastLoop = curTime
 
 				if (deltaSeconds > (0.016666667 * 1.25)) {
-					//				Noto.info("Long update time: " + deltaSeconds)
+					longUpdateMeter.mark()
 				}
 
 

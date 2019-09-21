@@ -9,13 +9,14 @@ import arx.core.math.Rectf
 import arx.core.vec.ReadVec2f
 import arx.core.vec.ReadVec4f
 import arx.graphics.TToImage
+import arx.graphics.helpers.Color
 
 
 
 // windowing quad
 case class WQuad(rect : Rectf,
 					  image : TToImage,
-					  color : ReadVec4f,
+					  color : Color,
 					  flipX : Boolean = false,
 					  flipY : Boolean = false,
 					  rotation : Int = 0,

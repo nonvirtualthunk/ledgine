@@ -15,20 +15,10 @@ import arx.core.introspection.CopyAssistant
 
 
 trait TAuxData {
-	def onAssignedToObject ( entity : THasAuxData[_] ) {}
-
-	/**
-	  * Creates a copy-on-write version of itself
-	  */
-	def copyOnWrite() : this.type = CopyAssistant.copyShallow(this)
-
 
 	def withData(f : (this.type) => Unit): Unit = {
 		f(this)
 	}
 }
 
-
-trait TDynamicAuxData extends TAuxData {
-
-}
+trait TMutableAuxData extends TAuxData

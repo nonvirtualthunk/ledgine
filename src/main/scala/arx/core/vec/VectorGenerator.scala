@@ -88,7 +88,7 @@ object VectorGenerator {
 				val argString = "(" + varNames.map(n => n + "a : " + valueType.name).reduceLeft(_ + "," + _) + ")"
 
 				if ( accessModifier == "Read" ) {
-					classString += "import arx.core.Moddable\n"
+					classString += "import arx.engine.data.Moddable\n"
 					classString += "\n"
 				}
 

@@ -41,7 +41,7 @@ object MatrixGenerator {
 
 			classString += "import arx.core.vec._\n"
 			if ( accessModifier == "Read" ) {
-				classString += "import arx.core.Moddable\n"
+				classString += "import arx.engine.data.Moddable\n"
 				classString += "\n"
 				classString += "import java.io.Externalizable\n"
 				classString += "import java.io.ObjectInput\n"

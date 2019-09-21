@@ -25,11 +25,6 @@ abstract class MeasurementUnit extends Serializable{
 	def allLowerOrdersOfMagnitude : List[MeasurementUnit] = lowerOrderOfMagnitude match { case Some(m) => m :: m.allLowerOrdersOfMagnitude ; case None => Nil }
 	def allOrdersOfMagnitude = allLowerOrdersOfMagnitude.reverse ::: this :: allHigherOrdersOfMagnitude
 }
-object UniverseUnit extends MeasurementUnit {
-	val name = "universe unit"
-	val suffix = "u"
-	var conversion = toScalar(metersPerUniverseUnit)
-}
 object Meter extends MeasurementUnit {
 	val name = "meter"
 	val suffix = "m"

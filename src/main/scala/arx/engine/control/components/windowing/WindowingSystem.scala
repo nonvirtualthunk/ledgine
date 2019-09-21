@@ -8,34 +8,40 @@ package arx.engine.control.components.windowing
   */
 
 import java.awt.Toolkit
-import java.awt.datatransfer.{Clipboard, ClipboardOwner, DataFlavor, StringSelection, Transferable}
+import java.awt.datatransfer._
 import java.io.IOException
 
-import arx.Prelude._
 import arx.application.Noto
-import arx.core.units.UnitOfTime
-
 import arx.core.vec._
 import arx.engine.control.components.windowing.events.{DropEvent, FocusGainedEvent, FocusLostEvent, RequestFocusEvent}
-import arx.engine.control.components.windowing.widgets.data.EventHandlingData
-import arx.engine.control.data.{ControlWorld, WindowingData}
+import arx.engine.control.components.windowing.subcomponents.WindowingSystemComponent
+import arx.engine.control.data.WindowingControlData
 import arx.engine.control.event._
-import arx.engine.event.EventBus
-import arx.engine.graphics.data.{GraphicsWorld, WindowingGraphicsData}
+import arx.engine.entity.Entity
+import arx.engine.event.{Event, EventBus}
+import arx.engine.graphics.data.WindowingGraphicsData
+import arx.engine.world.World
 import arx.graphics.GL
 
-class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld, controlBus : EventBus) {
-	val WD = controlWorld.auxData[WindowingData]
+class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event, _] => Unit) {
+	val WD = displayWorld.worldData[WindowingControlData]
+	WD.desktop = new Widget(displayWorld.createEntity(), this)
+	WD.desktop.parent = new Widget(Entity.Sentinel, this)
+
 	import WD._
-	val WGD = graphicsWorld.auxData[WindowingGraphicsData]
+	val WGD = displayWorld.worldData[WindowingGraphicsData]
 	WGD.desktop = WD.desktop
+
+	// Unused at this time
+	var components : List[WindowingSystemComponent] = Nil
+	var componentClasses : List[Class[_ <: WindowingSystemComponent]] = Nil
 
 	WD.desktop.onEvent {
 		case RequestFocusEvent(widget) => giveFocusTo(widget)
 	}
 
 
-	controlBus.onEvent {
+	onEvent {
 		case kpe : KeyPressEvent =>
 			focusedWidget.exists(w => w.handleEvent(kpe.copy().withOrigin(w)))
 		case kre : KeyReleaseEvent =>
@@ -50,7 +56,7 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 		case mde : MouseDragEvent =>
 			lastWidgetUnderMouse = widgetAtMousePosition(mde.mousePos)
 			currentPressedWidget.exists(w => {
-				w.selfAndAncestors.find(_.dragAndDropRO.draggable) match {
+				w.widgetData.selfAndAncestors.find(_.dragAndDropRO.draggable) match {
 					// if there's something to drag, start dragging it, we may drop it onto something later
 					case Some(draggableWidget) =>
 						draggingWidget = Some(draggableWidget)
@@ -64,7 +70,7 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 				case Some(w) =>
 					var passOn = true
 					if (modalWidgetStack.nonEmpty) {
-						if (!modalWidgetStack.head.widget.selfAndAncestors.contains(w)) {
+						if (!modalWidgetStack.head.widget.widgetData.selfAndAncestors.contains(w)) {
 							passOn = false
 							if (modalWidgetStack.head.closeOnClickElsewhere) {
 								modalWidgetStack.head.widget.close()
@@ -83,7 +89,7 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 		case mre : MouseReleaseEvent if mre.mouseButton == MouseButton.Left =>
 			val ret = widgetAtMousePosition(mre.mousePos) match {
 				case Some(droppedOn) if draggingWidget.nonEmpty =>
-					droppedOn.selfAndAncestors.find(_.dragAndDropRO.droppable) match {
+					droppedOn.widgetData.selfAndAncestors.find(_.dragAndDropRO.droppable) match {
 						case Some(dropTarget) => dropTarget.handleEvent(DropEvent(draggingWidget.get,dropTarget,Vec2f.Zero))
 						case None => true
 					}
@@ -106,6 +112,12 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 	}
 
 
+	def createWidget() = {
+		val w = new Widget(displayWorld.createEntity(), this)
+		w.parent = desktop
+		w
+	}
+
 	def update() : Unit = {
 		desktop.synchronized {
 			updateWidget(desktop)
@@ -113,14 +125,14 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 	}
 
 	def updateWidget(w : Widget): Unit = {
-		w.updateSelf()
-		w.children.foreach(c => updateWidget(c))
+		components.foreach(c => c.updateWidget(this, w))
+		w.children.foreach(updateWidget)
 	}
 
 	def widgetAtMousePosition(pos : ReadVec2f) : Option[Widget] = {
 		WGD.pov.unprojectAtZ(pos,0.0f,GL.maximumViewport) match {
 			case Some(clickedPos) =>
-				WD.desktop.selfAndChildren.toStream.reverse.find(w => {
+				WD.desktop.widgetData.selfAndChildren.toStream.reverse.find(w => {
 					val apos = w.drawing.absolutePosition
 					val adim = w.drawing.effectiveDimensions
 					apos.x <= clickedPos.x && apos.y <= clickedPos.y &&
@@ -132,17 +144,17 @@ class WindowingSystem(controlWorld : ControlWorld, graphicsWorld : GraphicsWorld
 		}
 	}
 
-	def widgets = WD.desktop.selfAndAncestors
+	def widgets = WD.desktop.widgetData.selfAndAncestors
 
 	def giveFocusTo(target : Widget): Unit = {
-		for (newFocus <- target.selfAndAncestors.find(w => w.eventHandlingRO.acceptsFocus)) {
+		for (newFocus <- target.widgetData.selfAndAncestors.find(w => w.widgetData.acceptsFocus)) {
 			focusedWidget.foreach(w => {
 				w.handleEvent(FocusLostEvent(w))
-				w[EventHandlingData].hasFocus = false
+				w.widgetData.hasFocus = false
 			})
 			focusedWidget = Some(newFocus)
 			newFocus.handleEvent(FocusGainedEvent(newFocus))
-			newFocus[EventHandlingData].hasFocus = true
+			newFocus.widgetData.hasFocus = true
 		}
 	}
 }

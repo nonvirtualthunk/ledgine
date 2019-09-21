@@ -2,6 +2,7 @@ package arx.engine.world
 
 import arx.core.introspection.{Clazz, Field}
 import arx.engine.data.TAuxData
+import arx.engine.entity.Entity
 import arx.engine.event.GameEvent
 
 import scala.reflect.ClassTag

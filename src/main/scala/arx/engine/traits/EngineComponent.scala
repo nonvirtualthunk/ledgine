@@ -4,9 +4,10 @@ package arx.engine.traits
   * TODO: Add javadoc
   */
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import arx.Prelude._
+import arx.application.Noto
 import arx.core.TDependable
 import arx.core.units.UnitOfTime
 import arx.engine.EnginePiece
@@ -16,40 +17,42 @@ import arx.engine.world.World
 
 
 
-abstract class EngineComponent[WorldType] (val world : WorldType, enginePiece : EnginePiece[WorldType, _]) extends TDependable {
-	implicit val implicitWorld  = world
+abstract class EngineComponent[PieceType <: EnginePiece[_, _]] extends TDependable {
 	val updateInProgress = new AtomicBoolean(false)
-	var lastUpdated = 0.seconds
+	val lastUpdated = new AtomicReference(0.seconds)
 	var initialized = false
 	var updateInterval = (1/60.0).seconds
 
-	def listeners : List[EventBusListener]
+	var listeners : List[EventBusListener] = Nil
 
-	def update(dt : UnitOfTime): Unit = {
+	final def update(engine : PieceType, dt : UnitOfTime): Unit = {
 		if (!initialized) {
-			initialize()
-			initialized = true
+			Noto.error("Components are supposed to be initialized before they are updated")
+			initialize(engine)
 		}
 		// process all the asynchronously queued events
 		listeners.foreach(l => l.process())
 
 		if (needsUpdate) {
-			updateSelf(dt)
-			lastUpdated = enginePiece.currentTime()
+			onUpdate(engine, dt)
 		}
 	}
 
-	def timeSinceLastUpdate = enginePiece.currentTime() - lastUpdated
-
-	protected def updateSelf(dt : UnitOfTime): Unit = {
+	protected def onUpdate(engine : PieceType, dt : UnitOfTime): Unit = {
 
 	}
 
 	protected def needsUpdate = true
 
-	protected def initialize(): Unit = {
-
+	protected[engine] final def initialize(engine : PieceType): Unit = {
+		internalOnInitialize(engine)
+		onInitialize(engine)
+		initialized = true
 	}
 
-	enginePiece.registerComponent(this)
+	protected def internalOnInitialize(engine : PieceType) : Unit
+
+	protected def onInitialize(engine : PieceType): Unit = {
+
+	}
 }

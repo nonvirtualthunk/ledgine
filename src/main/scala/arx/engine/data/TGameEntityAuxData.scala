@@ -7,19 +7,5 @@ package arx.engine.data
  * Time: 9:07 AM
  */
 
-import arx.Prelude._
-import arx.engine.entity.TGameEntity
 
-
-trait TGameEntityAuxData extends TAuxData {
-	def onAssignedToEntity(entity : TGameEntity) {}
-
-	override final def onAssignedToObject(entity: THasAuxData[_]): Unit = {
-		entity match {
-			case e : TGameEntity =>
-				e.world.auxDataAddedToEntity(e, this)
-				onAssignedToEntity(e)
-			case _ =>
-		}
-	}
-}
+trait TGameEntityAuxData extends TAuxData

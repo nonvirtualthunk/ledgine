@@ -9,7 +9,6 @@ import java.util.{Properties, UUID}
 
 import arx.Prelude
 import arx.application.Noto
-import arx.core.language.LanguageBasis
 import arx.core.representation.Hocon.RichConfigRoot
 import arx.core.representation._
 import arx.graphics.Image
@@ -24,8 +23,7 @@ import overlock.atomicmap.AtomicMap
 
 import scala.collection.mutable.HashMap
 import scala.io.Source
-import scala.xml.Elem
-import scala.xml.XML
+import scala.xml.{Elem, XML}
 
 /**
  * Created by IntelliJ IDEA.
@@ -82,7 +80,6 @@ object ResourceManager {
 		val shadersWithProvider = AtomicMap.atomicNBHM[(String,Class[_ <: TUniformProvider]), Shader]
 		val xmlFiles = overlock.atomicmap.AtomicMap.atomicNBHM[String, List[Elem]]
 		val properties = overlock.atomicmap.AtomicMap.atomicNBHM[String, List[Properties]]
-		val languageBasis = overlock.atomicmap.AtomicMap.atomicNBHM[String, LanguageBasis]
 		val sml = overlock.atomicmap.AtomicMap.atomicNBHM[String, ConfigValue]
 		val loadedSMLReplacements = overlock.atomicmap.AtomicMap.atomicNBHM[String, Boolean]
 		val smlReplacements = overlock.atomicmap.AtomicMap.atomicNBHM[String, Any]
@@ -122,22 +119,6 @@ object ResourceManager {
 
 	def file ( path : String ) = {
 		new File(getResourceFilePath(path))
-	}
-
-	def languageBasis ( basePath_pre : String , isBinary : Boolean ) : LanguageBasis = {
-		if ( isBinary ) {
-			val is = getResourceStream(basePath_pre + ".basis")
-			val ois = new DecompressibleInputStream(is)
-			val ret = ois.readObject.asInstanceOf[LanguageBasis]
-			ois.close()
-			is.close()
-			ret
-		} else {
-			loadFromCache( basePath_pre + ".basis" , 0L, {
-				val identifier = basePath_pre.substring(basePath_pre.lastIndexOf("/")+1)
-				LanguageBasis.buildFromRaw(identifier)
-			})
-		}
 	}
 
 	def xml ( basePath_pre: String ) : List[Elem] = {

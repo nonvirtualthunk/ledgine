@@ -25,7 +25,6 @@ case class Velocity ( var _x : UnitOfSpeed , var _y : UnitOfSpeed , var _z : Uni
 
 	def inMetersPerSecond = Vec3f(x.inMetersPerSecond,y.inMetersPerSecond,z.inMetersPerSecond)
 	def inMetersPerSecond(ret : Vec3f) = { ret.x = x.inMetersPerSecond; ret.y = y.inMetersPerSecond; ret.z = z.inMetersPerSecond; ret }
-	def inVoxelsPerSecond = Vec3f(x.inVoxelsPerSecond,y.inVoxelsPerSecond,z.inVoxelsPerSecond)
 	def toBaseUnitOfMeasure = Vec3f(x.toBaseUnitOfMeasure,y.toBaseUnitOfMeasure,z.toBaseUnitOfMeasure)
 	def - ( t : Velocity ) : Velocity = Velocity(x - t.x,y - t.y,z - t.z)
 	def + ( t : Velocity ) : Velocity = Velocity(x + t.x,y + t.y,z + t.z)

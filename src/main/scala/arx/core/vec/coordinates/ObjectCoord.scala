@@ -11,7 +11,7 @@ package arx.core.vec.coordinates
 import arx.Prelude._
 import arx.core.traits.TSentinel
 import arx.core.vec.{ReadVec2f, ReadVec3f}
-import arx.core.{Moddable, SelfModdable}
+import arx.engine.data.Moddable
 
 trait ObjectCoord extends ReadVec3f with TMajorCoord {
 	def toVoxelCoord = VoxelCoord(

@@ -3,13 +3,14 @@ package arx.graphics
 import java.awt.image.BufferedImage
 import java.io._
 import java.nio.ByteBuffer
-import javax.imageio.ImageIO
 
+import javax.imageio.ImageIO
 import arx.application.Noto
 import arx.core.math.Recti
 import arx.core.metrics.Metrics
 import arx.core.traits.TSentinelable
 import arx.core.vec.{ReadVec4i, Vec2i, Vec4f, Vec4i}
+import arx.graphics.helpers.RGBA
 import org.newdawn.slick.opengl.PNGImageData2
 
 /**
@@ -104,7 +105,7 @@ class Image extends TSentinelable with Externalizable {
 
 	def colorAtV4( x : Int, y : Int ) = {
 		data.position(y * textureWidth * 4 + x * 4)
-		Vec4f((data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f)
+		RGBA((data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f,(data.get() & 0xff) / 255.0f)
 	}
 
 	def pixelIndex ( x : Int , y : Int ) = y * textureWidth * 4 + x * 4

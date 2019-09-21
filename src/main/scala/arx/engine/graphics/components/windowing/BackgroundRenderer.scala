@@ -10,17 +10,20 @@ import arx.core.math.Rectf
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2i, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
-import arx.engine.control.components.windowing.widgets.ImageDisplayWidget
-import arx.engine.control.components.windowing.widgets.ImageDisplayWidget.{ActualSize, Center, ScaleToFit, TopLeft}
+import arx.engine.graphics.data.windowing.ImageDisplay
+import arx.engine.graphics.data.windowing.ImageDisplay.{ActualSize, Center, ScaleToFit, TopLeft}
+import arx.graphics.helpers.Color
+//import arx.engine.control.components.windowing.widgets.ImageDisplayWidget
+//import arx.engine.control.components.windowing.widgets.ImageDisplayWidget.{ActualSize, Center, ScaleToFit, TopLeft}
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics.{Image, TToImage}
 import arx.resource.ResourceManager
 
 class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
-	case class ImageMetric ( borderPixelWidth : Int , centerColor : ReadVec4f )
+	case class ImageMetric ( borderPixelWidth : Int , centerColor : Color )
 	val imageMetrics = memoize( (image:Image,seg:Boolean) => {
 		if ( image.sentinel ) {
-			ImageMetric(0,Vec4f.One)
+			ImageMetric(0,Color.White)
 		} else {
 			var borderWidth = 0
 			while ( borderWidth < image.width && image(borderWidth,image.height / 2,3) > 0 ) { borderWidth += 1}
@@ -52,7 +55,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 					if ( seg ) {
 						val coff = metrics.borderPixelWidth*pixelScale-1 //center offset
 						if ( drawCenterBackground ) {
-							List(WQuad(Rectf(coff, coff, ww - coff*2, wh - coff*2), BlankImage, metrics.centerColor * backgroundColor))
+							List(WQuad(Rectf(coff, coff, ww - coff*2, wh - coff*2), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
 						} else {
 							Nil
 						}
@@ -140,17 +143,17 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 
 
 class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
-	override def render(widget: Widget, beforeChildren: Boolean, bounds: ReadVec2f, offset: ReadVec2f): List[WQuad] = widget match {
-		case w : ImageDisplayWidget =>
-			val img : Image = w.image.resolve()
+	override def render(widget: Widget, beforeChildren: Boolean, bounds: ReadVec2f, offset: ReadVec2f): List[WQuad] = widget.dataOpt[ImageDisplay] match {
+		case Some(idd) =>
+			val img : Image = idd.image.resolve()
 
 
-			val offset = w.drawing.clientOffset
-			val dim = w.drawing.clientDim
-			val rect = w.scalingStyle match {
+			val offset = widget.drawing.clientOffset
+			val dim = widget.drawing.clientDim
+			val rect = idd.scalingStyle match {
 				case ActualSize(scale) =>
 					val imgDim = img.dimensions * scale
-					w.positionStyle match {
+					idd.positionStyle match {
 						case Center =>
 							val dimDiff = dim - imgDim
 							Rectf(offset.x + dimDiff.x / 2, offset.y + dimDiff.y / 2, imgDim.x, imgDim.y)
@@ -160,14 +163,14 @@ class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer
 				case ScaleToFit =>
 					Rectf(offset.x,offset.y,dim.x,dim.y)
 			}
-			List(WQuad(rect, img, w.color))
+			List(WQuad(rect, img, idd.color))
 		case _ => Nil
 	}
 
-	override def intrinsicSize(widget: Widget, fixedX: Option[Int], fixedY: Option[Int]): Option[ReadVec2i] = widget match {
-		case w : ImageDisplayWidget => w.scalingStyle match {
+	override def intrinsicSize(widget: Widget, fixedX: Option[Int], fixedY: Option[Int]): Option[ReadVec2i] = widget.dataOpt[ImageDisplay] match {
+		case Some(idd) => idd.scalingStyle match {
 			case ActualSize(scale) =>
-				val img : Image = w.image.resolve()
+				val img : Image = idd.image.resolve()
 				Some(Vec2i((img.width * scale).toInt, (img.height * scale).toInt))
 			case _ =>
 				None

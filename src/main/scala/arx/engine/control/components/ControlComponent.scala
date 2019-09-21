@@ -1,115 +1,47 @@
 package arx.engine.control.components
 
-/**
-  * TODO: Add javadoc
-  */
-
-import arx.Prelude._
-import arx.application.Noto
-import arx.engine.advanced.lenginecomponents.LControlComponent
-import arx.engine.advanced.lenginepieces.LControlEngine
+import arx.core.units.UnitOfTime
 import arx.engine.control.ControlEngine
-import arx.engine.control.data.{ControlModes, LControlModes, TControlData}
-import arx.engine.event.EventBusListener
-import arx.engine.graphics.data.TGraphicsData
+import arx.engine.event.{DeferredInitializationEventBusListener, Event}
+import arx.engine.graphics.GraphicsEngine
+import arx.engine.graphics.components.DrawPriority
 import arx.engine.traits.EngineComponent
 import arx.engine.world.World
 
+abstract class ControlComponent extends EngineComponent[ControlEngine] {
+	private val gameEvents = new DeferredInitializationEventBusListener
+	private val graphicsEvents = new DeferredInitializationEventBusListener
+	private val controlEvents = new DeferredInitializationEventBusListener
 
-abstract class ControlComponent(controlEngine : ControlEngine) extends EngineComponent[World](controlEngine.world, controlEngine) {
-
-	val gameEvents = controlEngine.gameEventBus.createListener()
-	val graphicsEvents = controlEngine.graphicsEventBus.createListener()
-	val controlEvents = controlEngine.eventBus.createListener()
-
-
-	override def listeners: List[EventBusListener] = List(gameEvents,graphicsEvents,controlEvents)
-
-	def graphics[T <: TGraphicsData : Manifest] = controlEngine.graphicsWorld.aux[T]
-	def control[T <: TControlData : Manifest] = controlEngine.controlWorld.aux[T]
-}
-
-
-trait TControlMode extends ControlComponent {
-	final def activate(): Unit = {
-		activateSelf()
-		listeners.foreach(l => l.active = true)
-	}
-	def activateSelf()
-	final def deactivate(): Unit = {
-		deactivateSelf()
-		listeners.foreach(l => l.active = false)
-	}
-	def deactivateSelf()
-}
-
-abstract class ControlModeComponent(controlEngine : ControlEngine) extends ControlComponent(controlEngine) with TControlMode {
-	listeners.foreach(l => l.active = false)
-
-	def pushMode[T <: ControlModeComponent : Manifest] = {
-		controlEngine.components.firstOfType[T] match {
-			case Some(comp) =>
-				val CM = control[ControlModes]
-				CM.modeStack.headOption.foreach(m => m.deactivate())
-				CM.modeStack = CM.modeStack.push(comp)
-				comp.activate()
-			case None =>
-				Noto.error(s"Attempted to push a mode that is not present in the engine: ${manifest[T]}")
-		}
+	override protected[engine] final def internalOnInitialize(engine: ControlEngine): Unit = {
+		gameEvents.initialize(engine.gameEngine.eventBus)
+		graphicsEvents.initialize(engine.graphicsEngine.eventBus)
+		controlEvents.initialize(engine.eventBus)
+		listeners = List(gameEvents.eventBusListener, graphicsEvents.eventBusListener, controlEvents.eventBusListener)
 	}
 
-	def popMode(): Unit = {
-		val CM = control[ControlModes]
-		CM.modeStack.headOption match {
-			case Some(top) =>
-				top.deactivate()
-				CM.modeStack = CM.modeStack.pop
-				CM.modeStack.headOption.foreach(m => m.activate())
-			case None =>
-				Noto.error("Attempted to pop empty mode stack")
-		}
-	}
-}
-
-trait TLControlMode extends LControlComponent {
-	final def activate(): Unit = {
-		activateSelf()
-		listeners.foreach(l => l.active = true)
-	}
-	def activateSelf()
-	final def deactivate(): Unit = {
-		deactivateSelf()
-		listeners.foreach(l => l.active = false)
-	}
-	def deactivateSelf()
-}
-
-
-abstract class LControlModeComponent(val controlEngine : LControlEngine) extends LControlComponent(controlEngine) with TLControlMode {
-
-	listeners.foreach(l => l.active = false)
-
-	def pushMode[T <: LControlModeComponent : Manifest] = {
-		controlEngine.components.firstOfType[T] match {
-			case Some(comp) =>
-				val CM = control[LControlModes]
-				CM.modeStack.headOption.foreach(m => m.deactivate())
-				CM.modeStack = CM.modeStack.push(comp)
-				comp.activate()
-			case None =>
-				Noto.error(s"Attempted to push a mode that is not present in the engine: ${manifest[T]}")
-		}
+	def onGameEvent(listener: PartialFunction[Event,_]): Unit = {
+		gameEvents.onEvent(listener)
 	}
 
-	def popMode(): Unit = {
-		val CM = control[LControlModes]
-		CM.modeStack.headOption match {
-			case Some(top) =>
-				top.deactivate()
-				CM.modeStack = CM.modeStack.pop
-				CM.modeStack.headOption.foreach(m => m.activate())
-			case None =>
-				Noto.error("Attempted to pop empty mode stack")
-		}
+	def onGraphicsEvent(listener : PartialFunction[Event,_]) : Unit = {
+		graphicsEvents.onEvent(listener)
 	}
+
+	def onControlEvent(listener : PartialFunction[Event,_]) : Unit = {
+		controlEvents.onEvent(listener)
+	}
+
+
+	override protected final def onUpdate(controlEngine: ControlEngine, dt: UnitOfTime): Unit = {
+		onUpdate(controlEngine.gameEngine.world, controlEngine.displayWorld, dt)
+	}
+
+	protected def onUpdate(game : World, graphics : World, dt : UnitOfTime) : Unit
+
+	override protected def onInitialize(controlEngine: ControlEngine): Unit = {
+		onInitialize(controlEngine.gameEngine.world, controlEngine.displayWorld)
+	}
+
+	protected def onInitialize(game : World, display : World) : Unit
 }

@@ -13,9 +13,6 @@ import arx.application.Noto
 import arx.Prelude
 
 class UnitOfMeasureFloat(val f : Float) extends AnyVal {
-	def universe = new UnitOfDistance(UniverseUnit,f)
-	def uu = universe
-	def uus = universe
 	def meters = new UnitOfDistance(Meter,f)
 	def meter = this.meters
 	def voxels = new UnitOfDistance(Voxel,f)
@@ -46,6 +43,7 @@ class UnitOfMeasureFloat(val f : Float) extends AnyVal {
 
 	def seconds = new UnitOfTime(Second,f)
 	def milliseconds = new UnitOfTime(Second,f / 1000.0f)
+	def microseconds = new UnitOfTime(Second,f / 1000000.0f)
 	def nanoseconds = new UnitOfTime(Second,f / 1000000000.0f)
 	def second = this.seconds
 	def minute = new UnitOfTime(Minute,f)

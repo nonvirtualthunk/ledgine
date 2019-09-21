@@ -9,10 +9,47 @@ package arx.core.math
  */
 
 import arx.Prelude._
-import arx.core.vec.ReadVec3f
+import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec3i, Vec3f, Vec3i}
 
 object Distance {
 	val Epsilon = 0.00000001
+
+	def euclidDistance ( x : Int , y : Int , v : ReadVec2i ) : Float = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y)
+	def euclidDistance ( v1 : ReadVec2i , v2 : ReadVec2i ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
+	def euclidDistance ( v1 : ReadVec3f , v2 : ReadVec3f ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
+	def euclidDistance ( x : Int , y : Int , z : Int , v : Vec3i ) : Float = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y) + (z - v.z) * (z - v.z)
+	def euclidDistance ( v1 : ReadVec3i , v2 : ReadVec3i ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
+
+	def manhattanDistance ( x : Int , y : Int , z : Int , v : Vec3i ) : Float = absf(x - v.x) + absf(y - v.y) + absf(z - v.z)
+
+	def distance ( x : Int , y : Int , v : ReadVec2i ) : Float = {
+		val euclidean = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y)
+		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
+	}
+	def distance ( v1 : ReadVec2i , v2 : ReadVec2i ) : Float = {
+		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
+		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
+	}
+	def distance ( v1 : ReadVec3i , v2 : ReadVec3i ) : Float = {
+		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
+		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
+	}
+	def distance ( x : Int , y : Int , z : Int , v : ReadVec3i ) : Float = {
+		val euclidean = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y) + (z - v.z) * (z - v.z)
+		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
+	}
+	def distance ( v1 : Vec3f , v2 : ReadVec3f ) : Float = {
+		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
+		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
+	}
+	def distance ( x : Int , y : Int , x2 : Int, y2: Int) : Float = {
+		val euclidean = (x - x2) * (x - x2) + (y - y2) * (y - y2)
+		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
+	}
+	def distance ( v1 : ReadVec2f , v2 : ReadVec2f ) : Float = {
+		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
+		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
+	}
 
 	def minimumDistanceBetweenSegments (s1p0 : ReadVec3f,s1p1 : ReadVec3f,s2p0 : ReadVec3f,s2p1 : ReadVec3f) : Float =
 	{

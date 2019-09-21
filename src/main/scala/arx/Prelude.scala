@@ -3,18 +3,17 @@ package arx
 import java.io._
 import java.text.DecimalFormat
 
-import arx.core.Moddable
+import arx.engine.data.Moddable
 import arx.core.introspection.ReflectionAssistant
 import arx.core.function._
 import arx.core.mathutil.Solver
 import arx.core.metrics.Metrics.RichTimer
-import arx.core.representation.ConfigValue
 import arx.application.Noto
-import arx.core.MutableModdable
 import arx.core.vec._
 import arx.core.richer._
 import arx.core.units._
 import arx.core.vec.coordinates.VoxelCoord
+import arx.engine.data.Moddable
 import arx.resource.ResourceManager
 import arx.serialization.DecompressibleInputStream
 import com.codahale.metrics.Timer
@@ -43,7 +42,6 @@ object Prelude {
 	implicit def toArxVector[T] ( l : Vector[T] ) : ArxVector[T] = { new ArxVector(l) }
 	implicit def toArxIterable[T] ( l : Iterable[T] ) : ArxIterable[T] = new ArxIterable[T](l)
 	implicit def toArxSet[T] ( l : Set[T] ) : ArxSet[T] = { new ArxSet(l) }
-	implicit def toArxParSet[T] ( l : Set[T] ) : ArxParSet[T] = { new ArxParSet(l) }
 	implicit def toArxFile (f : File) : ArxFile = new ArxFile(f)
 	implicit def toArxClass[T] (c : Class[T]) : ArxClass[T] = new ArxClass[T](c)
 	implicit def toRichTimer (t : Timer) : RichTimer = new RichTimer(t)
@@ -55,7 +53,6 @@ object Prelude {
 
 	implicit def unboxModdable[T] (m : Moddable[T]) : T = m.resolve()
 
-	def MM (t : Float) = new MutableModdable(t)
 	// ========================== Collections functions =========================================
 	def fillArray[T : Manifest] ( size : Int )( f : (Int) => T ) = {
 		val ret = manifest[T].newArray(size)
@@ -122,11 +119,9 @@ object Prelude {
 	def memoizeSingle[S,T,U] ( f : (S,T) => U ) = new SingleMemoizingFunction2(f)
 
 
-	@inline def bitSet( store : Int , flag : Int ) = (store & flag) == flag
-	@inline def isBitSet(store : Int, flag : Int) = bitSet(store,flag)
+	@inline def isBitSet(store : Int, flag : Int) = (store & flag) == flag
 
-	val ea = this.getClass.desiredAssertionStatus()
-
+	private val ea = this.getClass.desiredAssertionStatus()
 	def posit(condition: => Boolean, message: => String) {
 		if (ea) {
 			if (!condition) {
@@ -137,7 +132,6 @@ object Prelude {
 
 	// ========================== Introspection functions ========================================
 	def provideInstanceOf[T <: AnyRef : Manifest] = ReflectionAssistant.provideInstanceOf[T]
-	def pio[T <: AnyRef : Manifest] = ReflectionAssistant.provideInstanceOf[T]
 	def PIO[T <: AnyRef : Manifest] = ReflectionAssistant.provideInstanceOf[T]
 
 	// ========================== Unit of measure functions ======================================
@@ -186,8 +180,6 @@ object Prelude {
 		new UnitOfAcceleration(r.overValue,r.underValue)
 	implicit def rtoVelocity ( rum : RatioUnitOfMeasure[UnitOfDistance,UnitOfTime] ): UnitOfSpeed =
 		new UnitOfSpeed(rum.overValue,rum.underValue)
-	implicit def confToUoMParseable ( conf : ConfigValue ) : UnitOfMeasureAwareConfig =
-		new UnitOfMeasureAwareConfig(conf)
 
 
 	implicit def toUOMFloat (f : Float) : UnitOfMeasureFloat = new UnitOfMeasureFloat(f)
@@ -249,43 +241,6 @@ object Prelude {
 
 	implicit def toRicherTraversable[T] (traversable : Traversable[T]) : RicherTraversable[T] = new RicherTraversable[T](traversable)
 
-	def euclidDistance ( x : Int , y : Int , v : ReadVec2i ) : Float = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y)
-	def euclidDistance ( v1 : ReadVec2i , v2 : ReadVec2i ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
-	def euclidDistance ( v1 : ReadVec3f , v2 : ReadVec3f ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
-	def euclidDistance ( x : Int , y : Int , z : Int , v : Vec3i ) : Float = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y) + (z - v.z) * (z - v.z)
-	def euclidDistance ( v1 : ReadVec3i , v2 : ReadVec3i ) : Float = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
-
-	def manhattanDistance ( x : Int , y : Int , z : Int , v : Vec3i ) : Float = absf(x - v.x) + absf(y - v.y) + absf(z - v.z)
-
-	def distance ( x : Int , y : Int , v : ReadVec2i ) : Float = {
-		val euclidean = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y)
-		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
-	}
-	def distance ( v1 : ReadVec2i , v2 : ReadVec2i ) : Float = {
-		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
-		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
-	}
-	def distance ( v1 : ReadVec3i , v2 : ReadVec3i ) : Float = {
-		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
-		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
-	}
-	def distance ( x : Int , y : Int , z : Int , v : ReadVec3i ) : Float = {
-		val euclidean = (x - v.x) * (x - v.x) + (y - v.y) * (y - v.y) + (z - v.z) * (z - v.z)
-		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
-	}
-	def distance ( v1 : Vec3f , v2 : ReadVec3f ) : Float = {
-		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z)
-		if ( euclidean != 0 ) { scala.math.sqrt(euclidean).toFloat } else { 0.0f }
-	}
-	def distance ( x : Int , y : Int , x2 : Int, y2: Int) : Float = {
-		val euclidean = (x - x2) * (x - x2) + (y - y2) * (y - y2)
-		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
-	}
-	def distance ( v1 : ReadVec2f , v2 : ReadVec2f ) : Float = {
-		val euclidean = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
-		if ( euclidean != 0 ) { sqrtf(euclidean) } else { 0.0f }
-	}
-
 	implicit def floatList2RicherFloatList[T] ( l : List[T] ) : RicherFloatList[T] = new RicherFloatList(l)
 
 	def rand ( low : Int , high : Int ) = low + (random.nextFloat() * (high - low)).toInt
@@ -300,7 +255,6 @@ object Prelude {
 		val theta = rand(0.0f,pi*2.0f)
 		Vec2f( cosf(theta) * length, sinf(theta) * length )
 	}
-
 
 	def mix ( a : Float, b : Float , pcnt : Float ) = a + (b - a) * pcnt
 	def mix ( a : Vec4f, b : Vec4f , pcnt : Float ) = a + (b - a) * pcnt
@@ -333,92 +287,6 @@ object Prelude {
 		case 2 => z
 	}
 
-	protected def interpolateCosF ( x : Float , controlPoints : Seq[(Float,_)] ) : (Int,Int,Float) = {
-		controlPoints match {
-			case Nil => Noto.warn("can't interpolate with no control points");(0,0,0.0f)
-			case one :: Nil => (0,0,0.0f)
-			case someList => {
-				val cp = someList.sortBy( _._1 )
-				val b = cp.indexWhere( _._1 >= x ) match { case -1 => cp.size-1 ; case i => i }
-				val a = cp.lastIndexWhere( _._1 < x ) match { case -1 => 0 ; case i => i }
-				val mu = (x - controlPoints(a)._1) / scala.math.max(0.0001f,controlPoints(b)._1 - controlPoints(a)._1)
-				val mu2 = (1.0f - scala.math.cos(mu * scala.math.Pi).toFloat) * 0.5f
-				(a,b,mu2)
-			}
-		}
-	}
-	protected def interpolateLinF ( x : Float , controlPoints : Seq[(Float,_)] ) : (Int,Int,Float) = {
-		controlPoints match {
-			case Nil => Noto.warn("can't interpolate with no control points");(0,0,0.0f)
-			case one :: Nil => (0,0,0.0f)
-			case someList => {
-				val cp = someList.sortBy( _._1 )
-				val b = cp.indexWhere( _._1 >= x ) match { case -1 => cp.size-1 ; case i => i }
-				val a = cp.lastIndexWhere( _._1 < x ) match { case -1 => 0 ; case i => i }
-				val mu = (x - controlPoints(a)._1) / scala.math.max(0.0001f,controlPoints(b)._1 - controlPoints(a)._1)
-				(a,b,mu)
-			}
-		}
-	}
-	protected def interpolateStepF ( x : Float , controlPoints : Seq[(Float,_)] ) : Int = {
-		controlPoints.lastIndexWhere( _._1 <= x ) match {
-			case -1 => controlPoints.size - 1
-			case i => i
-		}//0.0f 0.5f 1.0f
-	}
-
-	def linInterpolate ( x : Float , controlPoints : Seq[(Float,Float)] ) : Float = {
-		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-	def linInterpolatei ( x : Float , controlPoints : Seq[(Float,Int)] ) : Float = {
-		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-	def linInterpolate ( x : UnitOfMeasure[_] , controlPoints : Seq[(UnitOfMeasure[_],Float)] ) : Float = {
-		linInterpolate(x.toBaseUnitOfMeasure,controlPoints.map(tup => tup._1.toBaseUnitOfMeasure -> tup._2))
-	}
-	def linInterpolate ( x : RatioUnitOfMeasure[_,_] , controlPoints : Seq[(RatioUnitOfMeasure[_,_],Float)] ) : Float = {
-		linInterpolate(x.toBaseUnitOfMeasure,controlPoints.map(tup => tup._1.toBaseUnitOfMeasure -> tup._2))
-	}
-	def linInterpolatev4 ( x : Float , controlPoints : Seq[(Float,Vec4f)] ) = {
-		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-	def linInterpolatev4i ( x : Float , controlPoints : Seq[(Float,Vec4i)] ) = {
-		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
-		val v = controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-		Vec4i(v.r.toInt,v.g.toInt,v.b.toInt,v.a.toInt)
-	}
-	def linInterpolatev3 ( x : Float , controlPoints : Seq[(Float,ReadVec3f)] ) = {
-		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-
-	def cosInterpolate ( x : Float , controlPoints : Seq[(Float,Float)] ) = {
-		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-	def cosInterpolatev4 ( x : Float , controlPoints : Seq[(Float,ReadVec4f)] ) : ReadVec4f = {
-		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-	def cosInterpolatev3 ( x : Float , controlPoints : Seq[(Float,ReadVec3f)] ) : ReadVec3f = {
-		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
-		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
-	}
-
-	def stepInterpolate4i ( x : Float , controlPoints : Seq[(Float,ReadVec4i)] ) = {
-		require(controlPoints.nonEmpty)
-		val index = interpolateStepF(x,controlPoints)
-		controlPoints(index)._2
-	}
-	def stepInterpolate[T] ( x : Float , controlPoints : Seq[(Float,T)] ) = {
-		require(controlPoints.nonEmpty)
-		val index = interpolateStepF(x,controlPoints)
-		controlPoints(index)._2
-	}
-
 	var random = new Random(1337L)
 	def cosf(theta:Float) = scala.math.cos(theta).toFloat
 	def acosf(theta:Float) = scala.math.acos(theta).toFloat
@@ -449,39 +317,8 @@ object Prelude {
 
 	def isPo2 (i:Int) = (1 << Po2Above(i)) == i
 
-	def lengthSafe ( v : Vec3i ) = {
-		val e = v.x*v.x+v.y*v.y+v.z*v.z
-		if ( e != 0 ) { scala.math.sqrt(e).toFloat }
-		else { 0.0f }
-	}
-
-	def lengthSafe ( v : Vec2i ) = {
-		val e = v.x*v.x+v.y*v.y
-		if ( e != 0 ) { scala.math.sqrt(e).toFloat }
-		else { 0.0f }
-	}
-
-	def lengthSafe ( v : Vec3f ) = {
-		val e = v.x*v.x+v.y*v.y+v.z*v.z
-		if ( e != 0.0f ) { scala.math.sqrt(e).toFloat }
-		else { 0.0f }
-	}
-
-	def lengthSafe ( v : Vec2f ) = {
-		val e = v.x*v.x+v.y*v.y
-		if ( e != 0.0f ) { scala.math.sqrt(e).toFloat }
-		else { 0.0f }
-	}
-
 	def fastSqrt(a : Double) = {
 		scala.math.sqrt(a)
-		//		val x : Long = java.lang.Double.doubleToLongBits(a) >> 32;
-		//		val y : Double = java.lang.Double.longBitsToDouble((x + 1072632448) << 31);
-		//
-		//		// repeat the following line for more precision
-		//		//y = (y + a / y) * 0.5;
-		//		y
-
 	}
 
 	def fastSqrt ( f : Float ) = { val x = java.lang.Float.floatToIntBits(f); val i = (1<<29) + (x >> 1) - (1<<22); java.lang.Float.intBitsToFloat(i) }

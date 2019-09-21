@@ -36,7 +36,7 @@ class PreRenderedGlyphSource(preRenderConfig : ConfigValue) extends GlyphSource 
 		val ry = baseImage.height - 1 - (mapping.pos.y + mapping.dim.y)
 		val img = Image.withDimensions(mapping.dim.x,lineHeightPixels)
 		for (	x <- mapping.pos.x until mapping.pos.x + mapping.dim.x;
-				y <- ry until ry + mapping.dim.y + 1)
+				  y <- ry until ry + mapping.dim.y + 1)
 		{
 			val offY = mapping.offsets.y
 			val targetY = (y - ry) + (lineHeightPixels - (offY - minimumOffset) - mapping.dim.y - 1)
@@ -48,7 +48,7 @@ class PreRenderedGlyphSource(preRenderConfig : ConfigValue) extends GlyphSource 
 		}
 
 		img
-//		new SubImageView(baseImage,new Rect[Int](mapping.pos.x,mapping.pos.y,mapping.dim.x,mapping.dim.y))
+		//		new SubImageView(baseImage,new Rect[Int](mapping.pos.x,mapping.pos.y,mapping.dim.x,mapping.dim.y))
 	}
 }
 

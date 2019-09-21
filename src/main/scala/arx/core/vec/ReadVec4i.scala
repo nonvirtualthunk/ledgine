@@ -1,6 +1,6 @@
 package arx.core.vec
 
-import arx.core.Moddable
+import arx.engine.data.Moddable
 
 @SerialVersionUID(9223372036854770000L)
 class ReadVec4i extends InternVec4i {

@@ -17,6 +17,11 @@ import arx.core.vec.Vec3f
 import arx.core.vec.Vec4f
 import arx.core.vec.Vec4i
 
+trait Color {
+	def asRGBA : RGBA
+	def asHSBA : HSBA
+}
+
 object Color {
 	def fromHex(hexStr : String) : ReadVec4f = {
 		val digits = if (hexStr.startsWith("#")) { hexStr.substring(1, Math.min(hexStr.length, 7)) } else { hexStr }
@@ -33,19 +38,19 @@ object Color {
 		}
 	}
 
-	def apply ( r : Int , g : Int , b : Int , a : Int ) = Vec4f( r.toFloat/255.0f , g.toFloat/255.0f , b.toFloat/255.0f, a.toFloat/255.0f )
-	def apply ( r : Int , g : Int , b : Int ) = Vec3f( r.toFloat/255.0f , g.toFloat/255.0f , b.toFloat/255.0f)
-	def apply ( rgb : Int , a : Int ) = Vec4f( rgb.toFloat/255.0f , rgb.toFloat/255.0f , rgb.toFloat/255.0f, a.toFloat/255.0f )
-	def apply ( rgb : Float , a : Float ) = Vec4f( rgb, rgb , rgb , a )
+	def apply ( r : Int , g : Int , b : Int , a : Int ) = RGBA( r.toFloat/255.0f , g.toFloat/255.0f , b.toFloat/255.0f, a.toFloat/255.0f )
+	def apply ( r : Int , g : Int , b : Int ) = RGB( r.toFloat/255.0f , g.toFloat/255.0f , b.toFloat/255.0f)
+	def apply ( rgb : Int , a : Int ) = RGBA( rgb.toFloat/255.0f , rgb.toFloat/255.0f , rgb.toFloat/255.0f, a.toFloat/255.0f )
+	def apply ( rgb : Float , a : Float ) = RGBA( rgb, rgb , rgb , a )
 
 	def scaleRGB ( v : ReadVec4f, rgbMult : Float ) = Vec4f(v.r * rgbMult,v.g * rgbMult,v.b * rgbMult,v.a)
 
-	val Black : ReadVec4f = this(0.0f,1.0f)
-	val White : ReadVec4f = this(1.0f,1.0f)
-	val Grey  : ReadVec4f = this(0.5f,1.0f)
-	val Red : ReadVec4f = Vec4f(1.0f,0.0f,0.0f,1.0f)
-	val Green : ReadVec4f = Vec4f(0.0f,1.0f,0.0f,1.0f)
-	val Blue : ReadVec4f = Vec4f(0.0f,0.0f,1.0f,1.0f)
+	val Black : RGBA = this(0.0f,1.0f)
+	val White : RGBA = this(1.0f,1.0f)
+	val Grey  : RGBA = this(0.5f,1.0f)
+	val Red : RGBA = RGBA(1.0f,0.0f,0.0f,1.0f)
+	val Green : RGBA = RGBA(0.0f,1.0f,0.0f,1.0f)
+	val Blue : RGBA = RGBA(0.0f,0.0f,1.0f,1.0f)
 
 	def fromInt ( i : Int ) = {
 		val r = ((i & 0xff000000) >>> 24) / 255.0f
@@ -75,7 +80,7 @@ object Color {
 	}
 	def HSBAtoRGBA ( hsba : HSBA ) = {
 		val rgb = HSBtoRGB(hsba.hsb)
-		Vec4f(rgb.r,rgb.g,rgb.b,hsba.a)
+		new RGBA(rgb.r,rgb.g,rgb.b,hsba.a)
 	}
 	def HSBtoRGB ( hsb : ReadVec3f ) = {
 		val hue = hsb.x
@@ -175,6 +180,33 @@ object Color {
 	}
 }
 
+class RGBA(ra:Float, ga:Float, ba:Float, aa:Float) extends ReadVec4f(ra,ga,ba,aa) with Color {
+	override def asRGBA: RGBA = this
+	override def asHSBA: HSBA = Color.RGBAtoHSBA(this)
+
+	def * (other : Color) : RGBA = {
+		val otherRGBA = other.asRGBA
+		RGBA(this.r * otherRGBA.r, this.g * otherRGBA.g, this.b * otherRGBA.b, this.a * otherRGBA.a)
+	}
+	override def * (f : Float) : RGBA = {
+		RGBA(r * f, g * f, b * f, a * f)
+	}
+}
+object RGBA {
+	def apply(r:Float,g:Float,b:Float,a:Float) = new RGBA(r,g,b,a)
+}
+
+class RGB(ra:Float, ga:Float, ba:Float) extends ReadVec3f(ra,ga,ba) with Color {
+	override def asRGBA: RGBA = new RGBA(this.r,this.g,this.b,1.0f)
+	override def asHSBA: HSBA = {
+		val hsb = Color.RGBtoHSB(this)
+		new HSBA(hsb.h, hsb.s, hsb.b, 1.0f)
+	}
+}
+object RGB {
+	def apply(r:Float, g:Float, b:Float) : RGB = new RGB(r,g,b)
+}
+
 class HSB(ha:Float,sa:Float,ba:Float) extends Vec3f(ha,sa,ba) {
 	def h = x
 	def s = y
@@ -188,7 +220,7 @@ class HSB(ha:Float,sa:Float,ba:Float) extends Vec3f(ha,sa,ba) {
 
 }
 
-class HSBA(ha:Float,sa:Float,ba:Float,aa:Float) extends Vec4f(ha,sa,ba,aa) {
+class HSBA(ha:Float,sa:Float,ba:Float,aa:Float) extends Vec4f(ha,sa,ba,aa) with Color {
 	def this() { this(0.0f,0.0f,0.0f,0.0f) }
 	def h = r
 	def s = g
@@ -199,7 +231,9 @@ class HSBA(ha:Float,sa:Float,ba:Float,aa:Float) extends Vec4f(ha,sa,ba,aa) {
 //	override def b_= ( f : Float ) { super.b_=(f) }
 
 
-	def toRGBA = Color.HSBAtoRGBA(this)
+	override def asRGBA = Color.HSBAtoRGBA(this)
+	override def asHSBA: HSBA = this
+
 	def toRGBAi = Vec4i(Color.HSBAtoRGBA(this) * 255)
 	def hsb = HSB(h,s,b)
 

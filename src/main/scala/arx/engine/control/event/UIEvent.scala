@@ -9,6 +9,7 @@ package arx.engine.control.event
 
 import arx.core.vec.ReadVec2f
 import arx.core.vec.Vec3f
+import arx.engine.event.Event
 import org.lwjgl.glfw.GLFW
 
 class UIEvent extends Event {
@@ -22,7 +23,6 @@ class UIEvent extends Event {
 
 class KeyEvent(var _key: Int,var _modifiers: KeyModifiers,var press: Boolean) extends UIEvent {
 	var asciiChar = '\0'
-	GLFW.GLFW_KEY_0
 	def withAscii ( c : Char) : KeyEvent = { asciiChar = c;this }
 }
 case class KeyPressEvent(key: Int,modifiers: KeyModifiers, isRepeat : Boolean = false) extends KeyEvent(key,modifiers,true) {

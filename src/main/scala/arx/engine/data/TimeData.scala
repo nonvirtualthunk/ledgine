@@ -7,17 +7,24 @@ package arx.engine.data
   * Time: 3:15 PM
   */
 
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.units.UnitOfTime
-
 import arx.core.vec._
 
 class TimeData extends TWorldAuxData {
-	var time : UnitOfTime = zeroSeconds
-
+	protected[engine] var _time = new AtomicLong(0L)
 	protected[engine] var _timeAcceleration = 1.0f
 	protected[engine] var _timeWarp = Option.empty[Float]
+
+	def time : UnitOfTime = _time.get().microseconds
+
+	def advanceTime(deltaSeconds : Float): Unit = {
+		val dt = deltaSeconds.seconds
+		_time.addAndGet((dt * timeAcceleration).inMicroseconds.toLong)
+	}
 
 	def timeAcceleration = _timeAcceleration
 	def timeWarp = _timeWarp

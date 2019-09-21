@@ -18,7 +18,7 @@ class DebugData extends TWorldAuxData {
 
 
 object DebugData {
-	var worldRef = World.Sentinel
+	var worldRef : World = _
 
 	case class VoxelGroup (color : ReadVec4f, voxels : Set[VoxelCoord])
 	case class PointGroup (color : ReadVec4f, connected : Boolean, points : List[ObjectCoord])

@@ -8,7 +8,7 @@ package arx.core.vec.coordinates
  * Created by nonvirtualthunk
  */
 
-import arx.core.Moddable
+import arx.engine.data.Moddable
 import arx.core.vec.{ReadVec3f, Vec3f}
 
 class MutableObjectCoord(xa:Float,ya:Float,za:Float) extends Vec3f(xa,ya,za) with ObjectCoord {

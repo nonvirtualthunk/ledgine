@@ -13,7 +13,7 @@ import arx.application.{Application, Noto}
 import arx.core.async.Executor
 import arx.resource.ResourceManager
 import java.util.concurrent.Executors
-import arx.core.Moddable
+import arx.engine.data.Moddable
 
 trait TToImage {
 	def image : Image

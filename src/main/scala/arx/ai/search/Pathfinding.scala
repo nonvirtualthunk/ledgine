@@ -5,7 +5,7 @@ import arx.core.{FibonacciHeap, THasSortKey}
 import scala.collection.{TraversableLike, mutable}
 import arx.Prelude._
 import arx.core.metrics.Metrics
-import arx.engine.world.Entity
+import arx.engine.entity.Entity
 
 case class Pathfinder[T](name : String,
 								 adjacencyFunction: T => Traversable[T],

@@ -7,22 +7,25 @@ package arx.engine
   * Time: 5:13 PM
   */
 
-import java.util.concurrent.locks.LockSupport
-
 import arx.Prelude
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.Dependency
 import arx.core.async.KillableThread
 import arx.core.metrics.Metrics
+import arx.core.units.UnitOfTime
+import arx.engine.event.EventBus
 import arx.engine.traits.EngineComponent
+import arx.engine.world.{Universe, World}
 
 
-abstract class EnginePiece[WorldType, Component <: EngineComponent[WorldType] : Manifest] {
+abstract class EnginePiece[T <: EnginePiece[T, Component], Component <: EngineComponent[T] : Manifest](val universe : Universe) {
 	var parallelism = 3
 	var components = List[Component]()
 	protected var componentClasses = List[Class[_ <: Component]]()
 	var updateThreads = List[KillableThread]()
+	var serial = false
+	val eventBus = new EventBus
 
 	protected var initialized = false
 
@@ -35,13 +38,13 @@ abstract class EnginePiece[WorldType, Component <: EngineComponent[WorldType] : 
 
 				for (component <- components) {
 					val t = currentTime()
-					val delta = t - component.lastUpdated
+					val delta = t - component.lastUpdated.get()
 					if (delta > component.updateInterval) {
 						if (component.updateInProgress.compareAndSet(false, true)) {
 							Metrics.timer(component.getClass.getSimpleName + ".updateDuration").timeStmt {
-								component.update(delta)
+								updateComponent(component, delta)
 							}
-							component.lastUpdated = t
+							component.lastUpdated.set(t)
 							component.updateInProgress.set(false)
 							anyUpdates = true
 						}
@@ -54,41 +57,33 @@ abstract class EnginePiece[WorldType, Component <: EngineComponent[WorldType] : 
 					try {
 						Thread.sleep(3)
 					} catch {
-						case e : InterruptedException => this.kill()
+						case _: InterruptedException => this.kill()
 					}
 				}
 			}
 		}
 	}
 
-	def addComponent[T <: Component : Manifest] = {
+	def register[T <: Component : Manifest] = {
 		if (!initialized) {
-//			components ::= instantiateComponent(List(manifest[T].runtimeClass)).asInstanceOf[Component]
 			componentClasses ::= manifest[T].runtimeClass.asInstanceOf[Class[T]]
 		} else {
 			Noto.severeError("Cannot add component after initialization")
 		}
 	}
 
-	protected def instantiateComponent(l: List[Class[_]]): AnyRef
-
-	def update(deltaSeconds: Float): Unit = {
+	def update(deltaSeconds: Float, nSteps : Int = 1): Unit = {
 		if (!initialized) {
 			Noto.severeError("Attempted to update engine piece without initializing first")
 		}
-	}
-
-	def updateSerial(deltaSeconds: Float, nSteps: Int = 1): Unit = {
-		if (!initialized) {
-			Noto.severeError("Attempted to update engine piece without initializing first")
-		}
-
-		for (n <- 0 until nSteps) {
-			components.foreach(c => {
-				Metrics.timer(c.getClass.getSimpleName + ".updateDuration").timeStmt {
-					c.update(deltaSeconds.seconds)
-				}
-			})
+		if (serial) {
+			for (n <- 0 until nSteps) {
+				components.foreach(c => {
+					Metrics.timer(c.getClass.getSimpleName + ".updateDuration").timeStmt {
+						updateComponent(c,deltaSeconds.seconds)
+					}
+				})
+			}
 		}
 	}
 
@@ -96,38 +91,31 @@ abstract class EnginePiece[WorldType, Component <: EngineComponent[WorldType] : 
 		updateThreads.foreach(t => t.kill())
 	}
 
-	def serialMode(): this.type = {
+	/**
+	 * Converts to serial mode for updates, killing all async update threads and making future calls to update(...) synchronous
+	 */
+	def serializeUpdates(): this.type = {
+		serial = true
 		updateThreads.foreach(t => t.kill())
 		this
 	}
 
-	def registerComponent(comp : EngineComponent[WorldType]): Unit = {
-		if (! comp.isInstanceOf[Component]) {
-			Noto.severeError(s"Attempting to add innappropriate object as component, ${comp.getClass.getSimpleName} to ${this.getClass.getSimpleName}")
-		} else {
-			components ::= comp.asInstanceOf[Component]
-		}
+	def resolveComponents(context : List[Any], onConstruction : Any => Unit) = {
+		val (comps, newContext) = Dependency.resolveByInjection(componentClasses, this :: context, onConstruction)
+		newContext
 	}
 
-	def resolveComponents(context : List[Any]) = {
-		// components automatically register themselves to their engine piece, so we can just inject
-		val (comps, newContext) = Dependency.resolveByInjection(componentClasses, this :: context)
-		newContext
-//		//		val resolved = Dependency.resolve(components, components ::: context, instantiateComponent)
-//		val allComponents = resolved.ofType[Component]
-//		val nonComponents = resolved.notOfType[Component]
-//
-//		components = allComponents
-//		nonComponents.foreach(nc => Noto.info(s"Instantiated non-component for engine: $nc"))
+	def updateComponent(component : Component, delta : UnitOfTime): Unit = {
+		component.update(this.asInstanceOf[T],delta)
+	}
+	def initializeComponent(component: Component): Unit = {
+		components :+= component
+		component.initialize(this.asInstanceOf[T])
 	}
 
 	def initialize(serial: Boolean): Unit = {
-
-		// Do one synchronous update of every game component, we want to ensure they have a chance to do any necessary
-		// initialization
-		// todo: should this not be parallel then?
-		components.par.foreach(_.update(0.01.seconds))
 		initialized = true
+		this.serial = serial
 
 		if (!serial) {
 			updateThreads = fillList(parallelism)(i => createUpdateThread(i))

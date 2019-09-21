@@ -53,7 +53,7 @@ class CachedFloat ( f : => Float , ticksBetweenUpdates : Int = 100 ) extends Ser
 	}
 	def update() { lastTick = -1000; resolve() }
 }
-class CachedInt ( f : => Int , ticksBetweenUpdates : Int = 100 ) extends Moddable[Int] with Serializable {
+class CachedInt ( f : => Int , ticksBetweenUpdates : Int = 100 ) extends Serializable {
 	@transient var lastValue : Int = 0
 	@transient var lastTick = -10000
 	var initialized = false
@@ -67,54 +67,9 @@ class CachedInt ( f : => Int , ticksBetweenUpdates : Int = 100 ) extends Moddabl
 	}
 
 	def baseValue() = resolve()
-	override def dynamic = false
-def update() { lastTick = -1000; resolve() }
+	def update() { lastTick = -1000; resolve() }
 }
 
-class CachedModdable[T <: AnyRef] ( f : => T , ticksBetweenUpdates : Int = 100 ) extends Moddable[T] {
-	@transient var lastValue : T = null.asInstanceOf[T]
-	@transient var lastTick = -10000
-
-	def baseValue() = resolve()
-	def resolve () : T = {
-		if ( lastValue == null || Application.ticks - lastTick > ticksBetweenUpdates ) {
-			lastValue = f
-			lastTick = Application.ticks
-		}
-		lastValue
-	}
-	def update() { lastTick = -1000; resolve() }
-}
-class CachedModdableFloat ( f : => Float , ticksBetweenUpdates : Int = 100 ) extends Moddable[Float] {
-	@transient var lastValue : Float = 0.0f
-	@transient var lastTick = -10000
-	var initialized = false
-	def baseValue() = resolve()
-	def resolve () : Float = {
-		if ( ! initialized || Application.ticks - lastTick > ticksBetweenUpdates ) {
-			initialized = true
-			lastValue = f
-			lastTick = Application.ticks
-		}
-		lastValue
-	}
-	def update() { lastTick = -1000; resolve() }
-}
-class CachedModdableInt ( f : => Int , ticksBetweenUpdates : Int = 100 ) extends Moddable[Int] {
-	@transient var lastValue : Int = 0
-	@transient var lastTick = -10000
-	var initialized = false
-	def baseValue() = resolve()
-	def resolve () : Int = {
-		if ( ! initialized || Application.ticks - lastTick > ticksBetweenUpdates ) {
-			initialized = true
-			lastValue = f
-			lastTick = Application.ticks
-		}
-		lastValue
-	}
-	def update() { lastTick = -1000; resolve() }
-}
 
 object CachedValue {
 	def apply ( b : => Boolean , ticksBetweenUpdates : Int ) = new CachedBoolean(b,ticksBetweenUpdates)

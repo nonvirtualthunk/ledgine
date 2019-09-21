@@ -8,14 +8,13 @@ package arx.core.richer
  * Created by nonvirtualthunk
  */
 
-import arx.Prelude._
-import arx.application.Noto
+import arx.Prelude
 
 class RicherInt ( val f : Int ) extends AnyVal {
 	def +- ( a : Int ) : EitherInt = { new EitherInt(f + a,f - a) }
 	def -+ ( a : Int ) : EitherInt = { new EitherInt(f - a,f + a) }
 
 	def clamp ( minimum : Int , maximum : Int ) : Int = { scala.math.min(maximum,scala.math.max(f,minimum)) }
-	def isBitSet ( bitFlag : Int ) = bitSet(f,bitFlag)
+	def isBitSet ( bitFlag : Int ) = Prelude.isBitSet(f,bitFlag)
 	def anyBitsSet ( bitMask : Int ) = (f & bitMask) != 0
 }

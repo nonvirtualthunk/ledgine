@@ -1,6 +1,6 @@
 package arx.core.vec
 
-import arx.core.Moddable
+import arx.engine.data.Moddable
 
 import arx.core.traits.TArxNumeric
 @SerialVersionUID(9223372036854770000L)

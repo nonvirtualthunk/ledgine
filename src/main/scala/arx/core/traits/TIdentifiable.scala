@@ -7,9 +7,6 @@ package arx.core.traits
  * Time: 10:30 AM
  */
 
-import arx.Prelude._
-import arx.engine.entity.GameArchetype
-
 
 
 trait TIdentifiable {

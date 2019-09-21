@@ -9,7 +9,7 @@ package arx.engine
 
 import arx.Prelude._
 import arx.core.vec.Vec3f
-import arx.engine.TestEngine._
+import arx.engine.MinimalEngine._
 import arx.engine.simple.Canvas
 import arx.resource.ResourceManager
 import org.lwjgl.glfw.GLFW

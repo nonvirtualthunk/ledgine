@@ -1,9 +1,10 @@
 package arx.engine.world
 
 import arx.core.introspection.{CopyAssistant, ReflectionAssistant}
+import arx.engine.entity.Entity
 import overlock.atomicmap.AtomicMap
 
-class EntityDataStore[T](clazz : Class[T]) {
+class EntityDataStore[T](val clazz : Class[T]) {
 	val values = AtomicMap.atomicNBHM[Long, EntityDataWrapper[T]]
 	val overlay = AtomicMap.atomicNBHM[Long, T]
 	var hasOverlay = false
@@ -34,6 +35,14 @@ class EntityDataStore[T](clazz : Class[T]) {
 			overlay.get(entity.id).orElse(values.get(entity.id).map(v => v.data))
 		} else {
 			values.get(entity.id).map(v => v.data)
+		}
+	}
+
+	def getOrElseUpdate(entity : Entity, time : GameEventClock) : T = {
+		if (hasOverlay) {
+			overlay.get(entity.id).orElse(values.get(entity.id).map(v => v.data)).getOrElse(sentinel)
+		} else {
+			values.getOrElseUpdate(entity.id, new EntityDataWrapper[T](ReflectionAssistant.instantiate(clazz), time)).data
 		}
 	}
 

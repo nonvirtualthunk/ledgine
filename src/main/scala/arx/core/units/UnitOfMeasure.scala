@@ -186,7 +186,6 @@ class UnitOfSpeed(d : UnitOfDistance,t : UnitOfTime) extends RatioUnitOfMeasure[
 	def this() { this(0.0.meters,1.0.seconds) }
 	def inMetersPerSecond = toBaseUnitOfMeasure
 	def inVoxelsPerSecond = { val ts = t.inSeconds; if ( ts > 0.0001f ) { d.inVoxels / ts } else { 0.0f } }
-	def inUniverseUnitsPerSecond = { val ts = t.inSeconds; if ( ts > 0.0001f ) { d.inUniverse / ts } else { 0.0f } }
 
 	def / ( t2 : UnitOfTime ) : UnitOfAcceleration = { new UnitOfAcceleration(d,t * t2) }
 
@@ -219,7 +218,6 @@ class UnitOfDistance(unit : MeasurementUnit,value: Float) extends UnitOfMeasure[
 
 	def this() { this(Meter,0.0f) }
 	def inMeters : Float = value * unit.conversion
-	def inUniverse : Float = (value * unit.conversion) / UniverseUnit.conversion
 	def inCentimeters : Float = (value * unit.conversion) / Centimeter.conversion
 	def inVoxels : Float = inMeters * voxelsPerMeter
 	def * ( u : UnitOfDistance ) : UnitOfArea = {
@@ -291,6 +289,7 @@ class UnitOfTime(unit : MeasurementUnit,value: Float) extends UnitOfMeasure[Unit
 	def * (u : UnitOfTime) = new UnitOfTimeSquared(baseUnitOfMeasure,u.toBaseUnitOfMeasure * this.toBaseUnitOfMeasure)
 	def inSeconds : Float = value * unit.conversion
 	def inNanoseconds : Float = inSeconds * 1000000000.0f
+	def inMicroseconds : Float = inSeconds * 1000000.0f
 	def inMilliseconds : Float = inSeconds * 1000.0f
 	def inSowings : Float = inSeconds / Sowing.conversion
 	def inTurnings : Float = inSeconds / Turning.conversion
@@ -325,7 +324,6 @@ class UnitOfAcceleration ( dist : UnitOfDistance , time : UnitOfTimeSquared ) ex
 	def this() { this(new UnitOfDistance,new UnitOfTimeSquared(Second,1)) }
 	def * ( t : UnitOfTime ) = new UnitOfSpeed(dist,new UnitOfTime(Second,underValue.inSecondsSquared / (if(t.inSeconds==0.0f){0.00000001f}else{t.inSeconds})))
 	def inMetersPerSecondSquared = toBaseUnitOfMeasure
-	def inVoxelsPerSecondSquared = { val ts = time.inSecondsSquared; if ( ts > 0.0001f ) { dist.inVoxels / ts } else { 0.0f } }
 
 	override def create(o: UnitOfDistance, u: UnitOfTimeSquared) = new UnitOfAcceleration(o,u).asInstanceOf[this.type]
 

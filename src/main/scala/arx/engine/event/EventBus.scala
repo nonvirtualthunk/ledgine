@@ -7,19 +7,12 @@ package arx.engine.event
   * Time: 2:34 PM
   */
 
-import java.util.concurrent.ConcurrentLinkedDeque
-
-import arx.Prelude._
 import arx.application.Noto
-import arx.core.datastructures.RingBuffer
 import arx.core.synchronization.ReadWriteLock
+import arx.core.traits.{TSentinel, TSentinelable}
+import arx.engine.event.EventBusListener.Listener
 
-
-import arx.core.vec._
-import arx.engine.control.event.Event
-import arx.engine.control.event.Event
-
-class EventBus {
+class EventBus extends TSentinelable {
 	protected[event] val sizePo2 = 11
 	protected[event]val sizeLimit = 1 << sizePo2
 	// bitmask that can be AND'd to a number to keep it within range of sizeLimit, effectively does % sizeLimit
@@ -57,12 +50,11 @@ class EventBus {
 	protected[event] val synchronousListener = createListener()
 }
 
-class EventBusListener(val bus : EventBus) {
-	case class Listener(func : PartialFunction[Event,_], processConsumed : Boolean = false, var active : Boolean = true) {
-		def activate() { active = true }
-		def deactivate() { active = false }
-	}
+object EventBus {
+	val Sentinel : EventBus = new EventBus with TSentinel
+}
 
+class EventBusListener(val bus : EventBus) extends TSentinelable {
 	var lastReadOffset = 0L
 	var cursor = 0
 	var listeners = List[Listener]()
@@ -110,12 +102,47 @@ class EventBusListener(val bus : EventBus) {
 	}
 
 	def onEvent (listener: PartialFunction[Event,_]) : Listener = {
-		val newListener = Listener(listener, false)
+		val newListener = Listener(listener, processConsumed = false)
 		listeners ::= newListener
 		newListener
 	}
 
 	def listen (listener: PartialFunction[Event,_]) = {
 		onEvent(listener)
+	}
+}
+
+object EventBusListener {
+	case class Listener(func : PartialFunction[Event,_], processConsumed : Boolean = false, var active : Boolean = true) {
+		def activate() { active = true }
+		def deactivate() { active = false }
+	}
+
+	val Sentinel : EventBusListener = new EventBusListener(EventBus.Sentinel) with TSentinel
+}
+
+
+/**
+ * Wrapper around a conceptual listener to allow for listener functions to be registered before the actual event bus is known.
+ * Useful for deferred initialization (as in the case of the engine components).
+ */
+class DeferredInitializationEventBusListener {
+	var eventBusListener = EventBusListener.Sentinel
+	var pendingListeners = List[EventBusListener.Listener]()
+
+	def onEvent(func : PartialFunction[Event, _]) : Listener = {
+		if (eventBusListener.isSentinel) {
+			val l = Listener(func, processConsumed = false, active = true)
+			pendingListeners ::= l
+			l
+		} else {
+			eventBusListener.onEvent(func)
+		}
+	}
+
+	def initialize(bus : EventBus): Unit = {
+		eventBusListener = bus.createListener()
+		eventBusListener.listeners :::= pendingListeners
+		pendingListeners = Nil
 	}
 }

@@ -1,5 +1,13 @@
 package arx.engine.control.components.windowing.widgets
 
+import arx.engine.control.components.windowing.{Widget, WidgetConstructor, WidgetInstance, WidgetType, WindowingSystem}
+import arx.engine.data.Moddable
+import arx.engine.graphics.data.windowing.ImageDisplay
+import arx.engine.graphics.data.windowing.ImageDisplay.{PositionStyle, ScalingStyle}
+import arx.graphics.{Image, TToImage}
+
+import scala.language.implicitConversions
+
 /**
   * Created with IntelliJ IDEA.
   * User: nvt
@@ -7,35 +15,41 @@ package arx.engine.control.components.windowing.widgets
   * Time: 11:26 AM
   */
 
-import arx.Prelude._
-import arx.core.Moddable
-import arx.core.datastructures.Watcher
+object ImageDisplayWidget extends WidgetType[ImageDisplayWidget, ImageDisplay] {
+
+	def apply(windowingSystem : WindowingSystem) : ImageDisplayWidget = {
+		ImageDisplayWidget(windowingSystem, _ => {})
+	}
+
+	def apply(windowingSystem : WindowingSystem, iddInit : ImageDisplay => Unit) : ImageDisplayWidget = {
+		initializeWidget(windowingSystem.createWidget())
+	}
+
+	def apply(windowingSystem : WindowingSystem, image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.ActualSize(1.0f)) : Widget = ImageDisplayWidget.apply(windowingSystem, idd => {
+		idd.image = Moddable(image : TToImage)
+		idd.positionStyle = positionStyle
+		idd.scalingStyle = scalingStyle
+	})
+
+	override def initializeWidget(widget: Widget): ImageDisplayWidget = {
+		widget.attachData[ImageDisplay]
+		widget.modificationCriteria ::= (widget => widget[ImageDisplay].watcher.hasChanged)
+		new ImageDisplayWidget(widget)
+	}
 
 
-import arx.core.vec._
-import arx.engine.control.components.windowing.Widget
-import arx.engine.control.components.windowing.widgets.ImageDisplayWidget.{PositionStyle, ScalingStyle}
-import arx.graphics.TToImage
-import arx.graphics.helpers.Color
-import arx.resource.ResourceManager
-
-class ImageDisplayWidget(parentis: Widget) extends Widget(parentis){
-	var image : Moddable[TToImage] = Moddable(ResourceManager.blankImage)
-	var scalingStyle : ScalingStyle = ImageDisplayWidget.ActualSize(1.0f)
-	var positionStyle : PositionStyle = ImageDisplayWidget.TopLeft
-	var color : ReadVec4f = Color.White
-	protected[windowing] var watcher = Watcher(image.resolve())
-
-	override protected[windowing] def isSelfModified = watcher.hasChanged
+	case class build(image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.ActualSize(1.0f)) extends WidgetConstructor[ImageDisplayWidget] {
+		override def initializeWidget(widget: Widget): ImageDisplayWidget = {
+			val w = ImageDisplayWidget.initializeWidget(widget)
+			w.image = Moddable(image : TToImage)
+			w.positionStyle = positionStyle
+			w.scalingStyle = scalingStyle
+			w
+		}
+	}
 }
 
 
-object ImageDisplayWidget {
-	sealed class ScalingStyle
-	case object ScaleToFit extends ScalingStyle
-	case class ActualSize(scaleFactor : Float) extends ScalingStyle
+case class ImageDisplayWidget(widget : Widget) extends WidgetInstance {
 
-	sealed class PositionStyle
-	case object TopLeft extends PositionStyle
-	case object Center extends PositionStyle
 }

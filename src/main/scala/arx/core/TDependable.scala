@@ -135,14 +135,14 @@ object Dependency {
 		var allInstances = List[Any]()
 	}
 
-	def resolveByInjection(classes: List[Class[_]], contextIn: List[Any]) = {
+	def resolveByInjection(classes: List[Class[_]], contextIn: List[Any], onConstruction: Any => Unit = _ => {}) = {
 		val ctx = new Context
 		ctx.allInstances = contextIn
 
-		(classes.map(c => inject(c, ctx)), ctx.allInstances)
+		(classes.map(c => inject(c, ctx, onConstruction)), ctx.allInstances)
 	}
 
-	def inject(c: Class[_], ctx: Context): Any = {
+	def inject(c: Class[_], ctx: Context, onConstruction: Any => Unit = _ => {}): Any = {
 		ctx.allInstances.find(inst => c.isAssignableFrom(inst.getClass)) match {
 			case Some(existing) => existing
 			case None =>
@@ -153,9 +153,11 @@ object Dependency {
 					} else if (constructor.getParameterCount == 0) {
 						ReflectionAssistant.instantiate(c).asInstanceOf[Any]
 					} else {
-						val parameters = constructor.getParameterTypes.map(pt => inject(pt, ctx).asInstanceOf[AnyRef])
+						val parameters = constructor.getParameterTypes.map(pt => inject(pt, ctx, onConstruction).asInstanceOf[AnyRef])
 						constructor.newInstance(parameters:_*).asInstanceOf[Any]
 					}
+
+				onConstruction(newInst)
 				ctx.allInstances ::= newInst
 				newInst
 		}

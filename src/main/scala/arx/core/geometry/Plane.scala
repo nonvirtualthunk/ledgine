@@ -10,21 +10,18 @@ package arx.core.geometry
 
 import arx.Prelude._
 import arx.core.mat.{Mat3x3, MatrixFunctions}
-import arx.core.math.Intersection.LineIntersection
 import arx.core.vec.{ReadVec3f, Vec3f}
 
 class Plane ( var point : ReadVec3f , var normal : ReadVec3f ) {
 	def intersect(start: ReadVec3f, end: ReadVec3f) = {
-		val ret = new LineIntersection
-
 		val delta = end - start
 		val under = delta.dot(normal)
-		if ( absf(under) < 0.00001f ) {  }
-		else {
+		if ( absf(under) < 0.00001f ) {
+			NoIntersection
+		} else {
 			val t = (point - start).dot(normal) / under
-			ret(0) = t
+			Intersection(List(start + delta * t))
 		}
-		ret
 	}
 }
 
@@ -34,8 +31,7 @@ class Quad ( center : ReadVec3f , xVector : ReadVec3f , yVector : ReadVec3f ) ex
 		val numIntersects = rawIntersect.numIntersections
 		if ( numIntersects == 0 ) { rawIntersect }
 		else {
-			val t = rawIntersect(0)
-			val intersectionPoint = (start + (end - start) * t) - center
+			val intersectionPoint = rawIntersect.intersectionPoints.head - center
 			val txVector = Vec3f(xVector.x,xVector.y,xVector.z)
 			val tyVector = Vec3f(yVector.x,yVector.y,yVector.z)
 			val tnormal = Vec3f(normal.x,normal.y,normal.z)
@@ -47,7 +43,7 @@ class Quad ( center : ReadVec3f , xVector : ReadVec3f , yVector : ReadVec3f ) ex
 			if ( absf(relativeCoord.x) <= 0.5f && absf(relativeCoord.y) <= 0.5f ) {
 				rawIntersect
 			} else {
-				new LineIntersection
+				NoIntersection
 			}
 		}
 	}

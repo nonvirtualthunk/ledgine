@@ -8,10 +8,8 @@ package arx.engine.event
   */
 
 import arx.Prelude._
-import arx.engine.control.event.Event
-
 import arx.core.vec._
 
 class GameEvent extends Event {
-	val createdAt = curTime()
+	val createdAtWallTime = curTime()
 }

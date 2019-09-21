@@ -1,6 +1,6 @@
 package arx.engine.control.components.windowing.widgets
 
-import arx.core.Moddable
+import arx.engine.data.Moddable
 import arx.core.vec.{ReadVec4f, Vec2T, Vec2i, Vec4f}
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.event.{CharEnteredEvent, KeyPressEvent, TextInputChanged, TextInputEnter}

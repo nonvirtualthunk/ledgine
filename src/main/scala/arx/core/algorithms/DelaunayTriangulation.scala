@@ -8,6 +8,7 @@ import arx.Prelude._
 import arx.application.Noto
 import arx.core.datastructures.GrowableArray
 import arx.core.datastructures.MultiMap
+import arx.core.math.Distance
 import arx.core.vec.ReadVec2f
 import arx.core.vec.Vec2f
 
@@ -216,7 +217,7 @@ object DelaunayTriangulation {
 						val bi = t.p(i) % 3
 						val a = points(ai)
 						val b = points(bi)
-						val dist = distance(a, b)
+						val dist = Distance.distance(a, b)
 						if (dist < minDist) {
 							minDist = dist
 							minEdge = Edge(ai, bi)

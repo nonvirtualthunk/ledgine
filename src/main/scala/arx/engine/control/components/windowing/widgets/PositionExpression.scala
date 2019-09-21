@@ -44,7 +44,7 @@ object DimensionExpression {
 	case object ExpandToParent extends DimensionExpression
 	case object Intrinsic extends DimensionExpression
 	case object WrapContent extends DimensionExpression {
-		override def dependsOn(w : Widget) = w.children
+		override def dependsOn(w : Widget) = w.widgetData.children
 	}
 	def MatchParent = Proportional(1.0f)
 }

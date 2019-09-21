@@ -10,12 +10,13 @@ package arx.graphics.shader
 
 import arx.application.Application
 import arx.application.Noto
-import arx.core.Moddable
+import arx.engine.data.Moddable
 import arx.core.introspection.ReflectionAssistant
 import arx.core.mat.ReadMat4x4
 import arx.core.vec._
 import arx.graphics.GL
 import org.lwjgl.opengl._
+import arx.Prelude._
 
 import scala.collection.mutable
 
@@ -86,7 +87,7 @@ abstract class ArxShader extends TShader {
 						if ( predicate == "active" ) {
 							val varName = tokens(2)
 							include = glslVariablesByName.get(varName) match {
-								case Some(v) if ( v.active.resolve() ) => true
+								case Some(v) if ( v.active ) => true
 								case _ => false
 							}
 						} else { // custom predicate

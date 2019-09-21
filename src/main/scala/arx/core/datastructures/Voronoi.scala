@@ -10,7 +10,7 @@ package arx.core.datastructures
 import arx.Prelude
 import arx.core.datastructures.Voronoi.Edge
 import arx.core.datastructures.Voronoi.Region
-import arx.core.math.Rectf
+import arx.core.math.{Distance, Rectf}
 import arx.core.vec.ReadVec2f
 import arx.core.vec.Vec2f
 
@@ -123,7 +123,7 @@ class VertexBucket(val allVertices : ArrayBuffer[ReadVec2f], bounds : Rectf, nLa
 	final def getOrAdd(v : ReadVec2f, minDist : Float) : Int = {
 		nLayers match {
 			case 0 =>
-				indices.find(i => Prelude.distance(v, allVertices(i)) < minDist) match {
+				indices.find(i => Distance.distance(v, allVertices(i)) < minDist) match {
 					case Some(idx) => idx
 					case None =>
 						val idx = allVertices.size
@@ -142,7 +142,7 @@ class VertexBucket(val allVertices : ArrayBuffer[ReadVec2f], bounds : Rectf, nLa
 	final def contains(v : ReadVec2f, minDist : Float) : Option[Int] = {
 		nLayers match {
 			case 0 =>
-				indices.find(i => Prelude.distance(v, allVertices(i)) < minDist)
+				indices.find(i => Distance.distance(v, allVertices(i)) < minDist)
 			case _ =>
 				val xBucket = (((v.x - bounds.x) / bounds.w) * nBuckets).toInt.min(nBuckets-1).max(0)
 				val yBucket = (((v.y - bounds.y) / bounds.h) * nBuckets).toInt.min(nBuckets-1).max(0)

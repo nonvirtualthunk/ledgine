@@ -7,25 +7,29 @@ package arx.engine.control.event
  * Time: 10:39 AM
  */
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import org.lwjgl.glfw.GLFW._
+import overlock.atomicmap.AtomicMap
 
 import scala.collection.mutable
 
 object KeyboardMirror {
 
-	case class KeyState(var isDown: Boolean)
+	case class KeyState(var isDown: AtomicBoolean)
 
-	val dummyKeyState = KeyState(isDown = false)
+	val dummyKeyState = KeyState(isDown = new AtomicBoolean(false))
 
-	val keyStates = new mutable.HashMap[Int, KeyState]
+
+	val keyStates = AtomicMap.atomicNBHM[Int, KeyState]
 
 	def setKeyDown(k: Int, isDown: Boolean): Unit = {
-		val ks = keyStates.getOrElseUpdate(k, KeyState(isDown))
-		ks.isDown = isDown
+		val ks = keyStates.getOrElseUpdate(k, KeyState(new AtomicBoolean(isDown)))
+		ks.isDown.set(isDown)
 	}
 
 	def isKeyDown(k: Int) = {
-		keyStates.getOrElse(k, dummyKeyState).isDown
+		keyStates.getOrElse(k, dummyKeyState).isDown.get()
 	}
 
 	def activeModifiers = KeyModifiers(ctrlActive, shiftActive, altActive)

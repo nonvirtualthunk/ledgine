@@ -1,7 +1,7 @@
 package arx.core.mat
 
 import arx.core.vec._
-import arx.core.Moddable
+import arx.engine.data.Moddable
 
 import java.io.Externalizable
 import java.io.ObjectInput

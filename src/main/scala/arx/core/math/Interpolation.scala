@@ -1,10 +1,11 @@
 package arx.core.math
 
 import arx.Prelude
+import arx.application.Noto
 import arx.core.traits.TArxNumeric
-import arx.core.units.UnitOfTime
+import arx.core.units.{RatioUnitOfMeasure, UnitOfMeasure, UnitOfTime}
 import arx.core.vec.coordinates.{CartVec, CartVec3}
-import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2i}
+import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec4f, ReadVec4i, Vec2i, Vec4f, Vec4i}
 import arx.engine.data.Reduceable
 import arx.graphics.helpers.HSBA
 
@@ -113,5 +114,92 @@ object Interpolation {
 
 	implicit def functionInterpolation[T](f : Float => T) : Interpolation[T] = new Interpolation[T] {
 		override def interpolate(pcnt: Float): T = f(pcnt)
+	}
+
+
+	protected def interpolateCosF ( x : Float , controlPoints : Seq[(Float,_)] ) : (Int,Int,Float) = {
+		controlPoints match {
+			case Nil => Noto.warn("can't interpolate with no control points");(0,0,0.0f)
+			case one :: Nil => (0,0,0.0f)
+			case someList => {
+				val cp = someList.sortBy( _._1 )
+				val b = cp.indexWhere( _._1 >= x ) match { case -1 => cp.size-1 ; case i => i }
+				val a = cp.lastIndexWhere( _._1 < x ) match { case -1 => 0 ; case i => i }
+				val mu = (x - controlPoints(a)._1) / scala.math.max(0.0001f,controlPoints(b)._1 - controlPoints(a)._1)
+				val mu2 = (1.0f - scala.math.cos(mu * scala.math.Pi).toFloat) * 0.5f
+				(a,b,mu2)
+			}
+		}
+	}
+	protected def interpolateLinF ( x : Float , controlPoints : Seq[(Float,_)] ) : (Int,Int,Float) = {
+		controlPoints match {
+			case Nil => Noto.warn("can't interpolate with no control points");(0,0,0.0f)
+			case one :: Nil => (0,0,0.0f)
+			case someList => {
+				val cp = someList.sortBy( _._1 )
+				val b = cp.indexWhere( _._1 >= x ) match { case -1 => cp.size-1 ; case i => i }
+				val a = cp.lastIndexWhere( _._1 < x ) match { case -1 => 0 ; case i => i }
+				val mu = (x - controlPoints(a)._1) / scala.math.max(0.0001f,controlPoints(b)._1 - controlPoints(a)._1)
+				(a,b,mu)
+			}
+		}
+	}
+	protected def interpolateStepF ( x : Float , controlPoints : Seq[(Float,_)] ) : Int = {
+		controlPoints.lastIndexWhere( _._1 <= x ) match {
+			case -1 => controlPoints.size - 1
+			case i => i
+		}//0.0f 0.5f 1.0f
+	}
+
+	def linInterpolate ( x : Float , controlPoints : Seq[(Float,Float)] ) : Float = {
+		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+	def linInterpolatei ( x : Float , controlPoints : Seq[(Float,Int)] ) : Float = {
+		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+	def linInterpolate ( x : UnitOfMeasure[_] , controlPoints : Seq[(UnitOfMeasure[_],Float)] ) : Float = {
+		linInterpolate(x.toBaseUnitOfMeasure,controlPoints.map(tup => tup._1.toBaseUnitOfMeasure -> tup._2))
+	}
+	def linInterpolate ( x : RatioUnitOfMeasure[_,_] , controlPoints : Seq[(RatioUnitOfMeasure[_,_],Float)] ) : Float = {
+		linInterpolate(x.toBaseUnitOfMeasure,controlPoints.map(tup => tup._1.toBaseUnitOfMeasure -> tup._2))
+	}
+	def linInterpolatev4 ( x : Float , controlPoints : Seq[(Float,Vec4f)] ) = {
+		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+	def linInterpolatev4i ( x : Float , controlPoints : Seq[(Float,Vec4i)] ) = {
+		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
+		val v = controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+		Vec4i(v.r.toInt,v.g.toInt,v.b.toInt,v.a.toInt)
+	}
+	def linInterpolatev3 ( x : Float , controlPoints : Seq[(Float,ReadVec3f)] ) = {
+		val (ai,bi,mu2) = interpolateLinF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+
+	def cosInterpolate ( x : Float , controlPoints : Seq[(Float,Float)] ) = {
+		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+	def cosInterpolatev4 ( x : Float , controlPoints : Seq[(Float,ReadVec4f)] ) : ReadVec4f = {
+		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+	def cosInterpolatev3 ( x : Float , controlPoints : Seq[(Float,ReadVec3f)] ) : ReadVec3f = {
+		val (ai,bi,mu2) = interpolateCosF(x,controlPoints)
+		controlPoints(ai)._2 * (1.0f - mu2) + controlPoints(bi)._2 * mu2
+	}
+
+	def stepInterpolate4i ( x : Float , controlPoints : Seq[(Float,ReadVec4i)] ) = {
+		require(controlPoints.nonEmpty)
+		val index = interpolateStepF(x,controlPoints)
+		controlPoints(index)._2
+	}
+	def stepInterpolate[T] ( x : Float , controlPoints : Seq[(Float,T)] ) = {
+		require(controlPoints.nonEmpty)
+		val index = interpolateStepF(x,controlPoints)
+		controlPoints(index)._2
 	}
 }

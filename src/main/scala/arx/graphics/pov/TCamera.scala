@@ -18,7 +18,8 @@ import arx.core.vec.ReadVec2f
 import arx.core.vec.ReadVec3f
 import arx.core.vec.Vec3f
 import arx.engine.EngineCore
-import arx.engine.control.event.{Keymap, TEventUser}
+import arx.engine.control.event.Keymap
+import arx.engine.event.TEventUser
 import arx.graphics.GL
 import arx.graphics.shader.Shader
 
@@ -73,7 +74,7 @@ trait TCamera extends TEventUser with TSentinelable {
 		val inventoryPlane = new Plane(Vec3f(0.0f,0.0f,atZ), Vec3f.UnitZ)
 		val intersection = inventoryPlane.intersect(gameNear, gameFar)
 		if (intersection.numIntersections > 0) {
-			Some(gameNear + (gameFar - gameNear) * intersection.head)
+			Some(gameNear + (gameFar - gameNear) * intersection.intersectionPoints.head)
 		} else {
 			None
 		}
