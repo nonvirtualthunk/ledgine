@@ -1,6 +1,7 @@
 package arx
 
 import java.io._
+import java.nio.charset.StandardCharsets
 import java.text.DecimalFormat
 
 import arx.engine.data.Moddable
@@ -378,6 +379,7 @@ object Prelude {
 		val tmpFile = File.createTempFile("genericwrite","tmp")
 		val fileOutputStream = new FileOutputStream(tmpFile)
 		o match {
+			case str : String => fileOutputStream.write(str.getBytes(StandardCharsets.UTF_8))
 			case ba : Array[Byte] => fileOutputStream.write(ba)
 			case _ => {
 				val objectOutputStream = new ObjectOutputStream(fileOutputStream)

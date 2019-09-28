@@ -5,6 +5,11 @@ package arx.engine.control.components.windowing
   */
 
 import arx.Prelude._
+import arx.application.Noto
+import arx.core.datastructures.Watcher
+import arx.core.introspection.TEagerSingleton
+import arx.core.macros.GenerateCompanion
+import arx.core.representation.ConfigValue
 import arx.core.traits.TSentinelable
 import arx.core.vec.{Vec2T, Vec3T}
 import arx.engine.control.components.windowing.widgets.DimensionExpression.Intrinsic
@@ -41,6 +46,7 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	def data[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
 	def dataOpt[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.dataOpt[T](entity)
 	def hasData[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.view.hasData[T](entity)
+	def allData = windowingSystem.displayWorld.allData(entity)
 
 	def withWidgetData(f : WidgetData => Unit) : Unit = { f(this.data[WidgetData]) }
 	def withDrawingData(f : DrawingData => Unit) : Unit = { f(this.data[DrawingData]) }
@@ -51,6 +57,27 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 		w.parent = this
 		ofType.initializeWidget(w)
 	}
+
+	def createChild(identifier : String) : Widget = {
+		val sections = identifier.split('.')
+		if (sections.length == 2) {
+			createChild(sections(0), sections(1))
+		} else {
+			Noto.error("createChild(identifier) expects an identifier in the form of WidgetFile.WidgetKey")
+			val w = windowingSystem.createWidget()
+			w.parent = this
+			w
+		}
+	}
+	def createChild(resourcePath : String, key : String) : Widget = {
+		val w = windowingSystem.createWidget(resourcePath, key)
+		w.parent = this
+		w
+	}
+
+	override def hashCode(): Int = entity.hashCode()
+
+	override def equals(obj: Any): Boolean = entity.equals(obj)
 }
 
 
@@ -58,11 +85,17 @@ trait WidgetInstance {
 	def widget : Widget
 }
 
-abstract class WidgetType[T <: WidgetInstance, D <: TWidgetAuxData](implicit classTag : ClassTag[D]) extends WidgetConstructor [T] {
+abstract class WidgetType[T <: WidgetInstance, D <: TWidgetAuxData](implicit classTag : ClassTag[D]) extends WidgetConstructor [T] with TEagerSingleton {
 	implicit def toWidget(idw : T) : Widget = idw.widget
 	implicit def toSpecificData(idw : T) : D = idw.widget.data[D]
 	implicit def toWidgetData(idw : T) : WidgetData = idw.widget.data[WidgetData]
 	implicit def toDrawingData(idw : T) : DrawingData = idw.widget.data[DrawingData]
+
+	WidgetType.types += (this.getClass.getSimpleName.replace("$","") -> this)
+}
+
+object WidgetType {
+	var types : Map[String, WidgetType[_ <: WidgetInstance,_]] = Map()
 }
 
 trait WidgetConstructor[T <: WidgetInstance] {
@@ -73,10 +106,18 @@ object Widget {
 	implicit def toWidgetData(w : Widget) : WidgetData = w.widgetData
 }
 
+class SimpleWidget(w : Widget) extends WidgetInstance {
+	override def widget: Widget = w
+}
+object SimpleWidget extends WidgetType[SimpleWidget, WidgetData] {
+	override def initializeWidget(widget: Widget): SimpleWidget = new SimpleWidget(widget)
+}
+
+@GenerateCompanion
 class WidgetData extends TWidgetAuxData with TEventUser {
 	// must be supplied as part of creation
 	var widget : Widget = _
-	private var _parent : Widget = _
+	private[windowing] var _parent : Widget = _
 	var children : List[Widget] = Nil
 
 	def parent = _parent
@@ -101,10 +142,11 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	var acceptsFocus = false
 	var hasFocus = false
 
-	private var markedModified = false
-	var modificationCriteria = List[(Widget) => Boolean]()
+	private[windowing] var markedModified = false
+	var modificationCriteria = List[Widget => Boolean]()
+	var modificationWatchers = List[Watcher[_]]()
 
-	def isModified = markedModified || modificationCriteria.exists(criteria => criteria(widget))
+	def isModified = markedModified || modificationCriteria.exists(criteria => criteria(widget)) || modificationWatchers.exists(w => w.hasChanged)
 	def markModified() { markedModified = true }
 	def unmarkModified() { markedModified = false }
 
@@ -131,4 +173,32 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	def onClose(): Unit = {
 		parent = new Widget(Entity.Sentinel, widget.windowingSystem)
 	}
+
+	override def modificationSignature: AnyRef = (position, dimensions, showing.resolve())
+
+	override def loadFromConfig(configValue: ConfigValue, reload: Boolean): Unit = {
+		for (pos <- configValue.fieldOpt("position")) {
+			for (posArr <- pos.arrOpt) {
+				for ((cv,idx) <- posArr.toList.zipWithIndex; if idx < 3) {
+					PositionExpression.parse(cv.str).ifPresent(pe => position(idx) = pe)
+				}
+			}
+		}
+		configValue.fieldOpt("x").flatMap(xv => PositionExpression.parse(xv.str)).ifPresent(xv => x = xv)
+		configValue.fieldOpt("y").flatMap(yv => PositionExpression.parse(yv.str)).ifPresent(yv => y = yv)
+
+		for (dim <- configValue.fieldOpt("dimensions").orElse(configValue.fieldOpt("dim"))) {
+			for (dimArr <- dim.arrOpt) {
+				for ((cv,idx) <- dimArr.toList.zipWithIndex; if idx < 2) {
+					DimensionExpression.parse(cv.str).ifPresent(de => dimensions(idx) = de)
+				}
+			}
+		}
+
+		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str)).ifPresent(wv => width = wv)
+		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str)).ifPresent(hv => height = hv)
+
+
+	}
+
 }

@@ -8,27 +8,33 @@ package arx.core.introspection
   */
 
 import java.lang.reflect
-import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
-import arx.Prelude._
 import arx.application.Noto
 import arx.core.async.Executor
-import arx.core.datastructures.OneOrMore.fromSingle
-import arx.core.metrics.Metrics
 import arx.core.traits.TNonDiscoverable
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
 import org.reflections.util.{ClasspathHelper, ConfigurationBuilder}
 
-import scala.collection.mutable
 import scala.collection.JavaConversions._
+import scala.collection.mutable
+import scala.reflect.ClassTag
 
 
 object ReflectionAssistant {
+	import scala.reflect.runtime.universe._
+	import scala.reflect.runtime.{universe => u}
+	val classloader = Thread.currentThread().getContextClassLoader
+	val mirror = u.runtimeMirror(classloader)
+
+
 	val reflectionsFuture = Executor.submitAsync(loadReflections _)
 
+
 	def reflections = reflectionsFuture.get()
+
+	def ensureReflectionsLoaded() : Unit = reflectionsFuture.get()
 
 	def loadReflections = {
 		val ref = new Reflections(
@@ -244,6 +250,21 @@ object ReflectionAssistant {
 	} catch {
 		case e: Exception => false
 	}
+	def getterForField(field : reflect.Field)= {
+		try {
+			Some(field.getDeclaringClass.getMethod(field.getName))
+		} catch {
+			case _: NoSuchMethodError => None
+		}
+	}
+	def setterForField(field : reflect.Field) = {
+		try {
+			Some(field.getDeclaringClass.getMethod(field.getName + "_$eq", field.getType))
+		} catch {
+			case _ : NoSuchMethodError => None
+		}
+	}
+
 	def getFieldValue(obj: AnyRef, field: String): Any = {
 		obj.getClass.getMethod(field).invoke(obj)
 	}
@@ -261,4 +282,11 @@ object ReflectionAssistant {
 				Noto.error(f"Attempted to reflectively set field value $field to $value on $obj, but could not find method")
 		}
 	}
+
+	def toScalaType(clazz : Class[_]) : ClassSymbol = {
+		mirror.staticClass(clazz.getCanonicalName)
+	}
+
+	def reflectMethod[T](inst : T, methodSymbol : MethodSymbol)(implicit classTag : ClassTag[T]) = mirror.reflect(inst).reflectMethod(methodSymbol)
+	def invoke[T](inst : T, methodSymbol : MethodSymbol)(args: Any*)(implicit classTag : ClassTag[T]) = reflectMethod(inst, methodSymbol)(classTag)(args: _*)
 }

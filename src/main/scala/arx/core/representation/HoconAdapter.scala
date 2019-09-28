@@ -12,7 +12,7 @@ import java.io.{File, Reader}
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.traits.{TSentinel, TSentinelable}
-import arx.core.vec.{ReadVec2f, ReadVec3f, ReadVec4f}
+import arx.core.vec.{ReadVec2f, ReadVec3f, ReadVec4f, Vec4f}
 import arx.engine.data.Moddable
 import com.typesafe.config.{ConfigList => HoconConfigList, ConfigValue => HoconConfigValue, _}
 
@@ -35,6 +35,17 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def hasField(s : String) : Boolean
 	def field(s : String) : ConfigValue
 	def fields : Map[String,ConfigValue]
+	def fieldOpt(s : String) : Option[ConfigValue] = if (hasField(s)) {
+		Some(field(s))
+	} else {
+		None
+	}
+
+	def ifPresent(v : ConfigValue => Unit): Unit = {
+		if (notSentinel) {
+			v(this)
+		}
+	}
 
 	def orElse (other : ConfigValue) : ConfigValue = if (this.isSentinel) { other } else { this }
 	def boolOrElse(b: Moddable[Boolean]): Moddable[Boolean]
@@ -56,6 +67,7 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def v3: ReadVec3f
 	def v4: ReadVec4f
 	def arr: ConfigList
+	def arrOpt : Option[ConfigList] = if (isArr) { Some(arr) } else { None }
 	def isObj: Boolean
 	def isStr: Boolean
 	def isArr: Boolean
@@ -108,6 +120,13 @@ object ConfigValue {
 		}
 	}
 
+//	sealed trait ConfigValueType
+//	case object String extends ConfigValueType
+//	case object Int extends ConfigValueType
+//	case object Bool extends ConfigValueType
+//	case class List(ofType : ConfigValueType) extends ConfigValueType
+//	case object Object extends ConfigValueType
+
 	val Sentinel : ConfigValue = new ConfigValue with TSentinel {
 		override def parent = this
 		override def isEmpty = true
@@ -133,9 +152,9 @@ object ConfigValue {
 		override def v3: ReadVec3f = illegalAccess()
 		override def v4: ReadVec4f = illegalAccess()
 		override def arr: ConfigList = ConfigList.Sentinel
-		override def isObj: Boolean = illegalAccess()
-		override def isStr: Boolean = illegalAccess()
-		override def isArr: Boolean = illegalAccess()
+		override def isObj: Boolean = false
+		override def isStr: Boolean = false
+		override def isArr: Boolean = false
 		override def bool: Boolean = illegalAccess()
 		override def float: Float = illegalAccess()
 		override def int: Int = illegalAccess()
@@ -254,6 +273,20 @@ object Hocon {
 				val a = RichConfigValue(l.get(3),parent).float
 				ReadVec4f(r,g,b,a)
 			}
+			case cv : ConfigValue =>
+				val r = cv.field("r")
+				val g = cv.field("g")
+				val b = cv.field("b")
+				val a = cv.field("a")
+				if (r.notSentinel && g.notSentinel && b.notSentinel && a.notSentinel) {
+					ReadVec4f(r.float, g.float, b.float, a.float)
+				}else {
+					Noto.error(s"Attempted to read v4 from invalid config value : ${this.str}")
+					Vec4f.Zero
+				}
+			case _ =>
+				Noto.error(s"Attempted to read v4 from invalid config value : ${this.str}")
+				Vec4f.Zero
 		}
 		def v3 = value match {
 			case l : HoconConfigList => {

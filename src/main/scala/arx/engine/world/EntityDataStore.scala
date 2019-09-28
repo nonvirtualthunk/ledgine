@@ -40,7 +40,7 @@ class EntityDataStore[T](val clazz : Class[T]) {
 
 	def getOrElseUpdate(entity : Entity, time : GameEventClock) : T = {
 		if (hasOverlay) {
-			overlay.get(entity.id).orElse(values.get(entity.id).map(v => v.data)).getOrElse(sentinel)
+			overlay.get(entity.id).getOrElse(values.getOrElseUpdate(entity.id, new EntityDataWrapper[T](ReflectionAssistant.instantiate(clazz), time)).data)
 		} else {
 			values.getOrElseUpdate(entity.id, new EntityDataWrapper[T](ReflectionAssistant.instantiate(clazz), time)).data
 		}

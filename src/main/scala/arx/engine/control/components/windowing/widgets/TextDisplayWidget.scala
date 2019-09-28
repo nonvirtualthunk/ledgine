@@ -8,11 +8,12 @@ import arx.Prelude._
 import arx.engine.data.Moddable
 import arx.core.datastructures.Watcher
 import arx.core.function.MemoizingFunction
+import arx.core.macros.GenerateCompanion
 import arx.core.math.Rectf
 import arx.core.vec.Cardinals.Left
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2f}
 import arx.engine.EngineCore
-import arx.engine.control.components.windowing.{Widget, WindowingSystem}
+import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetType, WindowingSystem}
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.graphics.TextureBlock
 import arx.graphics.helpers.{Color, RichText}
@@ -22,6 +23,7 @@ import arx.resource.ResourceManager
 import scala.language.implicitConversions
 
 
+@GenerateCompanion
 class TextDisplay extends TWidgetAuxData {
 	var text : Moddable[RichText] = Moddable(RichText(""))
 	var fontScale = 1.0f
@@ -29,30 +31,22 @@ class TextDisplay extends TWidgetAuxData {
 	var font = none[FontWrapper]
 	var textAlignment : Moddable[HorizontalTextAlignment] = Moddable(HorizontalTextAlignment.Left)
 	var orientFromTop = Moddable(true)
-//	private var constructed = false
 
-	protected[windowing] val textWatcher = Watcher(text.resolve())
-	protected[windowing] val fontScaleWatcher = Watcher(fontScale)
-	def watchersChanged = textWatcher.hasChanged || fontScaleWatcher.hasChanged
-//	override def isSelfModified = constructed && (textWatcher.hasChanged || fontScaleWatcher.hasChanged)
+	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor, font)
 
 	def effectiveFontScale = fontScale
 //	constructed = true
 }
 
-case class TextDisplayWidget(widget : Widget) {
+case class TextDisplayWidget(widget : Widget) extends WidgetInstance {
 
 }
 
-object TextDisplayWidget {
-	implicit def toWidget (tdw : TextDisplayWidget) : Widget = tdw.widget
-	implicit def toTextDisplay (tdw : TextDisplayWidget) : TextDisplay = tdw.widget[TextDisplay]
-	def apply(ws : WindowingSystem, init : TextDisplay => Unit) : TextDisplayWidget = {
-		val tdw = TextDisplayWidget(ws.createWidget())
-		init(tdw)
-		tdw.drawing.drawBackground = false
-		tdw.widgetData.modificationCriteria ::= (w => w[TextDisplay].watchersChanged)
-		tdw
+object TextDisplayWidget extends WidgetType[TextDisplayWidget, TextDisplay] {
+
+	override def initializeWidget(widget: Widget): TextDisplayWidget = {
+		widget.attachData[TextDisplay]
+		TextDisplayWidget(widget)
 	}
 }
 

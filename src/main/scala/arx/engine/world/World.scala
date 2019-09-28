@@ -118,6 +118,7 @@ class World {
 
 	var onEntityAddedCallbacks = List[Entity => Unit]()
 	var onEntityRemovedCallbacks = List[Entity => Unit]()
+	var onDataAddedCallbacks = List[(Entity, TAuxData) => Unit]()
 
 	protected val coreView : WorldView = new WorldView(this)
 	protected val currentView : WorldView = new WorldView(this)
@@ -170,11 +171,22 @@ class World {
 	def data[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : T = {
 		coreView.dataStores.get(tag.runtimeClass) match {
 			case Some(store) =>
-				store.asInstanceOf[EntityDataStore[T]].getOrElseUpdate(entity, currentTime)
+				val newCreation = !hasData[T](entity)
+				val data = store.asInstanceOf[EntityDataStore[T]].getOrElseUpdate(entity, currentTime)
+				if (newCreation) {
+					onDataAddedCallbacks.foreach(cb => cb(entity, data))
+				}
+				data
 			case None =>
 				register[T]()
 				data[T](entity)
 		}
+	}
+
+	def allData(entity : Entity) : Iterable[_ <: TAuxData] = {
+		coreView.dataStores.values.flatMap(ds => {
+			ds.getOpt(entity)
+		})
 	}
 
 	def dataOpt[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : Option[T] = {
@@ -200,7 +212,11 @@ class World {
 	}
 
 	def attachData[T <: TAuxData](entity : Entity, data : T)(implicit tag : ClassTag[T]) : Unit = {
-		val viewsToAlter = if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) { List(coreView) } else { List(coreView, currentView) }
+		val viewsToAlter = if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) {
+			List(coreView)
+		} else {
+			List(coreView, currentView)
+		}
 		for (view <- viewsToAlter) {
 			view.dataStores.get(tag.runtimeClass) match {
 				case Some(dataStore) => {
@@ -219,6 +235,7 @@ class World {
 		}
 
 		dataRegistrations :+= EntityDataRegistration(entity, tag.runtimeClass, currentTime)
+		onDataAddedCallbacks.foreach(cb => cb(entity, data))
 	}
 
 	def attachDataWith[T <: TAuxData](entity : Entity, dataInit : T => Unit)(implicit tag : ClassTag[T]) : Unit = {

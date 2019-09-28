@@ -10,12 +10,12 @@ import arx.Prelude._
 import arx.application.Noto
 import arx.core.datastructures.{Watcher, Watcher2, Watcher3}
 import arx.core.introspection.ReflectionAssistant
-import arx.core.math.Rectf
+import arx.core.math.{Rectf, Recti}
 import arx.core.units.UnitOfTime
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets._
-import arx.engine.control.components.windowing.widgets.data.DrawingData
+import arx.engine.control.components.windowing.widgets.data.{DrawingData, TWidgetAuxData}
 import arx.engine.graphics.components.GraphicsComponent
 import arx.engine.graphics.components.windowing.WindowingGraphicsComponent.WidgetWatchers
 import arx.engine.graphics.data.WindowingGraphicsData
@@ -57,6 +57,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	override protected def onInitialize(game: World, display: World): Unit = {
 		renderers = ReflectionAssistant.allSubTypesOf[WindowingRenderer]
 			.map(c => ReflectionAssistant.instantiate(c, display.worldData[WindowingGraphicsData]))
+			.sortBy(c => c.drawPriority)
 	}
 
 	override def draw(game: World, graphics: World): Unit = {
@@ -118,7 +119,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					vbo.softClear()
 					// could if(anyChanged) here
 					customVBOs = Nil
-					updateWindowingDrawData(WD, WD.desktop, Rectf(0, 0, GL.viewport.w, GL.viewport.h))
+					updateWindowingDrawData(WD, WD.desktop, Recti(0, 0, GL.viewport.w, GL.viewport.h))
 					vbo.state.set(VBO.Updated)
 					needsRedraw = true
 				}
@@ -127,8 +128,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	}
 
 	val colors = Color(255, 255, 255, 255) :: Color(255, 0, 0, 255) :: Color(0, 255, 0, 255) :: Color(255, 255, 0, 255) :: Nil
+	val fixedBothAxes = Vec2T(true,true)
 
-	def updateWindowingDrawData(WD : WindowingGraphicsData, w: Widget, bounds: Rectf): Unit = {
+	def updateWindowingDrawData(WD : WindowingGraphicsData, w: Widget, bounds: Recti): Unit = {
 		val vbo = WD.vbo
 		val textureBlock = WD.textureBlock
 
@@ -203,26 +205,37 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			}
 		}
 
-		val pos = w.drawing.absolutePosition + Vec3i(w.drawing.clientOffset, 0)
-		val size = w.drawing.clientDim
-		val newBounds = bounds.intersect(Rectf(pos.x, pos.y, size.x, size.y))
 
-		renderers.foreach(r => renderQuads(r.render(w, beforeChildren = true, newBounds.dimensions, bounds.xy + relPos.xy)))
-		renderers.foreach(r => r.renderRaw(vbo, textureBlock, newBounds, bounds.xy + relPos.xy)(w, beforeChildren = true))
-		renderers.foreach(r => r.renderCustomVBO(textureBlock, newBounds, bounds.xy + relPos.xy)(w) match {
-			case Some(vbo) => customVBOs ::= vbo
-			case None =>
+		val selfArea = Recti(0,0,w.drawing.effectiveDimensions.x, w.drawing.effectiveDimensions.y)
+		renderers.foreach(r => {
+			renderQuads(r.render(w, beforeChildren = true, selfArea))
+			r.renderRaw(vbo, textureBlock, selfArea, bounds.xy + relPos.xy)(w, beforeChildren = true)
+			r.modifyBounds(w, fixedBothAxes, selfArea, w.drawing.effectiveDimensions)
+			r.renderCustomVBO(textureBlock, selfArea, bounds.xy + relPos.xy)(w) match {
+				case Some(vbo) => customVBOs ::= vbo
+				case None =>
+			}
 		})
 
 		//		renderQuad(WQuad(Rectf(-relPos.x,-relPos.y,bounds.width,bounds.height), "default/blank_bordered.png", colors(Noto.indentation)))
 
+		val pos = w.drawing.absolutePosition + Vec3i(w.drawing.clientOffset, 0)
+		val size = w.drawing.clientDim
+		val newBounds = bounds.intersect(Recti(pos.x, pos.y, size.x, size.y))
 
 		for (child <- w.children) {
 			updateWindowingDrawData(WD, child, newBounds)
 		}
 
-		renderers.foreach(r => renderQuads(r.render(w, beforeChildren = false, newBounds.dimensions, bounds.xy + relPos.xy)))
-		renderers.foreach(r => r.renderRaw(vbo, textureBlock, newBounds, bounds.xy + relPos.xy)(w, beforeChildren = false))
+		selfArea.x = 0
+		selfArea.y = 0
+		selfArea.width = w.drawing.effectiveDimensions.x
+		selfArea.height = w.drawing.effectiveDimensions.y
+		renderers.foreach(r => {
+			renderQuads(r.render(w, beforeChildren = false, selfArea))
+			r.renderRaw(vbo, textureBlock, selfArea, bounds.xy + relPos.xy)(w, beforeChildren = false)
+			r.modifyBounds(w, fixedBothAxes, selfArea, w.drawing.effectiveDimensions)
+		})
 
 		Noto.indentation -= 1
 	}
@@ -233,13 +246,6 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		renderers.findFirstWith(r => r.intrinsicSize(w, fixedX, fixedY)) match {
 			case Some((renderer, size)) => size
 			case None => standardSize
-		}
-	}
-
-	def calculateDecorationBorderSize(w: Widget) = {
-		renderers.findFirstWith(r => r.decorationBorderSize(w)) match {
-			case Some((renderer, size)) => size
-			case None => Vec2i.Zero
 		}
 	}
 
@@ -260,13 +266,13 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	}
 
 	def resolveEffectiveDimensions(widget: Widget) = {
-		val setV = Array(false, false)
-		val ret = new Vec2i(0, 0)
+		val fixedOnAxis = Vec2T(false, false)
+		val ret = Vec2i(0, 0)
 		for (axis <- 0 until 2) {
 			resolveFixedDimensionFor(widget, axis) match {
 				case Some(v) =>
 					ret(axis) = v
-					setV(axis) = true
+					fixedOnAxis(axis) = true
 				case None => // do nothing
 			}
 		}
@@ -274,19 +280,25 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		for (axis <- 0 until 2) {
 			widget.dimensions(axis) match {
 				case DimensionExpression.Intrinsic =>
-					ret(axis) = calculateIntrinsicDimFor(widget, if (setV(0)) {
+					ret(axis) = calculateIntrinsicDimFor(widget, if (fixedOnAxis.x) {
 						Some(ret(0))
 					} else {
 						None
-					}, if (setV(1)) {
+					}, if (fixedOnAxis.y) {
 						Some(ret(1))
 					} else {
 						None
-					})(axis) + widget.drawing.clientOffset(axis) * 2
+					})(axis)
 				case _ => // do nothing further
 			}
 		}
-		ret
+
+		val clientArea = Recti(0,0,ret(0),ret(1))
+		for (render <- renderers) {
+			render.modifyBounds(widget, fixedOnAxis, clientArea, ret)
+		}
+
+		(ret, clientArea)
 	}
 
 	def resolveFixedDimensionFor(widget: Widget, axis: Int): Option[Int] = {
@@ -362,7 +374,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					if (matchTo.parent == widget.parent) {
 						matchTo.drawing.relativePosition(axis)
 					} else {
-						matchTo.drawing.absolutePosition(axis) - widget.parent.drawing.absolutePosition(axis)
+						matchTo.drawing.absolutePosition(axis) - (widget.parent.drawing.absolutePosition(axis) + widget.parent.drawing.clientOffset(axis))
 					}
 				case PositionExpression.Flow =>
 					0
@@ -378,8 +390,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		if (w.showing) {
 			w.widget.unmarkModified()
 			val DD = w[DrawingData]
-			DD.effectiveDimensions = resolveEffectiveDimensions(w)
-			DD.decorationBorderSize = calculateDecorationBorderSize(w)
+			val (effDim, effClientArea) = resolveEffectiveDimensions(w)
+			DD.effectiveDimensions = effDim
+			DD.effectiveClientArea = effClientArea
+
 			if (w.parent.notSentinel) {
 				DD.relativePosition = resolveRelativePosition(w)
 				DD.absolutePosition = w.parent.drawing.absolutePosition + Vec3i(w.parent.drawing.clientOffset, 0) + DD.relativePosition

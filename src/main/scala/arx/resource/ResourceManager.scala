@@ -111,6 +111,13 @@ object ResourceManager {
 		toRemove.foreach(state.images.remove)
 	}
 
+	def refreshSML(): Unit = {
+		if (!useLocalResources) {
+			Noto.warn("Attempting to reload images, but useLocalResources is not enabled")
+		}
+		state.sml.clear()
+	}
+
 	var state = new State
 
 	def reset() {

@@ -12,6 +12,8 @@ import java.awt.datatransfer._
 import java.io.IOException
 
 import arx.application.Noto
+import arx.core.datastructures.Watcher
+import arx.core.representation.ConfigValue
 import arx.core.vec._
 import arx.engine.control.components.windowing.events.{DropEvent, FocusGainedEvent, FocusLostEvent, RequestFocusEvent}
 import arx.engine.control.components.windowing.subcomponents.WindowingSystemComponent
@@ -35,6 +37,8 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	// Unused at this time
 	var components : List[WindowingSystemComponent] = Nil
 	var componentClasses : List[Class[_ <: WindowingSystemComponent]] = Nil
+
+	var watchersByWidget : Map[Widget, List[Watcher[_]]] = Map()
 
 	WD.desktop.onEvent {
 		case RequestFocusEvent(widget) => giveFocusTo(widget)
@@ -116,6 +120,18 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 		val w = new Widget(displayWorld.createEntity(), this)
 		w.parent = desktop
 		w
+	}
+
+	def createWidget(resourcePath : String, key : String) : Widget = {
+		WidgetPrototype.fromConfig(resourcePath, key).instantiate(this)
+	}
+
+	def reloadWidgets(): Unit = {
+		for (w <- WD.desktop.selfAndChildren) {
+			for (proto <- w.dataOpt[WidgetPrototypeData]) {
+				proto.prototype.reload(w)
+			}
+		}
 	}
 
 	def update() : Unit = {

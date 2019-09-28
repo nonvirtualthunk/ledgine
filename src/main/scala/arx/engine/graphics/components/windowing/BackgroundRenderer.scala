@@ -6,12 +6,14 @@ package arx.engine.graphics.components.windowing
 
 import arx.Prelude._
 import arx.application.Noto
-import arx.core.math.Rectf
-import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2i, Vec4f}
+import arx.core.math.{Rectf, Recti}
+import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2T, Vec2i, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
+import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.windowing.ImageDisplay
-import arx.engine.graphics.data.windowing.ImageDisplay.{ActualSize, Center, ScaleToFit, TopLeft}
+import arx.engine.graphics.data.windowing.ImageDisplay.{Center, Scale, ScaleToFit, TopLeft}
+import arx.graphics.{AVBO, TextureBlock}
 import arx.graphics.helpers.Color
 //import arx.engine.control.components.windowing.widgets.ImageDisplayWidget
 //import arx.engine.control.components.windowing.widgets.ImageDisplayWidget.{ActualSize, Center, ScaleToFit, TopLeft}
@@ -35,7 +37,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 	} )
 	val BlankImage : TToImage = ResourceManager.image("default/blank.png")
 
-	override def render(widget: Widget, beforeChildren: Boolean, bounds: ReadVec2f, offset: ReadVec2f): List[WQuad] = {
+	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): List[WQuad] = {
 		val DD = widget.drawing
 		import DD._
 
@@ -44,8 +46,8 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 		if (drawBackground) {
 			val img = backgroundImage.map(_.image).getOrElse(WD.defaultBackgroundImage)
 
-			val ww = effectiveDimensions.x
-			val wh = effectiveDimensions.y
+			val ww = bounds.w
+			val wh = bounds.h
 			val pixelScale = backgroundPixelScale * EngineCore.pixelScaleFactor.toInt
 
 			val metrics = imageMetrics(img,true)
@@ -55,12 +57,12 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 					if ( seg ) {
 						val coff = metrics.borderPixelWidth*pixelScale-1 //center offset
 						if ( drawCenterBackground ) {
-							List(WQuad(Rectf(coff, coff, ww - coff*2, wh - coff*2), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
+							List(WQuad(Rectf(bounds.x + coff, bounds.y + coff, ww - coff*2, wh - coff*2), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
 						} else {
 							Nil
 						}
 					} else {
-						List(WQuad(Rectf(0.0f,0.0f,ww,wh),img,backgroundColor))
+						List(WQuad(Rectf(bounds),img,backgroundColor))
 					}
 				} else {
 					Nil
@@ -78,8 +80,8 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 					verticalPercent = (wh / 2).toFloat / cornerHeight.toFloat
 					cornerHeight = roundf(wh / 2).toInt
 				}
-				val sideWidth = ww - cornerWidth * 2.0f
-				val sideHeight = wh - cornerHeight * 2.0f
+				val sideWidth = ww - cornerWidth * 2
+				val sideHeight = wh - cornerHeight * 2
 
 				//Corner Texture coordinates
 				val ctx = 0.0f
@@ -101,20 +103,20 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 
 				val cornerTR = Rectf(ctx,cty,ctw,cth)
 				var ret = List(
-					WQuad(Rectf(0.0f,0.0f,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR),
-					WQuad(Rectf(ww - cornerWidth,0.0f,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR),
-					WQuad(Rectf(ww - cornerWidth, wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR),
-					WQuad(Rectf(0.0f,wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
+					WQuad(Rectf(bounds.x,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR),
+					WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR),
+					WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR),
+					WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
 				)
 
 				if ( ww > cornerWidth * 2 ) {
-					ret ::= WQuad(Rectf(cornerWidth,0.0f,sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(hstx,hsty,hstw,hsth))
-					ret ::= WQuad(Rectf(cornerWidth,wh - cornerHeight, sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = true, 0, Rectf(hstx,hsty,hstw,hsth))
+					ret ::= WQuad(Rectf(bounds.x + cornerWidth,bounds.y,sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(hstx,hsty,hstw,hsth))
+					ret ::= WQuad(Rectf(bounds.x + cornerWidth,bounds.y + wh - cornerHeight, sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = true, 0, Rectf(hstx,hsty,hstw,hsth))
 				}
 
 				if ( wh > cornerHeight * 2 ) {
-					ret ::= WQuad(Rectf(0.0f,cornerHeight,cornerWidth,sideHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
-					ret ::= WQuad(Rectf(ww - cornerWidth,cornerHeight,cornerWidth,sideHeight),img,edgeColor, flipX = true, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
+					ret ::= WQuad(Rectf(bounds.x,cornerHeight,bounds.y + cornerWidth,sideHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
+					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + cornerHeight,cornerWidth,sideHeight),img,edgeColor, flipX = true, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
 				}
 
 				ret.reverse
@@ -124,41 +126,52 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 		}
 	}
 
-	override def decorationBorderSize(widget: Widget) = {
+	override def modifyBounds(widget: Widget, fixedOnAxis: Vec2T[Boolean], clientArea: Recti, selfDims: Vec2i) : Unit = {
 		val DD = widget.drawing
 		if (DD.drawBackground) {
 			val img = DD.backgroundImage.map(_.image).getOrElse(WD.defaultBackgroundImage)
-
 			val pixelScale = DD.backgroundPixelScale * EngineCore.pixelScaleFactor.toInt
-
 			val metrics = imageMetrics(img,true)
 
-			Some(Vec2i(metrics.borderPixelWidth * pixelScale,
-				metrics.borderPixelWidth * pixelScale))
-		} else {
-			None
+			val pixelWidth = metrics.borderPixelWidth * pixelScale
+			clientArea.x += pixelWidth
+			clientArea.y += pixelWidth
+
+			if (fixedOnAxis.x) {
+				clientArea.width -= pixelWidth * 2
+			} else {
+				selfDims.x += pixelWidth * 2
+			}
+			if (fixedOnAxis.y) {
+				clientArea.height -= pixelWidth * 2
+			} else {
+				selfDims.y += pixelWidth * 2
+			}
 		}
 	}
+
+	override def drawPriority: DrawPriority = DrawPriority.Early
 }
 
 
 class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
-	override def render(widget: Widget, beforeChildren: Boolean, bounds: ReadVec2f, offset: ReadVec2f): List[WQuad] = widget.dataOpt[ImageDisplay] match {
+	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): List[WQuad] = widget.dataOpt[ImageDisplay] match {
 		case Some(idd) =>
 			val img : Image = idd.image.resolve()
 
 
-			val offset = widget.drawing.clientOffset
-			val dim = widget.drawing.clientDim
+			val offset = bounds.xy
+			val dim = bounds.dimensions
+
 			val rect = idd.scalingStyle match {
-				case ActualSize(scale) =>
+				case Scale(scale) =>
 					val imgDim = img.dimensions * scale
 					idd.positionStyle match {
 						case Center =>
 							val dimDiff = dim - imgDim
-							Rectf(offset.x + dimDiff.x / 2, offset.y + dimDiff.y / 2, imgDim.x, imgDim.y)
+							Rectf((offset.x + dimDiff.x / 2), (offset.y + dimDiff.y / 2), imgDim.x, imgDim.y)
 						case TopLeft =>
-							Rectf(offset.x, offset.y, imgDim.x, imgDim.y)
+							Rectf(offset.x, offset.y, imgDim.x	, imgDim.y)
 					}
 				case ScaleToFit =>
 					Rectf(offset.x,offset.y,dim.x,dim.y)
@@ -169,7 +182,7 @@ class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer
 
 	override def intrinsicSize(widget: Widget, fixedX: Option[Int], fixedY: Option[Int]): Option[ReadVec2i] = widget.dataOpt[ImageDisplay] match {
 		case Some(idd) => idd.scalingStyle match {
-			case ActualSize(scale) =>
+			case Scale(scale) =>
 				val img : Image = idd.image.resolve()
 				Some(Vec2i((img.width * scale).toInt, (img.height * scale).toInt))
 			case _ =>
@@ -177,4 +190,6 @@ class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer
 		}
 		case _ => None
 	}
+
+	override def drawPriority: DrawPriority = DrawPriority.Standard
 }

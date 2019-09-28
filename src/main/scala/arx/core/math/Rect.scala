@@ -9,9 +9,8 @@ package arx.core.math
  */
 
 import arx.Prelude._
-import arx.core.vec.ReadVec2f
-import arx.core.vec.ReadVec2i
-import arx.core.vec.Vec2f
+import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2f, Vec2i}
+import javax.print.attribute.standard.MediaSize.Other
 
 
 
@@ -52,6 +51,9 @@ object Rectf {
 	def apply(r : Rectf) : Rectf = {
 		Rectf(r.x,r.y,r.width,r.height)
 	}
+	def apply(r : Recti) : Rectf = {
+		Rectf(r.x,r.y,r.width,r.height)
+	}
 
 	def fromMinAndMax(min : ReadVec2f, max : ReadVec2f) = {
 		Rectf(min.x,min.y,max.x - min.x, max.y - min.y)
@@ -59,6 +61,15 @@ object Rectf {
 }
 
 case class Recti (var x : Int, var y : Int, var width : Int, var height : Int) {
+	def intersect(r2: Recti) = {
+		val r1 = this
+		val lx = math.max(r1.x,r2.x)
+		val ly = math.max(r1.y,r2.y)
+		val hx = math.min(r1.x + r1.w,r2.x + r2.w)
+		val hy = math.min(r1.y + r1.h,r2.y + r2.h)
+		Recti(lx,ly,hx-lx,hy-ly)
+	}
+
 	def maxX = x + w
 	def minX = x
 	def maxY = y + h
@@ -71,4 +82,8 @@ case class Recti (var x : Int, var y : Int, var width : Int, var height : Int) {
 	def max = ReadVec2i(maxX,maxY)
 
 	def dimensions = ReadVec2i(width,height)
+	def position = ReadVec2i(x,y)
+
+	def xy = Vec2i(x,y)
+
 }

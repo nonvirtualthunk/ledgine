@@ -5,7 +5,7 @@ package arx.engine.graphics.components.windowing
   */
 
 import arx.Prelude._
-import arx.core.math.Rectf
+import arx.core.math.{Rectf, Recti}
 import arx.core.vec.ReadVec2f
 import arx.core.vec.ReadVec4f
 import arx.graphics.TToImage

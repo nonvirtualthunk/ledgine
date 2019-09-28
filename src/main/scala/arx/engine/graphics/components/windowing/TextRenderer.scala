@@ -6,11 +6,12 @@ package arx.engine.graphics.components.windowing
 
 import arx.Prelude._
 import arx.application.Noto
-import arx.core.math.Rectf
+import arx.core.math.{Rectf, Recti}
 import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2i}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets.{TextDisplay, TextDisplayRenderedGlyphData, TextDisplayWidget}
+import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics
 import arx.graphics.Image
@@ -56,15 +57,17 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 		layout
 	}
 
-	override def render(widget: Widget, beforeChildren: Boolean, bounds: ReadVec2f, offset: ReadVec2f): Seq[WQuad] = {
+	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): Seq[WQuad] = {
 		if (beforeChildren) {
 			widget.dataOpt[TextDisplay] match {
 				case Some(td) =>
 					val renderedData = widget[TextDisplayRenderedGlyphData]
-					renderedData.absoluteOffset = offset
+					renderedData.absoluteOffset = bounds.xy
 
 					val text = td.text
-					TextRenderer.render(layout(widget, td, Rectf(0.0f, 0.0f, bounds.x, bounds.y)), text)
+					val renderResult = TextRenderer.render(layout(widget, td, Rectf(bounds.x+2, bounds.y, bounds.w, bounds.h)), text)
+
+					renderResult
 				case _ => Nil
 			}
 		} else { Nil }
@@ -78,6 +81,8 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 			case _ => None
 		}
 	}
+
+	override def drawPriority: DrawPriority = DrawPriority.Standard
 }
 
 object TextRenderer {

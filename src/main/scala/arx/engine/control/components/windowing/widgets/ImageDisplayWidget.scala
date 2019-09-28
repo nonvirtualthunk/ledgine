@@ -16,7 +16,6 @@ import scala.language.implicitConversions
   */
 
 object ImageDisplayWidget extends WidgetType[ImageDisplayWidget, ImageDisplay] {
-
 	def apply(windowingSystem : WindowingSystem) : ImageDisplayWidget = {
 		ImageDisplayWidget(windowingSystem, _ => {})
 	}
@@ -25,7 +24,7 @@ object ImageDisplayWidget extends WidgetType[ImageDisplayWidget, ImageDisplay] {
 		initializeWidget(windowingSystem.createWidget())
 	}
 
-	def apply(windowingSystem : WindowingSystem, image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.ActualSize(1.0f)) : Widget = ImageDisplayWidget.apply(windowingSystem, idd => {
+	def apply(windowingSystem : WindowingSystem, image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.Scale(1.0f)) : Widget = ImageDisplayWidget.apply(windowingSystem, idd => {
 		idd.image = Moddable(image : TToImage)
 		idd.positionStyle = positionStyle
 		idd.scalingStyle = scalingStyle
@@ -33,12 +32,11 @@ object ImageDisplayWidget extends WidgetType[ImageDisplayWidget, ImageDisplay] {
 
 	override def initializeWidget(widget: Widget): ImageDisplayWidget = {
 		widget.attachData[ImageDisplay]
-		widget.modificationCriteria ::= (widget => widget[ImageDisplay].watcher.hasChanged)
 		new ImageDisplayWidget(widget)
 	}
 
 
-	case class build(image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.ActualSize(1.0f)) extends WidgetConstructor[ImageDisplayWidget] {
+	case class build(image : Image, positionStyle: PositionStyle = ImageDisplay.TopLeft, scalingStyle: ScalingStyle = ImageDisplay.Scale(1.0f)) extends WidgetConstructor[ImageDisplayWidget] {
 		override def initializeWidget(widget: Widget): ImageDisplayWidget = {
 			val w = ImageDisplayWidget.initializeWidget(widget)
 			w.image = Moddable(image : TToImage)

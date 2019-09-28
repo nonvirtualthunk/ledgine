@@ -36,14 +36,14 @@ class ReadVec2f extends InternVec2f  {
 		val e = xi*xi + yi*yi
 		if ( e != 0 ) { math.sqrt(e).toFloat } else { 0 }
 	}
-	def abs = new Vec2f(math.abs(x),math.abs(y))
-	def min(v:ReadVec2f) = new Vec2f(math.min(x, v.x),math.min(y, v.y))
-	def max(v:ReadVec2f) = new Vec2f(math.max(x, v.x),math.max(y, v.y))
+	def abs : ReadVec2f = new Vec2f(math.abs(x),math.abs(y))
+	def min(v:ReadVec2f) : ReadVec2f = new Vec2f(math.min(x, v.x),math.min(y, v.y))
+	def max(v:ReadVec2f) : ReadVec2f = new Vec2f(math.max(x, v.x),math.max(y, v.y))
 	def minMax(v:ReadVec2f) = ( min(v) , max(v) )
 	def min = math.min(x,y)
 	def max = math.max(x,y)
-	def ceil = new Vec2f(math.ceil(x).toFloat,math.ceil(y).toFloat)
-	def floor = new Vec2f(math.floor(x).toFloat,math.floor(y).toFloat)
+	def ceil : ReadVec2f = new Vec2f(math.ceil(x).toFloat,math.ceil(y).toFloat)
+	def floor : ReadVec2f = new Vec2f(math.floor(x).toFloat,math.floor(y).toFloat)
 	override def toString = "(" + x + "," + y+ ")"
 	def resolve = this
 	def baseValue = this
