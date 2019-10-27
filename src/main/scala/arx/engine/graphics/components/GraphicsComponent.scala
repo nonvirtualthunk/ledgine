@@ -7,25 +7,16 @@ package arx.engine.graphics.components
  * Time: 12:07 PM
  */
 
-import arx.engine.data.Moddable
-import arx.core.TDependable
-import arx.core.traits.TUpdateable
 import arx.core.units.UnitOfTime
+import arx.engine.event.{DeferredInitializationEventBusListener, Event, GameEvent}
 import arx.engine.graphics.GraphicsEngine
-import arx.engine.world.World
-import arx.graphics.pov.TCamera
-import arx.Prelude._
-import arx.engine.event.{DeferredInitializationEventBusListener, Event, EventBusListener}
-import arx.engine.game.GameEngine
-import arx.engine.graphics.data.PovData
-import arx.engine.graphics.data.TGraphicsData
+import arx.engine.graphics.event.GraphicsEvent
 import arx.engine.traits.EngineComponent
-
-import scala.reflect.ClassTag
+import arx.engine.world.World
 
 abstract class GraphicsComponent extends EngineComponent[GraphicsEngine] {
-	private val gameEvents = new DeferredInitializationEventBusListener
-	private val graphicsEvents = new DeferredInitializationEventBusListener
+	private val gameEvents = new DeferredInitializationEventBusListener[GameEvent](false)
+	private val graphicsEvents = new DeferredInitializationEventBusListener[GraphicsEvent](false)
 
 	override protected[engine] final def internalOnInitialize(engine: GraphicsEngine): Unit = {
 		gameEvents.initialize(engine.gameEngine.eventBus)
@@ -43,16 +34,18 @@ abstract class GraphicsComponent extends EngineComponent[GraphicsEngine] {
 
 
 	override protected final def onUpdate(graphicsEngine: GraphicsEngine, dt: UnitOfTime): Unit = {
-		onUpdate(graphicsEngine.gameEngine.world, graphicsEngine.displayWorld, dt)
+		onUpdate(graphicsEngine.gameEngine.world, graphicsEngine.displayWorld, dt, graphicsEngine.currentTime())
 	}
 
-	protected def onUpdate(game : World, graphics : World, dt : UnitOfTime) : Unit
+	protected def onInitialize(game : World, display : World) : Unit
+
+	protected def onUpdate(game: World, display: World, dt: UnitOfTime, time: UnitOfTime): Unit
 
 	override protected def onInitialize(graphicsEngine: GraphicsEngine): Unit = {
 		onInitialize(graphicsEngine.gameEngine.world, graphicsEngine.displayWorld)
 	}
 
-	protected def onInitialize(game : World, display : World) : Unit
+
 
 	final def draw (graphicsEngine : GraphicsEngine): Unit = {
 		draw(graphicsEngine.gameEngine.world, graphicsEngine.displayWorld)
@@ -68,6 +61,7 @@ sealed case class DrawPriority(orderNumber : Int) extends Ordered[DrawPriority] 
 }
 
 object DrawPriority {
+	val First = DrawPriority(-500)
 	val Early = DrawPriority(-100)
 	val Standard = DrawPriority(0)
 	val Late = DrawPriority(100)

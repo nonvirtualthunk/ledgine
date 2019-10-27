@@ -1,6 +1,6 @@
 package arx.graphics
 
-import java.nio.ByteBuffer
+import java.nio.{Buffer, ByteBuffer}
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 

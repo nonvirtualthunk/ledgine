@@ -9,12 +9,13 @@ package arx.engine
 
 import java.util.concurrent.locks.LockSupport
 
+import arx.Prelude
 import arx.Prelude.int2RicherInt
 import arx.application.Application
 import arx.application.Noto
 import arx.core.async.KillableThread.ApplicationLevel
 import arx.core.async.{Executor, KillableThread, OnExitRegistry}
-import arx.core.introspection.NativeLibraryHandler
+import arx.core.introspection.{NativeLibraryHandler, ReflectionAssistant}
 import arx.core.math.Recti
 import arx.core.metrics.Metrics
 import arx.core.vec.Vec4f
@@ -79,6 +80,8 @@ abstract class EngineCore {
 	def onShutdown() {}
 
 	def init(): Unit = {
+		// kick of reflection loading as soon as possible
+		ReflectionAssistant.reflectionsFuture
 		NativeLibraryHandler.load()
 
 		// Setup an error callback. The default implementation
@@ -101,6 +104,7 @@ abstract class EngineCore {
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2)
 //		glfwWindowHint(GLFW_STENCIL_BITS, 8)
+
 		if (multisample) { glfwWindowHint(GLFW_SAMPLES, 4) }
 
 

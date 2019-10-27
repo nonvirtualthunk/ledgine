@@ -1,17 +1,22 @@
 package arx.engine
 
+import arx.Prelude
+import arx.application.Noto
+import arx.core.metrics.Metrics
 import arx.core.vec.ReadVec2f
 import arx.engine.control.ControlEngine
 import arx.engine.control.components.ControlComponent
-import arx.engine.control.event.{CharEnteredEvent, KeyModifiers, KeyPressEvent, KeyReleaseEvent, KeyboardMirror, Mouse, MouseButton, MouseDragEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, ScrollEvent}
-import arx.engine.event.{Event, EventBus, TEventUser}
+import arx.engine.control.event.{CharEnteredEvent, ControlEvent, KeyModifiers, KeyPressEvent, KeyReleaseEvent, KeyboardMirror, Mouse, MouseButton, MouseDragEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, ScrollEvent}
+import arx.engine.event.{Event, EventBus, GameEvent, TEventUser, WorldCreatedEvent}
 import arx.engine.game.GameEngine
 import arx.engine.game.components.GameComponent
 import arx.engine.graphics.GraphicsEngine
 import arx.engine.graphics.components.GraphicsComponent
 import arx.engine.world.{Universe, World}
+import arx.graphics.GL
 import arx.resource.ResourceManager
 import org.lwjgl.glfw.GLFW
+import org.lwjgl.opengl.{EXTFramebufferSRGB, GL30}
 
 trait Scenario {
 	def gameWorld(universe : Universe) : World
@@ -38,23 +43,37 @@ class Engine extends EngineCore with TEventUser {
 	var graphicsEngine : Option[GraphicsEngine] = None
 	var controlEngine : Option[ControlEngine] = None
 
-	var engines = List[EnginePiece[_,_]]()
+	var engines = List[EnginePiece[_,_,_]]()
+
+
+	override def onInit(): Unit = {
+	}
 
 	/**
 	 * Load the listed scenario, using the existing state of the given universe. Will be a blank universe when
 	 * starting a new game, could be a deserialized universe when loading saved state
 	 */
 	def loadScenario(scenario : Scenario, universe : Universe): Unit = {
+		val scenarioName = scenario.getClass.getSimpleName
+		Metrics.checkpoint(s"scenario $scenarioName load started")
+
 		val gameWorld = scenario.gameWorld(universe)
+		gameWorld.addEvent(new WorldCreatedEvent)
 		val displayWorld = scenario.displayWorld(universe)
+		displayWorld.addEvent(new WorldCreatedEvent)
+		Metrics.checkpoint(s"scenario $scenarioName world objects created")
 
 		val gameEngine = new GameEngine(scenario.realtime(universe), universe, gameWorld)
 		val graphicsEngine = new GraphicsEngine(gameEngine, universe, displayWorld)
 		val controlEngine = new ControlEngine(gameEngine, graphicsEngine, universe, displayWorld)
 
+		Metrics.checkpoint(s"scenario $scenarioName engines created")
+
 		scenario.registerGameComponents(gameEngine, universe)
 		scenario.registerGraphicsComponents(graphicsEngine, universe)
 		scenario.registerControlComponents(controlEngine, universe)
+
+		Metrics.checkpoint(s"scenario $scenarioName components registered")
 
 		def componentInitializer(any : Any) = any match {
 			case gameComponent : GameComponent => gameEngine.initializeComponent(gameComponent)
@@ -68,14 +87,35 @@ class Engine extends EngineCore with TEventUser {
 		context = graphicsEngine.resolveComponents(context, componentInitializer)
 		context = controlEngine.resolveComponents(context, componentInitializer)
 
+		Metrics.checkpoint(s"scenario $scenarioName components resolved")
+
 		gameEngine.initialize(scenario.serialGameEngine(universe))
+		Metrics.checkpoint(s"scenario $scenarioName game engine initialized")
 		graphicsEngine.initialize(scenario.serialGraphicsEngine(universe))
+		Metrics.checkpoint(s"scenario $scenarioName graphics engine initialized")
 		controlEngine.initialize(scenario.serialControlEngine(universe))
+		Metrics.checkpoint(s"scenario $scenarioName control engine initialized")
 
 		engines = List(gameEngine, graphicsEngine, controlEngine)
 		this.gameEngine = Some(gameEngine)
 		this.graphicsEngine = Some(graphicsEngine)
 		this.controlEngine = Some(controlEngine)
+
+		Metrics.checkpoint(s"scenario $scenarioName load finished")
+	}
+
+	def assignWorlds(event : Event) : Event = event match {
+		case ge : GameEvent =>
+			for (engine <- this.gameEngine) {
+				ge.world = engine.world
+			}
+			ge
+		case ce : ControlEvent =>
+			for (engine <- this.controlEngine) {
+				ce.withWorlds(engine.gameEngine.world, engine.displayWorld)
+			}
+			ce
+		case e => e
 	}
 
 	override def update(deltaSeconds: Float): Unit = {
@@ -92,7 +132,7 @@ class Engine extends EngineCore with TEventUser {
 		case KeyPressEvent(key,_,_) if key == GLFW.GLFW_KEY_F2 =>
 			ResourceManager.refreshImages()
 			ResourceManager.reloadShaders()
-		case e : Event => for (ce <- controlEngine) { ce.eventBus.fireEvent(e) }
+		case e : ControlEvent => for (ce <- controlEngine) { ce.eventBus.fireEvent(e) }
 	}
 
 	// Transform callbacks into event objects
@@ -132,6 +172,10 @@ class Engine extends EngineCore with TEventUser {
 		val event = ScrollEvent(ReadVec2f(dx,dy), KeyboardMirror.activeModifiers)
 		this.handleEvent(event)
 	}
+
+
+	/* Make sure every event has its worlds assigned, if relevant, before handling */
+	override def handleEvent(event: Event): Boolean = super.handleEvent(assignWorlds(event))
 
 	def main (args : Array[String]): Unit = {
 		scalaMain(args)

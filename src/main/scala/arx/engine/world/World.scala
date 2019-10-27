@@ -11,9 +11,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 import arx.application.Noto
 import arx.core.introspection._
-import arx.engine.data.{TAuxData, TMutableAuxData}
-import arx.engine.entity.Entity
+import arx.engine.data.{TAuxData, TMutableAuxData, TWorldAuxData}
+import arx.engine.entity.{Entity, IdentityData}
 import arx.engine.event.GameEvent
+import com.carrotsearch.hppc.LongLongOpenHashMap
+import overlock.atomicmap.AtomicMap
 
 import scala.reflect.ClassTag
 
@@ -30,7 +32,6 @@ case class GameEventClock(time : Int) extends AnyVal {
 
 
 trait Modifier[T] {
-	val tag : ClassTag[T]
 
 	def apply(value : T) : Unit
 
@@ -42,12 +43,12 @@ trait Modifier[T] {
 
 	def impact : Impact
 }
-case class LambdaModifier[T](function : T => Unit, description : String, impact : Impact)(implicit val tag : ClassTag[T]) extends Modifier[T] {
+case class LambdaModifier[T](function : T => Unit, description : String, impact : Impact) extends Modifier[T] {
 	def apply(value : T) : Unit = {
 		function(value)
 	}
 }
-case class  FieldOperationModifier[C, T](field : Field[C,T], operation : Transformation[T])(implicit val tag : ClassTag[C]) extends Modifier[C] {
+case class  FieldOperationModifier[C, T](field : Field[C,T], operation : Transformation[T]) extends Modifier[C] {
 	def apply(dataObj : C): Unit = {
 		val oldValue = field.getter(dataObj)
 		val newValue = operation.apply(oldValue)
@@ -57,7 +58,7 @@ case class  FieldOperationModifier[C, T](field : Field[C,T], operation : Transfo
 	def description = operation.asSimpleString
 	def impact = operation.impact
 }
-case class NestedModifier[C,T <: AnyRef,V](topField : Field[C,T], nestedOperation : Modifier[T])(implicit val tag : ClassTag[C]) extends Modifier[C]{
+case class NestedModifier[C,T <: AnyRef,V](topField : Field[C,T], nestedOperation : Modifier[T]) extends Modifier[C]{
 	override def apply(dataObject: C): Unit = {
 		val nestedData = topField.getter(dataObject)
 		val clonedData = CopyAssistant.copy(nestedData)
@@ -68,7 +69,7 @@ case class NestedModifier[C,T <: AnyRef,V](topField : Field[C,T], nestedOperatio
 	def description = nestedOperation.description
 	def impact = nestedOperation.impact
 }
-case class NestedKeyedModifier[C, K, V <: AnyRef, NV](topField : Field[C, Map[K, V]], key : K, nestedModifier : Modifier[V])(implicit val tag : ClassTag[C]) extends Modifier[C] {
+case class NestedKeyedModifier[C, K, V <: AnyRef, NV](topField : Field[C, Map[K, V]], key : K, nestedModifier : Modifier[V]) extends Modifier[C] {
 	override def apply(dataObject: C): Unit = {
 		val nestedMap = topField.getter(dataObject)
 		nestedMap.get(key) match {
@@ -86,7 +87,7 @@ case class NestedKeyedModifier[C, K, V <: AnyRef, NV](topField : Field[C, Map[K,
 }
 
 
-class Modification(val modifiedType : Class[_], val entity : Entity, val modifier : Modifier[_], val source : Option[String], var toggles : List[(GameEventClock, Boolean)] = Nil) {
+case class Modification(modifiedType : Class[_], entity : Entity,modifier : Modifier[_],source : Option[String], var toggles : List[(GameEventClock, Boolean)] = Nil) {
 	def isActiveAt(time : GameEventClock) : Boolean = if (toggles.isEmpty) {
 		true
 	} else {
@@ -107,50 +108,59 @@ object EventState {
 	case object Ended extends EventState {}
 }
 
-protected[engine] class EventWrapper(val event : GameEvent, val occurredAt : GameEventClock, val state : EventState, val modificationIndexLimit : Int)
+protected[engine] class EventWrapper(val event : GameEvent, val occurredAt : GameEventClock, val modificationIndexLimit : Int) {
+	def state = event.state
+
+	override def toString: String = s"EventWrapper($event, $occurredAt, $modificationIndexLimit)"
+}
 protected[engine] class EntityWrapper(val entity : Entity, val addedAt : GameEventClock)
 protected[engine] class EntityDataWrapper[T](val data : T, val addedAt : GameEventClock)
 protected[engine] case class EntityDataRegistration(entity : Entity, dataType : Class[_], atTime : GameEventClock)
 
 class World {
-	protected var entityCounter = new AtomicLong(0)
-	protected var dataRegistrations = Vector[EntityDataRegistration]()
+	protected[world] var entityCounter = new AtomicLong(0)
+	protected[world] var dataRegistrations = Vector[EntityDataRegistration]()
+	protected[world] val foreignEntities = AtomicMap.atomicNBHM[Long,Long]
 
-	var onEntityAddedCallbacks = List[Entity => Unit]()
-	var onEntityRemovedCallbacks = List[Entity => Unit]()
-	var onDataAddedCallbacks = List[(Entity, TAuxData) => Unit]()
+	var onEntityAddedCallbacks = List[(World, Entity) => Unit]()
+	var onEntityRemovedCallbacks = List[(World, Entity) => Unit]()
+	var onDataAddedCallbacks = List[(World, Entity, TAuxData) => Unit]()
+	var onEventCallbacks = List[(World, GameEvent) => Unit]()
 
-	protected val coreView : WorldView = new WorldView(this)
-	protected val currentView : WorldView = new WorldView(this)
+	protected[world] val coreView : WorldView = initializeCoreView()
+	protected[world] val currentView : WorldView = initializeCurrentView()
+	protected def initializeCoreView() : WorldView = new WorldView(this)
+	protected def initializeCurrentView() : WorldView = new WorldView(this)
 
-	protected val selfEntity : Entity = createEntity()
+	protected[world] var selfEntity : Entity = createEntity()
 
 	coreView.selfEntity = selfEntity
 	currentView.selfEntity = selfEntity
 
 	DebugWorld.world = this
 
+	register[IdentityData]()
+
 	def nextTime = coreView.nextTime
 	def currentTime = coreView.currentTime
 
 	// todo: rfind
-	def eventAt(eventClock : GameEventClock) = coreView.events.find(e => e.occurredAt == eventClock)
+	def eventAt(eventClock : GameEventClock) = coreView.wrappedEvents.find(e => e.occurredAt == eventClock)
 
-	def register[T <: TAuxData]()(implicit tag : ClassTag[T]) : World = {
-		val coreDataStore = new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
-		coreView.dataStores += tag.runtimeClass -> coreDataStore
-		// mutable data shares references in all views, non-mutable data gets its own ledger based copy
-		if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) {
-			currentView.dataStores += tag.runtimeClass -> coreDataStore
-		} else {
-			currentView.dataStores += tag.runtimeClass -> new EntityDataStore[T](tag.runtimeClass.asInstanceOf[Class[T]])
-		}
-		this
+	def register[T <: TAuxData]()(implicit tag : ClassTag[T]) : this.type = {
+		registerClass(tag.runtimeClass.asInstanceOf[Class[T]])
 	}
 
-	def registerClass(clazz : Class[_ <: TAuxData]) : Unit = {
-		coreView.dataStores += clazz -> new EntityDataStore(clazz)
-		currentView.dataStores += clazz -> new EntityDataStore(clazz)
+	def registerClass(clazz : Class[_ <: TAuxData]) : this.type = {
+		val coreDataStore = new EntityDataStore(clazz)
+		coreView.dataStores += clazz -> coreDataStore
+		// mutable data shares references in all views, non-mutable data gets its own ledger based copy
+		if (classOf[TMutableAuxData].isAssignableFrom(clazz)) {
+			currentView.dataStores += clazz -> coreDataStore
+		} else {
+			currentView.dataStores += clazz -> new EntityDataStore(clazz)
+		}
+		this
 	}
 
 	def registerSubtypesOf[T <: TAuxData]()(implicit tag : ClassTag[T]) : Unit = {
@@ -160,12 +170,33 @@ class World {
 	def createEntity(providedId : Long = -1) : Entity = {
 		val newId = if (providedId == -1) { entityCounter.incrementAndGet() } else { providedId }
 		val newEnt = new Entity(newId)
-		coreView.entities :+= new EntityWrapper(newEnt, nextTime)
-		currentView.entities = coreView.entities
+		coreView._entities :+= new EntityWrapper(newEnt, nextTime)
+		currentView._entities = coreView._entities
 
-		onEntityAddedCallbacks.foreach(c => c(newEnt))
+		onEntityAddedCallbacks.foreach(c => c(this, newEnt))
 
 		newEnt
+	}
+
+	def destroyEntity(entity : Entity) : Unit = {
+		if (coreView.dataStores.exists(ds => !classOf[TMutableAuxData].isAssignableFrom(ds._1) && ds._2.contains(entity))) {
+			Noto.error("Cannot destroy entities with non-mutable data types")
+		} else {
+			coreView.dataStores.foreach(ds => {
+				ds._2.remove(entity)
+			})
+			coreView._entities = coreView._entities.filterNot(ew => ew.entity == entity)
+			currentView._entities = coreView._entities
+			// todo: maybe track _all_ created views and remove from all of them
+			onEntityRemovedCallbacks.foreach(c => c(this, entity))
+		}
+	}
+
+	/**
+	 * Creates an entity representation of an entity from another world, will always return the same entity when given the same foreign entity
+	 */
+	def createForeignEntity(foreign : Entity) : Entity = {
+		new Entity(foreignEntities.getOrElseUpdate(foreign.id, createEntity().id))
 	}
 
 	def data[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : T = {
@@ -174,7 +205,7 @@ class World {
 				val newCreation = !hasData[T](entity)
 				val data = store.asInstanceOf[EntityDataStore[T]].getOrElseUpdate(entity, currentTime)
 				if (newCreation) {
-					onDataAddedCallbacks.foreach(cb => cb(entity, data))
+					onDataAddedCallbacks.foreach(cb => cb(this, entity, data))
 				}
 				data
 			case None =>
@@ -183,10 +214,10 @@ class World {
 		}
 	}
 
-	def allData(entity : Entity) : Iterable[_ <: TAuxData] = {
+	def allData(entity : Entity) : Iterable[_ <: TMutableAuxData] = {
 		coreView.dataStores.values.flatMap(ds => {
-			ds.getOpt(entity)
-		})
+			ds.getOpt(entity).filter(v => classOf[TMutableAuxData].isAssignableFrom(v.getClass))
+		}).asInstanceOf[Iterable[_ <: TMutableAuxData]]
 	}
 
 	def dataOpt[T <: TMutableAuxData](entity : Entity)(implicit tag : ClassTag[T]) : Option[T] = {
@@ -203,22 +234,28 @@ class World {
 		coreView.hasData[T](entity)
 	}
 
+	def apply[T <: TMutableAuxData with TWorldAuxData](implicit tag : ClassTag[T]) : T = worldData[T]
+
 	def worldData[T <: TMutableAuxData](implicit tag : ClassTag[T]) : T = {
 		data[T](selfEntity)
 	}
 
-	def attachData (entity : Entity) = {
+	final def attachData (entity : Entity) = {
 		new AttachDataBuilder(this, entity)
 	}
 
-	def attachData[T <: TAuxData](entity : Entity, data : T)(implicit tag : ClassTag[T]) : Unit = {
-		val viewsToAlter = if (classOf[TMutableAuxData].isAssignableFrom(tag.runtimeClass)) {
+	final def attachData[T <: TAuxData](entity : Entity, data : T)(implicit tag : ClassTag[T]) : Unit = {
+		attachDataByClass(entity, data, tag.runtimeClass.asInstanceOf[Class[_ <: TAuxData]])
+	}
+
+	def attachDataByClass(entity : Entity, data : TAuxData, runtimeClass : Class[_ <: TAuxData]) : Unit = {
+		val viewsToAlter = if (classOf[TMutableAuxData].isAssignableFrom(runtimeClass)) {
 			List(coreView)
 		} else {
 			List(coreView, currentView)
 		}
 		for (view <- viewsToAlter) {
-			view.dataStores.get(tag.runtimeClass) match {
+			view.dataStoreForClassOpt(runtimeClass) match {
 				case Some(dataStore) => {
 					val dataToProvide = if (!(view eq coreView)) {
 						CopyAssistant.copy(data)
@@ -228,23 +265,23 @@ class World {
 					dataStore.putUntyped(entity, dataToProvide, currentTime)
 				}
 				case None => {
-					register[T]()
-					attachData[T](entity, data)
+					registerClass(runtimeClass)
+					attachDataByClass(entity, data, runtimeClass)
 				}
 			}
 		}
 
-		dataRegistrations :+= EntityDataRegistration(entity, tag.runtimeClass, currentTime)
-		onDataAddedCallbacks.foreach(cb => cb(entity, data))
+		dataRegistrations :+= EntityDataRegistration(entity, runtimeClass, currentTime)
+		onDataAddedCallbacks.foreach(cb => cb(this, entity, data))
 	}
 
-	def attachDataWith[T <: TAuxData](entity : Entity, dataInit : T => Unit)(implicit tag : ClassTag[T]) : Unit = {
+	final def attachDataWith[T <: TAuxData](entity : Entity, dataInit : T => Unit)(implicit tag : ClassTag[T]) : Unit = {
 		val newData = ReflectionAssistant.instantiate(tag.runtimeClass.asInstanceOf[Class[T]])
 		dataInit(newData)
 		attachData(entity, newData)
 	}
 
-	def attachWorldData[T <: TAuxData] (data : T)(implicit tag : ClassTag[T]) : Unit = {
+	final def attachWorldData[T <: TAuxData] (data : T)(implicit tag : ClassTag[T]) : Unit = {
 		attachData[T](selfEntity, data)
 	}
 
@@ -258,11 +295,11 @@ class World {
 		new ModifierReference(index)
 	}
 
-	def modify[T](entity : Entity, modifier : Modifier[T], source : String)(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modify[T](entity : Entity, modifier : Modifier[T], source : String)(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(entity, modifier, Some(source))
 	}
 
-	def modifyWorld[T](modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modifyWorld[T](modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(selfEntity, modifier, source)
 	}
 
@@ -290,10 +327,10 @@ class World {
 
 		view.nextDataRegistrationsIndex += newDataRegistrations.size
 
-		val nextModificationStart = view.events.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
-		val newEvents = coreView.events.slice(view.nextTime.time, time.asInt+1) // +1 because we want to go up to and include the given time
+		val nextModificationStart = view.wrappedEvents.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
+		val newEvents = coreView.wrappedEvents.slice(view.nextTime.time, time.asInt+1) // +1 because we want to go up to and include the given time
 		view._events ++= newEvents
-		val nextModificationLimit = view.events.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
+		val nextModificationLimit = view.wrappedEvents.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
 
 		val newModifications = coreView.modifications.slice(nextModificationStart, nextModificationLimit)
 		newModifications.foreach(mod => view.applyModification(mod))
@@ -302,15 +339,18 @@ class World {
 
 	protected[engine] def pushEvent(event : GameEvent, state : EventState): Unit = {
 		val time = nextTime
-		val eventWrapper = new EventWrapper(event, time, state, coreView.modifications.size)
+		event.world = this
+		event.state = state
+		val eventWrapper = new EventWrapper(event, time, coreView.modifications.size)
 		coreView._events :+= eventWrapper
-		currentView._events = coreView.events
+		currentView._events = coreView.wrappedEvents
+		onEventCallbacks.foreach(cb => cb(this, event))
 	}
 
-	def startEvent(event : GameEvent): Unit = { this.pushEvent(event, EventState.Started) }
-	def continueEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Continues) }
-	def endEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Ended) }
-	def addEvent(event : GameEvent) : Unit = {
+	final def startEvent(event : GameEvent): Unit = { this.pushEvent(event, EventState.Started) }
+	final def continueEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Continues) }
+	final def endEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Ended) }
+	final def addEvent(event : GameEvent) : Unit = {
 		this.pushEvent(event, EventState.Started)
 		this.pushEvent(event, EventState.Ended)
 	}
@@ -319,6 +359,8 @@ class World {
 		val rawData = coreView.data[C](entity)
 		currentView.dataModificationLog[C](entity, rawData)
 	}
+
+	def isHypothetical = false
 }
 
 class AttachDataBuilder(world : World, entity : Entity) {

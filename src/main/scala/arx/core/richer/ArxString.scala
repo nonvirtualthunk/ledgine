@@ -182,6 +182,14 @@ class ArxString(val intern: String) extends AnyVal {
 			pad.toString() + intern
 		}
 	}
+
+	def ensureEndsWith(str : String) = {
+		if (intern.endsWith(str)) {
+			intern
+		} else {
+			intern + str
+		}
+	}
 }
 
 object ArxString {

@@ -37,17 +37,7 @@ class ArxList[+T](val intern : List[T]) extends AnyVal{
 		}
 		ret
 	}
-	def findFirstWith[U] ( f : (T) => Option[U] ) : Option[(T,U)] = {
-		val i = intern.iterator
-		while ( i.hasNext ) {
-			val e = i.next()
-			f(e) match {
-				case Some(v) => return Some((e,v))
-				case _ =>
-			}
-		}
-		None
-	}
+
 	def without[U >: T] ( t : U ) : List[T] = intern.filterNot { e : T => e == t }
 
 	def sliding2: Iterator[(T,T)] = {

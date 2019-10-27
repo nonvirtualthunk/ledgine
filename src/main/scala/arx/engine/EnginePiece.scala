@@ -14,18 +14,18 @@ import arx.core.Dependency
 import arx.core.async.KillableThread
 import arx.core.metrics.Metrics
 import arx.core.units.UnitOfTime
-import arx.engine.event.EventBus
+import arx.engine.event.{Event, EventBus}
 import arx.engine.traits.EngineComponent
 import arx.engine.world.{Universe, World}
 
 
-abstract class EnginePiece[T <: EnginePiece[T, Component], Component <: EngineComponent[T] : Manifest](val universe : Universe) {
+abstract class EnginePiece[T <: EnginePiece[T, Component, EventType], Component <: EngineComponent[T] : Manifest, EventType <: Event](val universe : Universe) {
 	var parallelism = 3
 	var components = List[Component]()
 	protected var componentClasses = List[Class[_ <: Component]]()
 	var updateThreads = List[KillableThread]()
 	var serial = false
-	val eventBus = new EventBus
+	val eventBus = new EventBus[EventType]
 
 	protected var initialized = false
 

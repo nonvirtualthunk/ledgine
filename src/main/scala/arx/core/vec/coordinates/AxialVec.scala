@@ -15,8 +15,8 @@ case class AxialVec(q: Int, r: Int) {
 		((q - other.q).abs + (q + r - other.q - other.r).abs + (r - other.r).abs) / 2.0f
 	}
 
-	def asCartesian: CartVec = CartVec(q * 0.75f, (r + q * 0.5f) * 0.866025388f)
-	def asCartesian(scale : Float) = Vec2f(q * 0.75f * scale, (r + q / 2.0f) * 0.866025388f * scale)
+	def asCartesian(): CartVec = CartVec(q * 0.75f, (r + q * 0.5f) * 0.866025388f)
+	def asCartesian(scale : Float) : Vec2f = Vec2f(q * 0.75f * scale, (r + q / 2.0f) * 0.866025388f * scale)
 
 	def cartesianX(scale : Float = 1.0f) = q * 0.75f * scale
 	def cartesianY(scale : Float = 1.0f) = (r + q * 0.5f) * 0.866025388f * scale
@@ -133,3 +133,43 @@ object HexDirection {
 	val UpperLeft = new HexDirection(4)
 	val Top = new HexDirection(5)
 }
+
+object Hex {
+	def heightForSize(size : Float) = size * 0.86602f
+}
+
+case class HexRingIterator(axialCenter : AxialVec, radius : Int) extends Iterator[AxialVec] {
+	val center = axialCenter.asCubeVec + CubeVec.CubeDelta(4) * radius
+	var i = 0
+	var j = 0
+	var cur = center
+
+	override def hasNext: Boolean = {
+		(radius == 0 && i == 0 && j == 0) || (i< 6 && j < radius)
+	}
+
+	override def next(): AxialVec = {
+		if (radius == 0) {
+			if (i == 0 && j == 0) {
+				j = 1
+				return cur.asAxialVec
+			}
+		} else {
+			if (i < 6) {
+				if (j < radius) {
+					val ret = cur
+					cur = cur + CubeVec.CubeDelta(i)
+					j += 1
+					if (j >= radius) {
+						j = 0
+						i += 1
+					}
+					return ret.asAxialVec
+				}
+			}
+		}
+		throw new IllegalStateException("Empty ring iterator")
+	}
+}
+
+

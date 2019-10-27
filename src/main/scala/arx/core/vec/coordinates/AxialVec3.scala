@@ -9,6 +9,7 @@ import scala.language.implicitConversions
   * Axial vec with an additional layer parameter indicating elevation
   */
 case class AxialVec3(q : Int, r : Int, l : Int) {
+
 	def asCubeVec = CubeVec(q, -q - r, r)
 
 	def neighbor(n: Int) = this + AxialVec.AxialDelta(n)
@@ -47,4 +48,8 @@ object AxialVec3 {
 	val Zero = AxialVec3(0,0,0)
 
 	implicit def asAxialVec(v3 : AxialVec3) : AxialVec = v3.qr
+
+	def apply(v : AxialVec, l : Int) : AxialVec3 = {
+		new AxialVec3(v.q,v.r,l)
+	}
 }

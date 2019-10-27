@@ -27,6 +27,15 @@ class Taxon(val name : String, val parents : List[Taxon]) {
 			case _ => false
 		}
 	}
+
+	/**
+	 * Gets a list consisting of this taxon and all of its ancestors, excluding any branch containing the given limit
+	 */
+	def selfAndAncestorsUpTo(limit : Taxon) : List[Taxon] = this :: parents.filter(_ != limit).flatMap(_.selfAndAncestorsUpTo(limit))
+
+	override def hashCode(): Int = name.hashCode
+
+	override def toString: String = name
 }
 object Taxon {
 	def apply(name : String, parents : Taxon*) : Taxon = {

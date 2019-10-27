@@ -87,6 +87,7 @@ object Noto {
 		}
 	}
 
+
 	@elidable(elidable.FINEST) def finest ( llp: TLoggingLevelProvider , msg : => String ) {
 		if ( llp.loggingLevel >= Noto.Finest ) {
 			printMsg(msg)
@@ -153,7 +154,7 @@ object Noto {
 }
 
 trait TLoggingLevelProvider {
-	def loggingLevel : Int = Noto.Info
+	def loggingLevel : Int
 }
 class SimpleLoggingLevelProvider(val parent : Option[TLoggingLevelProvider]) extends TLoggingLevelProvider {
 	def this() { this(None) }

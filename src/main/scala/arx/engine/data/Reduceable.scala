@@ -1,6 +1,6 @@
 package arx.engine.data
 
-class Reduceable[T : Numeric](val baseValue : T, val reducedBy : T) {
+case class Reduceable[T : Numeric](baseValue : T,reducedBy : T) {
 	def this(baseValueIn : T) {
 		this(baseValueIn, implicitly[Numeric[T]].zero)
 	}
@@ -26,6 +26,10 @@ class Reduceable[T : Numeric](val baseValue : T, val reducedBy : T) {
 
 	override def toString: String = {
 		s"$currentValue ($maxValue)"
+	}
+
+	def withBaseValue(v : T) : Reduceable[T] = {
+		new Reduceable(v, reducedBy)
 	}
 }
 

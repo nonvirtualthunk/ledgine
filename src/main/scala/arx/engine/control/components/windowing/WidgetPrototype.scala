@@ -1,9 +1,10 @@
 package arx.engine.control.components.windowing
 
 import arx.core.introspection.ReflectionAssistant
+import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
-import arx.engine.data.AuxDataConfigLoader
+import arx.engine.data.ConfigDataLoader
 import arx.resource.ResourceManager
 
 trait WidgetPrototype {
@@ -55,14 +56,34 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 		w.allData.foreach {
 			case wad : TWidgetAuxData =>
 				if (wad.autoLoadSimpleValuesFromConfig) {
-					AuxDataConfigLoader.loadSimpleValuesFromConfig(wad, config)
+					ConfigDataLoader.loadSimpleValuesFromConfig(wad, config)
 				}
-				wad.loadFromConfig(config, reload = false)
+				wad.loadFromConfig(w, config, reload = false)
 			case _ => // do nothing for not-widget data
 		}
+
+		val childFields = config.field("children").fields
+		val childIdentifiers = childFields.keys.toSet
+
+		val childrenToDelete = w.children.filterNot(w => w.configIdentifier.forall(ci => childIdentifiers.contains(ci)))
+		childrenToDelete.foreach(w => w.destroy())
+		val childrenToUpdate = w.children.filter(w => w.configIdentifier.exists(ci => childIdentifiers.contains(ci)))
+		childrenToUpdate.foreach(w => reload(w))
+		val childrenToCreate = childFields.filter(t => ! w.children.exists(w => w.configIdentifier.contains(t._1)))
+		childrenToCreate.foreach {
+			case (configIdent, _) => {
+				val prototype = new SMLWidgetPrototype(() => configFunc().field("children").fields(configIdent))
+				val child = prototype.instantiate(w.windowingSystem)
+				child.parent = w
+				child.widgetData.configIdentifier = Some(configIdent)
+			}
+		}
+
+		w.children
 	}
 }
 
+@GenerateCompanion
 class WidgetPrototypeData extends TWidgetAuxData {
 	var prototype : WidgetPrototype = WidgetPrototype.Sentinel
 }

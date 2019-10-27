@@ -79,6 +79,7 @@ object Sext {
 	def ofInt(i : Int) = new Sext(i * 6)
 	def ofSexts(s : Int) = new Sext(s)
 	def ofWholeAndParts(w : Int, p : Int) = new Sext(w * 6 + p)
+	def closestTo(f : Float) = new Sext((f * 6.0f).round)
 
 	implicit val numeric : Numeric[Sext] = new FractionalNumeric[Sext](new Sext(0))
 }

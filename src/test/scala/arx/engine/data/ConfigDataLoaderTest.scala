@@ -1,15 +1,17 @@
 package arx.engine.data
 
-import arx.core.representation.Hocon
-import arx.engine.data.AuxDataConfigLoaderTest.{SubObj, TestAuxData}
+import arx.core.representation.{ConfigValue, Hocon}
+import arx.engine.data.ConfigDataLoaderTest.{SubObj, TestAuxData, TestLoadable}
 import arx.resource.ResourceManager
 import org.scalatest.FunSuite
 import arx.Prelude._
+import arx.application.Noto
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec3i, ReadVec4f, ReadVec4i, Vec2f, Vec2i, Vec3f, Vec3i, Vec4f, Vec4i}
 
-class AuxDataConfigLoaderTest extends FunSuite {
+class ConfigDataLoaderTest extends FunSuite {
 
 	test("testLoadSimpleValuesFromConfig happy path") {
+		ConfigLoadLogging.loggingLevel = Noto.Fine
 
 		val fullConf = Hocon.parse(
 			"""
@@ -35,14 +37,29 @@ class AuxDataConfigLoaderTest extends FunSuite {
 			  |   v4i : [1,1,1,1]
 			  |   modv2 : [1.0,1.0]
 			  |
+			  |   redi : 10
+			  |   redf : 9
+			  |
 			  |   notDealtWith : "ignored"
+			  |   loadable : {
+			  |   	regularThing : "regular"
+			  |    	differentName : "custom"
+			  |   }
+			  |
+			  |	map : {
+			  | 		a : 1.0
+			  |   	b : 2.0
+			  |   }
 			  |}
 			  |""".stripMargin)
 
 		val AD = new TestAuxData
 
-		AuxDataConfigLoader.loadSimpleValuesFromConfig(AD, fullConf)
+		ConfigDataLoader.loadSimpleValuesFromConfig(AD, fullConf)
 
+		val expectedTestLoadable = new TestLoadable
+		expectedTestLoadable.regularThing = "regular"
+		expectedTestLoadable.customThing = "custom"
 		assert(AD == TestAuxData(
 			i = 9,
 			f = 23.0f,
@@ -61,7 +78,11 @@ class AuxDataConfigLoaderTest extends FunSuite {
 			v2i = Vec2i(1,1),
 			v3i = Vec3i(1,1,1),
 			v4i = Vec4i(1,1,1,1),
-			modv2 = Moddable(Vec2f(1.0f,1.0f))
+			modv2 = Moddable(Vec2f(1.0f,1.0f)),
+			redi = Reduceable(10),
+			redf = Reduceable(9.0f),
+			loadable = expectedTestLoadable,
+			map = Map("a" -> 1.0, "b" -> 2.0)
 		))
 	}
 
@@ -71,17 +92,18 @@ class AuxDataConfigLoaderTest extends FunSuite {
 
 		val AD = new TestAuxData
 
-		AuxDataConfigLoader.loadSimpleValuesFromConfig(AD, fullConf)
+		ConfigDataLoader.loadSimpleValuesFromConfig(AD, fullConf)
 
 		assert(AD == TestAuxData())
 	}
 
 
 
+
 }
 
 
-object AuxDataConfigLoaderTest {
+object ConfigDataLoaderTest {
 	protected[data] case class SubObj(
 		var x : Int = 0,
 		var y : String = "A"
@@ -105,6 +127,24 @@ object AuxDataConfigLoaderTest {
 		var v3i : ReadVec3i = Vec3i.Zero,
 		var v4i : ReadVec4i = Vec4i.Zero,
 		var modv2 : Moddable[ReadVec2f] = Moddable(Vec2f.Zero),
-		var notDealtWith : StringBuilder = new StringBuilder) extends TAuxData {
+		var notDealtWith : StringBuilder = new StringBuilder,
+		var redi : Reduceable[Int] = Reduceable(0),
+		var redf : Reduceable[Float] = Reduceable(0.0f),
+		var loadable : TestLoadable = new TestLoadable,
+		var map : Map[String, Double] = Map()) extends TAuxData {
+	}
+
+	protected class TestLoadable extends ConfigLoadable {
+		var customThing : String = ""
+		var regularThing : String = ""
+
+		override def customLoadFromConfig(config: ConfigValue): Unit = {
+			customThing = config.field("differentName").str
+		}
+
+		override def equals(obj: Any): Boolean = obj match {
+			case t : TestLoadable => t.customThing == this.customThing && t.regularThing == this.regularThing
+			case _ => false
+		}
 	}
 }

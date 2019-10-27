@@ -1,4 +1,4 @@
-package arx.engine.lworld
+package arx.engine.world
 
 /**
   * Created with IntelliJ IDEA.
@@ -7,19 +7,16 @@ package arx.engine.lworld
   * Time: 1:20 PM
   */
 
-import arx.Prelude._
 import arx.core.introspection.{Clazz, Field}
-import arx.core.vec._
 import arx.engine.data.TAuxData
 import arx.engine.event.GameEvent
-import arx.engine.world.{GameEventClock, Impact, NestedKeyedModifier, NestedModifier, World, WorldView}
 import org.scalatest.FlatSpec
 
-class FooData extends TAuxData {
-	var a : Int = 0
-	var b : Float = 0.0f
-	var nested : Nested = new Nested
-	var nestedMap : Map[AnyRef, Nested] = Map()
+case class FooData(
+	var a : Int = 0,
+	var b : Float = 0.0f,
+	var nested : Nested = new Nested,
+	var nestedMap : Map[AnyRef, Nested] = Map()) extends TAuxData {
 }
 
 case class Nested() {
@@ -51,7 +48,7 @@ case class TestEvent(i : Int) extends GameEvent {
 
 }
 
-class LWorldTest extends FlatSpec {
+class WorldTest extends FlatSpec {
 	import arx.core.introspection.FieldOperations._
 
 	"Ledger world" should "be able to add data and retrieve it from views" in {
@@ -93,7 +90,7 @@ class LWorldTest extends FlatSpec {
 
 		val foo2At1 = viewAt1.data[FooData](entity2)
 
-		assert(viewAt1.events.size == 1)
+		assert(viewAt1.wrappedEvents.size == 1)
 		assert(foo2At1.b == 0.0f)
 	}
 	

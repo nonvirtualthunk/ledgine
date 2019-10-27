@@ -2,8 +2,10 @@ package arx.engine.data
 
 import java.lang.reflect.ParameterizedType
 
+import arx.application.{Noto, TLoggingLevelProvider}
 import arx.core.introspection.ReflectionAssistant
-import arx.core.representation.ConfigValue
+import arx.core.math.Sext
+import arx.core.representation.{ConfigValue, StringConfigValue}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec3i, ReadVec4f, ReadVec4i}
 import arx.graphics.helpers.{Color, RGBA}
 import overlock.atomicmap.AtomicMap
@@ -12,7 +14,7 @@ import scala.reflect.runtime.{universe => u}
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 
-object AuxDataConfigLoader {
+object ConfigDataLoader {
 
 	var operationsByType = AtomicMap.atomicNBHM[Class[_], List[(_, ConfigValue) => Unit]]
 
@@ -22,6 +24,8 @@ object AuxDataConfigLoader {
 		Option(if (t == typeOf[Int]) {
 			c => c.int
 		} else if (t == typeOf[Float]) {
+			c => c.float
+		} else if (t == typeOf[Double]) {
 			c => c.float
 		} else if (t == typeOf[String]) {
 			c => c.str
@@ -41,6 +45,8 @@ object AuxDataConfigLoader {
 			c => ReadVec2i(c.v2)
 		} else if (t == typeOf[Color]) {
 			c => RGBA(c.v4)
+		} else if (t == typeOf[Sext]) {
+			c => Sext.closestTo(c.float)
 		} else {
 			null
 		})
@@ -80,8 +86,54 @@ object AuxDataConfigLoader {
 											ReflectionAssistant.invoke(data, setter)(res.reverse)
 										}
 									}: Unit
+								case None =>
+									Noto.fine(ConfigLoadLogging, s"Could not find extraction functions for values of list ${getter.returnType}")
+									null
+							}
+						} else if (getter.returnType.typeSymbol == typeOf[Map[Any, Any]].typeSymbol) {
+							val keyType = getter.returnType.typeArgs(0)
+							val valueType = getter.returnType.typeArgs(1)
+
+							(extractConfigValueFunctionForType(keyType), extractConfigValueFunctionForType(valueType)) match {
+								case (Some(keyFunc), Some(valueFunc)) =>
+									(data: AnyRef, config: ConfigValue) => {
+										val subConf = config.field(fieldName)
+										if (subConf.isObj) {
+											var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Map[Any, Any]].take(0)
+											for ((k,v) <- subConf.fields) {
+												val key = keyFunc(new StringConfigValue(k))
+												val value = valueFunc(v)
+												res += key -> value
+											}
+
+											ReflectionAssistant.invoke(data, setter)(res)
+										}
+									}: Unit
+								case _ =>
+									Noto.fine(ConfigLoadLogging, s"Could not find extraction functions for key/value pairs of map ${getter.returnType}")
+									null
+							}
+						} else if (getter.returnType.typeSymbol == typeOf[Reduceable[Any]].typeSymbol) {
+							val reduceableType = getter.returnType.typeArgs.head
+							extractConfigValueFunctionForType(reduceableType) match {
+								case Some(f) =>
+									(data: AnyRef, config: ConfigValue) => {
+										val subField = config.field(fieldName)
+										if (subField.nonEmpty) {
+											val base = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Reduceable[Any]]
+											ReflectionAssistant.invoke(data, setter)(base.withBaseValue(f(subField)))
+										}
+									}: Unit
 								case None => null
 							}
+						} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
+							(data : AnyRef, config : ConfigValue) => {
+								val subField = config.field(fieldName)
+								if (subField.nonEmpty) {
+									val curValue = ReflectionAssistant.invoke(data, getter)().asInstanceOf[ConfigLoadable]
+									curValue.loadFromConfig(subField)
+								}
+							} : Unit
 						} else if (getter.returnType.typeSymbol.isClass && getter.returnType.typeSymbol.asClass.isCaseClass) {
 							val subTypeOperations = computeOperationsForType(getter.returnType.typeSymbol.asClass)
 							(data: AnyRef, config: ConfigValue) => {
@@ -150,11 +202,29 @@ object AuxDataConfigLoader {
 	/**
 	 * Attempts to load all of the simple values from the given config into the given data object.
 	 */
-	def loadSimpleValuesFromConfig[T <: TAuxData](aux: T, config: ConfigValue): Unit = {
+	def loadSimpleValuesFromConfig[T](aux: T, config: ConfigValue): Unit = {
 		val ops = operationsByType.getOrElseUpdate(aux.getClass, computeOperationsForType(ReflectionAssistant.toScalaType(aux.getClass))).asInstanceOf[List[(T, ConfigValue) => Unit]]
 		ops.foreach(op => op.apply(aux, config))
 	}
 
+}
+
+trait ConfigLoadable {
+	final def loadFromConfig(config : ConfigValue): this.type = {
+		if (config.nonEmpty) {
+			if (autoLoadSimpleValuesFromConfig) {
+				ConfigDataLoader.loadSimpleValuesFromConfig(this, config)
+			}
+			customLoadFromConfig(config)
+		}
+		this
+	}
+	def customLoadFromConfig(config : ConfigValue) : Unit = {}
+	def autoLoadSimpleValuesFromConfig : Boolean = true
+}
+
+object ConfigLoadLogging extends TLoggingLevelProvider {
+	var loggingLevel : Int = Noto.Info
 }
 
 //object Tmp {

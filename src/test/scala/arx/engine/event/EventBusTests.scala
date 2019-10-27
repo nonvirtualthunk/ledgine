@@ -17,7 +17,7 @@ class EventBusTests extends FlatSpec {
 
 
 	"Event Bus in normal situation" should "allow an event to be processed by multiple readers" in {
-		val bus = new EventBus
+		val bus = new EventBus[GameEvent]
 
 		val listener1 = bus.createListener()
 		val listener2 = bus.createListener()
@@ -51,7 +51,7 @@ class EventBusTests extends FlatSpec {
 	}
 
 	"An empty Event Bus" should "cause nothing to happen with its listeners" in {
-		val bus = new EventBus
+		val bus = new EventBus[GameEvent]
 
 		val listener = bus.createListener()
 		listener.onEvent {
@@ -62,7 +62,7 @@ class EventBusTests extends FlatSpec {
 	}
 
 	"An Event Bus with many events" should "be properly consumed without crashing" in {
-		val bus = new EventBus
+		val bus = new EventBus[GameEvent]
 
 		var allValues = Set[Int]()
 		var seen = Set[Int]()

@@ -17,13 +17,13 @@ import arx.engine.world.World
 
 
 
-abstract class EngineComponent[PieceType <: EnginePiece[_, _]] extends TDependable {
+abstract class EngineComponent[PieceType <: EnginePiece[_, _, _]] extends TDependable {
 	val updateInProgress = new AtomicBoolean(false)
 	val lastUpdated = new AtomicReference(0.seconds)
 	var initialized = false
 	var updateInterval = (1/60.0).seconds
 
-	var listeners : List[EventBusListener] = Nil
+	var listeners : List[EventBusListener[_]] = Nil
 
 	final def update(engine : PieceType, dt : UnitOfTime): Unit = {
 		if (!initialized) {

@@ -8,7 +8,7 @@ import arx.engine.control.components.windowing.WindowingControlComponent
 import arx.engine.control.components.windowing.widgets.PositionExpression.{Match, Relative}
 import arx.engine.control.components.windowing.widgets.{ImageDisplayWidget, PositionExpression, TextDisplayWidget}
 import arx.engine.control.data.WindowingControlData
-import arx.engine.control.event.KeyPressEvent
+import arx.engine.control.event.{KeyPressEvent, MousePressEvent}
 import arx.engine.data.Moddable
 import arx.engine.game.GameEngine
 import arx.engine.graphics.GraphicsEngine
@@ -33,17 +33,30 @@ object WindowingSystemEngine extends Engine {
 
 			val loaded = WD.desktop.createChild("DemoWidgets.DemoWidget")
 
-			val text = WD.desktop.createChild(TextDisplayWidget)
-			text.text = Moddable(RichText("Hello, world!"))
-			text.y = Relative(loaded, 20, Cardinals.Down)
-			text.x = Match(loaded)
-			text.backgroundImage = Some(ResourceManager.image("ui/minimalistBorder_ne.png"))
+			var keyCounter = 0
+
+			val text = WD.desktop.createChild("DemoWidgets.DemoText")
+
+			WD.desktop.bind("demoBinding.presses", () => keyCounter)
+			WD.desktop.bind("demoBinding.mode", "Waiting on presses")
+			WD.desktop.bind("demoBinding.icon", ResourceManager.image("ui/plusSign.png"))
+			WD.desktop.bind("demoBinding.textData", "Bound Data")
+			WD.desktop.bind("demoBinding.image", ResourceManager.image("ui/hammer.png"))
 
 			onControlEvent {
 				case KeyPressEvent(key, modifiers, _) if key == GLFW.GLFW_KEY_R && modifiers.ctrl => {
 					ResourceManager.refreshSML()
 					WD.desktop.windowingSystem.reloadWidgets()
 				}
+				case KeyPressEvent(_,_,_) => {
+					text.bind("demoBinding.mode", "Counting presses")
+					keyCounter += 1
+				}
+			}
+
+			text.onEvent {
+				case MousePressEvent(_,_,_) =>
+					println(s"Text bound data : ${text.boundData.get}")
 			}
 		}
 	}

@@ -8,7 +8,7 @@ package arx.engine.event
  */
 
 
-class Event {
+trait Event {
 	protected var _consumed = false
 
 	def consume(): Unit = { _consumed = true }

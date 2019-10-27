@@ -140,8 +140,28 @@ object FieldOperations {
 		override def impact = Impact.Positive
 	}
 
-	case class Append[U](value : U) extends Transformation[Seq[U]] {
+	case class AppendSeq[U](value : U) extends Transformation[Seq[U]] {
 		override def transform(oldValue: Seq[U]): Seq[U] = {
+			oldValue :+ value
+		}
+
+		override def asSimpleString: String = s":+ $value"
+
+		override def impact = Impact.Positive
+	}
+
+	case class AppendList[U](value : U) extends Transformation[List[U]] {
+		override def transform(oldValue: List[U]): List[U] = {
+			oldValue :+ value
+		}
+
+		override def asSimpleString: String = s":+ $value"
+
+		override def impact = Impact.Positive
+	}
+
+	case class AppendVector[U](value : U) extends Transformation[Vector[U]] {
+		override def transform(oldValue: Vector[U]): Vector[U] = {
 			oldValue :+ value
 		}
 
@@ -188,7 +208,7 @@ object FieldOperations {
 		override def impact = Impact.Negative
 	}
 
-	implicit class NumericField[C, T: Numeric](field: Field[C, T])(implicit val tag : ClassTag[C]) {
+	implicit class NumericField[C, T: Numeric](field: Field[C, T]) {
 		def +(value: T) = FieldOperationModifier(field, Add(value))
 
 		def -(value: T) = FieldOperationModifier(field, Sub(value))
@@ -196,31 +216,39 @@ object FieldOperations {
 		def *(value: T) = FieldOperationModifier(field, Mul(value))
 	}
 
-	implicit class IntegralField[C, T: Integral](field: Field[C, T])(implicit val tag : ClassTag[C]) {
+	implicit class IntegralField[C, T: Integral](field: Field[C, T]) {
 		def /(divisor: T) = FieldOperationModifier(field, Div(divisor))
 	}
 
-	implicit class SettableField[C,T](field : Field[C,T])(implicit val tag : ClassTag[C]) {
+	implicit class SettableField[C,T](field : Field[C,T]) {
 		def -> (value : T) = FieldOperationModifier(field, SetTo(value))
 		def setTo (value : T) = FieldOperationModifier(field, SetTo(value))
 	}
 
-	implicit class SeqField[C,U](field : Field[C,Seq[U]])(implicit val tag : ClassTag[C]) {
-		def append(elem : U) = FieldOperationModifier(field, Append(elem))
+	implicit class SeqField[C,U](field : Field[C,Seq[U]]) {
+		def append(elem : U) = FieldOperationModifier(field, AppendSeq(elem))
 	}
 
-	implicit class MapField[C,K,V](field : Field[C,Map[K,V]])(implicit val tag : ClassTag[C]) {
+	implicit class ListField[C,U](field : Field[C,List[U]]) {
+		def append(elem : U) = FieldOperationModifier(field, AppendList(elem))
+	}
+
+	implicit class VectorField[C,U](field : Field[C,Vector[U]]) {
+		def append(elem : U) = FieldOperationModifier(field, AppendVector(elem))
+	}
+
+	implicit class MapField[C,K,V](field : Field[C,Map[K,V]]) {
 		def put(key : K, value : V) = FieldOperationModifier(field, SetKey((key,value)))
 		def +(entry : (K,V)) = FieldOperationModifier(field, SetKey(entry))
 		def remove(key : K) = FieldOperationModifier[C,Map[K,V]](field, RemoveKey(key))
 	}
 
-	implicit class SetField[C,V](field : Field[C,collection.immutable.Set[V]])(implicit val tag : ClassTag[C]) {
+	implicit class SetField[C,V](field : Field[C,collection.immutable.Set[V]]) {
 		def + (value : V) = FieldOperationModifier(field, InsertValue(value))
 		def - (value : V) = FieldOperationModifier(field, RemoveValue(value))
 	}
 
-	implicit class ReduceableField[C, T : Numeric](field: Field[C, Reduceable[T]])(implicit val tag : ClassTag[C]) {
+	implicit class ReduceableField[C, T : Numeric](field: Field[C, Reduceable[T]]) {
 		def reduceBy(value: T) = FieldOperationModifier(field, ReduceBy(value, limitToZero = true))
 
 		def reduceBy(value: T, limitToZero : Boolean) = FieldOperationModifier(field, ReduceBy(value, limitToZero))

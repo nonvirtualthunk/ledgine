@@ -13,13 +13,27 @@ import arx.Prelude._
 import arx.core.async.Executor
 import arx.core.macros.GenerateCompanion
 import arx.core.vec._
-import arx.engine.data.TAuxData
+import arx.engine.data.{TAuxData, TNestedData, TTestAuxData}
 
 
 abstract class Clazz[C](val className: String, val runtimeClass: Class[C]) {
+	def Sentinel : C
+	def instantiate : C = ReflectionAssistant.instantiate(runtimeClass)
+
 	var fields: Map[String, Field[C, _]] = Map()
 
 	def allFields = fields.values
+
+	override def toString: String = className
+}
+
+object Clazz {
+	lazy val allClazzes : List[_ <: Clazz[_]] = ReflectionAssistant.instancesOfSubtypesOf(classOf[Clazz[_]])
+	lazy val fromName : Map[String, Clazz[_]] = allClazzes.map(c => c.className -> c).toMap
+	private lazy val _fromClass : Map[Class[_], Clazz[_]] = allClazzes.map(c => c.runtimeClass -> c).toMap
+
+	def fromClass[T](klass : Class[T]) : Clazz[T] = _fromClass(klass).asInstanceOf[Clazz[T]]
+
 }
 
 trait UntypedField {
@@ -82,9 +96,13 @@ object Field {
 
 object FieldGenerator {
 	def main(args: Array[String]): Unit = {
+		generate(args.headOption.getOrElse(""), testClasses = if (args.length == 2) { args(1).toBoolean } else { false })
+	}
 
-
-		for ((packageName, clazzes) <- ReflectionAssistant.allSubTypesOf[TAuxData]
+	def generate(prefixFilter : String, testClasses : Boolean) {
+		for ((packageName, clazzes) <- (ReflectionAssistant.allSubTypesOf[TAuxData] ::: ReflectionAssistant.allSubTypesOf[TNestedData])
+		   .filter(clazz => clazz.getPackage.getName.startsWith(prefixFilter))
+		   .filter(clazz => classOf[TTestAuxData].isAssignableFrom(clazz) == testClasses)
 			.filter(clazz => clazz.getAnnotations.exists(a => a.annotationType() == classOf[GenerateCompanion]))
 			.groupBy(st => st.getPackage.getName)) {
 			val body = new StringBuilder
@@ -104,6 +122,7 @@ object FieldGenerator {
 				val className = clazz.getSimpleName
 				addLine(s"""object ${className} extends Clazz[$className]("$className", classOf[$className]){""")
 				addLine(s"\tval Sentinel = new $className")
+				addLine(s"\toverride def instantiate = new $className")
 				for (field <- clazz.getDeclaredFields) {
 					var fieldName = field.getName
 					if (fieldName.startsWith("_")) {
@@ -122,7 +141,10 @@ object FieldGenerator {
 
 			addLine("}")
 
-			val dirName = "target/generated-sources/scala/" + packageName.replace('.', '/')
+//			val genSrcDir = if (testClasses) { "generated-test-sources" } else { "generated-sources" }
+			val genSrcDir = if (testClasses) { "test" } else { "main" }
+//			val dirName = s"target/$genSrcDir/scala/${packageName.replace('.', '/')}"
+			val dirName = s"src/$genSrcDir/scala/${packageName.replace('.', '/')}"
 			val fileName =  dirName + "/Companions.scala"
 			Files.createDirectories(Paths.get(dirName))
 			writeToFile(fileName, body.toString())

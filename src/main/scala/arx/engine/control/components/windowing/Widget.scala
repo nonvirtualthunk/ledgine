@@ -38,7 +38,7 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	override def isSentinel: Boolean = entity.isSentinel
 
 	def close(): Unit = {
-		widgetData.onClose()
+		destroy()
 	}
 
 	def attachData[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
@@ -51,6 +51,10 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	def withWidgetData(f : WidgetData => Unit) : Unit = { f(this.data[WidgetData]) }
 	def withDrawingData(f : DrawingData => Unit) : Unit = { f(this.data[DrawingData]) }
 
+	def destroy(): Unit = {
+		widgetData.onClose()
+		windowingSystem.destroyWidget(this)
+	}
 
 	def createChild[U <: WidgetInstance, D <: TWidgetAuxData](ofType: WidgetConstructor[U]) : U = {
 		val w = windowingSystem.createWidget()
@@ -58,12 +62,12 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 		ofType.initializeWidget(w)
 	}
 
-	def createChild(identifier : String) : Widget = {
-		val sections = identifier.split('.')
+	def createChild(dottedConfigPath : String) : Widget = {
+		val sections = dottedConfigPath.split('.')
 		if (sections.length == 2) {
 			createChild(sections(0), sections(1))
 		} else {
-			Noto.error("createChild(identifier) expects an identifier in the form of WidgetFile.WidgetKey")
+			Noto.error("createChild(dottedConfigPath) expects an identifier in the form of WidgetFile.WidgetKey")
 			val w = windowingSystem.createWidget()
 			w.parent = this
 			w
@@ -73,6 +77,30 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 		val w = windowingSystem.createWidget(resourcePath, key)
 		w.parent = this
 		w
+	}
+
+	def bind[T](key : String, value : T) : Unit = {
+		value match {
+			case m : Moddable[T] => widgetData.bindings += (key -> m)
+			case f : (() => T) => widgetData.bindings += (key -> Moddable(f))
+			case v : T => widgetData.bindings += (key -> Moddable(v))
+		}
+
+	}
+
+	def resolveBinding(bindingKey : String) : Option[_] = {
+		widgetData.bindings.get(bindingKey) match {
+			case Some(value) => Some(value.resolve())
+			case None if widgetData.parent.isSentinel => None
+			case _ => widgetData.parent.resolveBinding(bindingKey)
+		}
+	}
+
+	/**
+	 * Resolves the data (if any) bound to this widget. This only has meaning if you give it meaning, the windowing framework itself does not use it
+	 */
+	def boundData : Option[_] = {
+		widgetData.dataBinding.map(d => resolveBinding(d))
 	}
 
 	override def hashCode(): Int = entity.hashCode()
@@ -104,6 +132,8 @@ trait WidgetConstructor[T <: WidgetInstance] {
 
 object Widget {
 	implicit def toWidgetData(w : Widget) : WidgetData = w.widgetData
+
+	val bindingParser = "%\\(+([a-zA-Z0-9.]*)\\)+".r
 }
 
 class SimpleWidget(w : Widget) extends WidgetInstance {
@@ -127,13 +157,16 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 			_parent.widgetData.markModified()
 		}
 		_parent = w
-		if (_parent.notSentinel) {
+		if (_parent != null && _parent.notSentinel) {
 			_parent.widgetData.children ::= widget
 			_parent.widgetData.markModified()
 		}
 	}
 
 	var identifier : Option[String] = None
+	var configIdentifier : Option[String] = None
+	var bindings : Map[String, Moddable[_]] = Map()
+	var dataBinding : Option[String] = None
 
 	var position = Vec3T[PositionExpression](Flow, Flow, Flow)
 	var dimensions = Vec2T[DimensionExpression](Intrinsic, Intrinsic)
@@ -176,7 +209,7 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 	override def modificationSignature: AnyRef = (position, dimensions, showing.resolve())
 
-	override def loadFromConfig(configValue: ConfigValue, reload: Boolean): Unit = {
+	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (pos <- configValue.fieldOpt("position")) {
 			for (posArr <- pos.arrOpt) {
 				for ((cv,idx) <- posArr.toList.zipWithIndex; if idx < 3) {
@@ -197,8 +230,7 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str)).ifPresent(wv => width = wv)
 		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str)).ifPresent(hv => height = hv)
-
-
+		dataBinding = configValue.fieldOpt("dataBinding").map(_.str).flatMap(s => Widget.bindingParser.findFirstMatchIn(s).map(m => m.group(1)))
 	}
 
 }

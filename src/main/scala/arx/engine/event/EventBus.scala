@@ -12,7 +12,7 @@ import arx.core.synchronization.ReadWriteLock
 import arx.core.traits.{TSentinel, TSentinelable}
 import arx.engine.event.EventBusListener.Listener
 
-class EventBus extends TSentinelable {
+class EventBus[T <: Event] extends TSentinelable {
 	protected[event] val sizePo2 = 11
 	protected[event]val sizeLimit = 1 << sizePo2
 	// bitmask that can be AND'd to a number to keep it within range of sizeLimit, effectively does % sizeLimit
@@ -26,7 +26,9 @@ class EventBus extends TSentinelable {
 	protected[event]var cursor = 0
 	protected[event]var lock = new ReadWriteLock
 
-	def fireEvent(event : Event): Unit = {
+	protected[event]var syncListeners : Vector[EventBusListener[T]] = Vector()
+
+	def fireEvent(event : T): Unit = {
 		lock.writeLock {
 			val overwrittenOffset = offsets(cursor)
 			// keep track of the smallest offset present in the
@@ -41,7 +43,7 @@ class EventBus extends TSentinelable {
 		}
 	}
 
-	def createListener() = new EventBusListener(this)
+	def createListener() = new EventBusListener[T](this)
 
 	def onEvent(listener: PartialFunction[Event,_]): Unit = {
 		synchronousListener.onEvent(listener)
@@ -51,13 +53,13 @@ class EventBus extends TSentinelable {
 }
 
 object EventBus {
-	val Sentinel : EventBus = new EventBus with TSentinel
+	def Sentinel[T <: Event] : EventBus[T] = new EventBus[T] with TSentinel
 }
 
-class EventBusListener(val bus : EventBus) extends TSentinelable {
+class EventBusListener[T <: Event](val bus : EventBus[T]) extends TSentinelable {
 	var lastReadOffset = 0L
 	var cursor = 0
-	var listeners = List[Listener]()
+	var listeners = List[Listener[T]]()
 	var active = true
 
 	bus.lock.readLock {
@@ -67,7 +69,7 @@ class EventBusListener(val bus : EventBus) extends TSentinelable {
 
 	def process(): Unit = {
 		if (active) {
-			var toProcess = Vector[Event]()
+			var toProcess = Vector[T]()
 			bus.lock.readLock {
 				if (bus.minimumOffset > lastReadOffset) {
 					Noto.warn("Resetting event bus listener to head, not reading fast enough")
@@ -82,7 +84,7 @@ class EventBusListener(val bus : EventBus) extends TSentinelable {
 					if (event == null) {
 						Noto.error(s"Somehow ended up with a null event in a bus listener: $cursor, $lastReadOffset")
 					}
-					toProcess +:= event
+					toProcess +:= event.asInstanceOf[T]
 					lastReadOffset = bus.offsets(cursor)
 					cursor = (cursor + 1) & bus.capAND
 				}
@@ -101,24 +103,24 @@ class EventBusListener(val bus : EventBus) extends TSentinelable {
 		}
 	}
 
-	def onEvent (listener: PartialFunction[Event,_]) : Listener = {
+	def onEvent (listener: PartialFunction[T,_]) : Listener[T] = {
 		val newListener = Listener(listener, processConsumed = false)
 		listeners ::= newListener
 		newListener
 	}
 
-	def listen (listener: PartialFunction[Event,_]) = {
+	def listen (listener: PartialFunction[T,_]) = {
 		onEvent(listener)
 	}
 }
 
 object EventBusListener {
-	case class Listener(func : PartialFunction[Event,_], processConsumed : Boolean = false, var active : Boolean = true) {
+	case class Listener[T](func : PartialFunction[T,_], processConsumed : Boolean = false, var active : Boolean = true) {
 		def activate() { active = true }
 		def deactivate() { active = false }
 	}
 
-	val Sentinel : EventBusListener = new EventBusListener(EventBus.Sentinel) with TSentinel
+	def Sentinel[T <: Event] : EventBusListener[T] = new EventBusListener[T](EventBus.Sentinel[T]) with TSentinel
 }
 
 
@@ -126,13 +128,13 @@ object EventBusListener {
  * Wrapper around a conceptual listener to allow for listener functions to be registered before the actual event bus is known.
  * Useful for deferred initialization (as in the case of the engine components).
  */
-class DeferredInitializationEventBusListener {
-	var eventBusListener = EventBusListener.Sentinel
-	var pendingListeners = List[EventBusListener.Listener]()
+class DeferredInitializationEventBusListener[T <: Event](sync : Boolean) {
+	var eventBusListener = EventBusListener.Sentinel[T]
+	var pendingListeners = List[EventBusListener.Listener[T]]()
 
-	def onEvent(func : PartialFunction[Event, _]) : Listener = {
+	def onEvent(func : PartialFunction[T, _]) : Unit = {
 		if (eventBusListener.isSentinel) {
-			val l = Listener(func, processConsumed = false, active = true)
+			val l = Listener[T](func, processConsumed = false, active = true)
 			pendingListeners ::= l
 			l
 		} else {
@@ -140,9 +142,29 @@ class DeferredInitializationEventBusListener {
 		}
 	}
 
-	def initialize(bus : EventBus): Unit = {
-		eventBusListener = bus.createListener()
+	def initialize(bus : EventBus[T]): Unit = {
+		if (sync) {
+			eventBusListener = bus.synchronousListener
+		}
 		eventBusListener.listeners :::= pendingListeners
 		pendingListeners = Nil
+	}
+}
+
+class DeferredInitializationEventBusSender[T <: Event] {
+	var queuedEvents : Vector[T] = Vector()
+	var eventBus : Option[EventBus[T]] = None
+
+	def fireEvent(event : T): Unit = {
+		eventBus match {
+			case Some(eb) => eb.fireEvent(event)
+			case None => queuedEvents :+= event
+		}
+	}
+
+	def initialize(bus : EventBus[T]): Unit = {
+		queuedEvents.foreach(bus.fireEvent)
+		queuedEvents = Vector()
+		eventBus = Some(bus)
 	}
 }

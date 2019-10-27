@@ -241,6 +241,7 @@ object Prelude {
 	implicit def int2RicherInt ( i : Int ) : RicherInt = new RicherInt(i)
 
 	implicit def toRicherTraversable[T] (traversable : Traversable[T]) : RicherTraversable[T] = new RicherTraversable[T](traversable)
+	implicit def toRicherIterable[T] (iterable : Iterable[T]) : RicherIterable[T] = new RicherIterable[T](iterable)
 
 	implicit def floatList2RicherFloatList[T] ( l : List[T] ) : RicherFloatList[T] = new RicherFloatList(l)
 
@@ -255,6 +256,11 @@ object Prelude {
 	def randVec2 ( length : Float ) = {
 		val theta = rand(0.0f,pi*2.0f)
 		Vec2f( cosf(theta) * length, sinf(theta) * length )
+	}
+
+	val a = 0xffffda61L
+	def permute(x : Int): Int = {
+		((a * (x & 0xffffffffL)) + (x >>> 32)).toInt.abs
 	}
 
 	def mix ( a : Float, b : Float , pcnt : Float ) = a + (b - a) * pcnt

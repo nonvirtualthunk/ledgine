@@ -126,6 +126,19 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 		WidgetPrototype.fromConfig(resourcePath, key).instantiate(this)
 	}
 
+	def destroyWidget(widget : Widget) : Unit = {
+		if (widget == WD.desktop) {
+			Noto.error("You can't delete the root Desktop widget")
+		} else {
+			WD.focusedWidget = WD.focusedWidget.filterNot(_ == widget)
+			WD.currentPressedWidget = WD.currentPressedWidget.filterNot(_ == widget)
+			WD.draggingWidget = WD.draggingWidget.filterNot(_ == widget)
+			WD.lastWidgetUnderMouse = WD.lastWidgetUnderMouse.filterNot(_ == widget)
+			WD.modalWidgetStack = WD.modalWidgetStack.filterNot(_.widget == widget)
+			displayWorld.destroyEntity(widget.entity)
+		}
+	}
+
 	def reloadWidgets(): Unit = {
 		for (w <- WD.desktop.selfAndChildren) {
 			for (proto <- w.dataOpt[WidgetPrototypeData]) {

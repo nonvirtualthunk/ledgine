@@ -10,9 +10,21 @@ package arx.engine.control.event
 import arx.core.vec.ReadVec2f
 import arx.core.vec.Vec3f
 import arx.engine.event.Event
+import arx.engine.world.World
 import org.lwjgl.glfw.GLFW
 
-class UIEvent extends Event {
+abstract class ControlEvent extends Event {
+	var gameWorld : World = _
+	var displayWorld : World = _
+
+	def withWorlds(gw : World, dw : World) : this.type = {
+		gameWorld = gw
+		displayWorld = dw
+		this
+	}
+}
+
+class UIEvent extends ControlEvent {
 	var origin: Option[AnyRef] = None
 
 	def withOrigin(o : AnyRef) = {

@@ -40,6 +40,12 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	} else {
 		None
 	}
+	def expectField(s : String) : Option[ConfigValue] = if (hasField(s)) {
+		Some(field(s))
+	} else {
+		Noto.warn(s"attempted to access absent field $s")
+		None
+	}
 
 	def ifPresent(v : ConfigValue => Unit): Unit = {
 		if (notSentinel) {
@@ -78,9 +84,10 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def str: String
 	
 	def unwrapped : Any
-	def rootConfigValue = (isRoot || isSentinel) match {
-		case true => this
-		case false => parent
+	def rootConfigValue : ConfigValue = if (isRoot || isSentinel) {
+		this
+	} else {
+		parent.rootConfigValue
 	}
 }
 trait ConfigRoot extends ConfigValue {
@@ -164,7 +171,7 @@ object ConfigValue {
 			throw new IllegalStateException("Attempting to access empty value")
 		}
 
-		override def field(s: String): ConfigValue = illegalAccess()
+		override def field(s: String): ConfigValue = throw new IllegalStateException(s"Attempting to access subfield $s on empty value")
 		override def hasField(s: String): Boolean = false
 		override def selectDynamic(methodName: String): ConfigValue = {
 			illegalAccess()
@@ -406,31 +413,69 @@ object Hocon {
 
 }
 
-object Tmp {
-	def main ( args : Array[String] ) {
-		val conf = Hocon.parse(
-			"""
-			  |str : mew
-			  |base : {
-			  |	a : foo
-			  | 	b : bar
-			  |}
-			  |
-			  |wat : ${base}
-			  |
-			  |array : [
-			  |	${base} {
-			  | 		b : twobar
-			  |   }
-			  |
-			  |]
-			  |
-			  |
-			""".stripMargin)
 
-		println(conf.array.arr(0).b.str)
+class StringConfigValue(intern : String) extends ConfigValue {
+	override def selectDynamic(methodName: String): ConfigValue = field(methodName)
+	override def hasField(s: String): Boolean = false
+	override def field(s: String): ConfigValue = throw new IllegalStateException(s"attempting to access subfield $s from string value")
+	override def fields: Map[String, ConfigValue] = Map()
+	override def boolOrElse(b: Moddable[Boolean]): Moddable[Boolean] = intern.toBooleanOpt.map(Moddable(_)).getOrElse(b)
+	override def v2OrElse(v: Moddable[ReadVec2f]): Moddable[ReadVec2f] = v
+	override def v3OrElse(v: Moddable[ReadVec3f]): Moddable[ReadVec3f] = v
+	override def v4OrElse(v: Moddable[ReadVec4f]): Moddable[ReadVec4f] = v
+	override def floatOrElse(f: Moddable[Float]): Moddable[Float] = intern.toFloatOpt.map(Moddable(_)).getOrElse(f)
+	override def strOrElse(s: Moddable[String]): Moddable[String] = Moddable(intern)
+	override def intOrElse(i: Moddable[Int]): Moddable[Int] = intern.toIntOpt.map(Moddable(_)).getOrElse(i)
+	override def boolOrElse(orElse: Boolean): Boolean = intern.toBooleanOpt.getOrElse(orElse)
+	override def floatOrElse(f: Float): Float = intern.toFloatOpt.getOrElse(f)
+	override def strOrElse(s: String): String = intern
+	override def intOrElse(i: Int): Int = intern.toIntOpt.getOrElse(i)
+	override def v2OrElse(v: ReadVec2f): ReadVec2f = v
+	override def v3OrElse(v: ReadVec3f): ReadVec3f = v
+	override def v4OrElse(v: ReadVec4f): ReadVec4f = v
+	override def v2: ReadVec2f = illegalAccess()
+	override def v3: ReadVec3f = illegalAccess()
+	override def v4: ReadVec4f = illegalAccess()
+	override def arr: ConfigList = illegalAccess()
+	override def isObj: Boolean = false
+	override def isStr: Boolean = true
+	override def isArr: Boolean = false
+	override def bool: Boolean = intern.toBooleanOpt.getOrElse(illegalAccess())
+	override def float: Float = intern.toFloatOpt.getOrElse(illegalAccess())
+	override def int: Int = intern.toIntOpt.getOrElse(illegalAccess())
+	override def str: String = intern
+	override def unwrapped: Any = intern
+	override def parent: ConfigValue = illegalAccess()
+
+	protected def illegalAccess (): Nothing = {
+		throw new IllegalStateException("Attempting to access simple string config value in an invalid manner")
 	}
 }
+//object Tmp {
+//	def main ( args : Array[String] ) {
+//		val conf = Hocon.parse(
+//			"""
+//			  |str : mew
+//			  |base : {
+//			  |	a : foo
+//			  | 	b : bar
+//			  |}
+//			  |
+//			  |wat : ${base}
+//			  |
+//			  |array : [
+//			  |	${base} {
+//			  | 		b : twobar
+//			  |   }
+//			  |
+//			  |]
+//			  |
+//			  |
+//			""".stripMargin)
+//
+//		println(conf.array.arr(0).b.str)
+//	}
+//}
 
 //object ConfigToSML {
 //	def toSML (config : Config) : ConfigValue = {

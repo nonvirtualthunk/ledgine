@@ -1,15 +1,17 @@
 package arx.graphics
 
+import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
 import java.io._
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 
 import javax.imageio.ImageIO
 import arx.application.Noto
+import arx.core.mat.Mat3x3
 import arx.core.math.Recti
 import arx.core.metrics.Metrics
 import arx.core.traits.TSentinelable
-import arx.core.vec.{ReadVec4i, Vec2i, Vec4f, Vec4i}
+import arx.core.vec.{ReadVec2i, ReadVec4i, Vec2i, Vec4f, Vec4i}
 import arx.graphics.helpers.RGBA
 import org.newdawn.slick.opengl.PNGImageData2
 
@@ -123,7 +125,7 @@ class Image extends TSentinelable with Externalizable {
 		while ( f < factor ){
 			target = Image.withDimensions(textureWidth >> factor,textureHeight >> factor)
 			for ( x <- 0 until textureWidth by 2 ; y <- 0 until textureHeight by 2 ) {
-				target(x,y) = (src(x,y) + src(x+1,y) + src(x,y+1) + src(x+1,y+1)) / 4
+				target(x/2,y/2) = (src(x,y) + src(x+1,y) + src(x,y+1) + src(x+1,y+1)) / 4
 			}
 			src = target
 			f += 1
@@ -187,6 +189,16 @@ class Image extends TSentinelable with Externalizable {
 		x += 1}
 	}
 
+	def cropped(min: ReadVec2i, maxInclusive: ReadVec2i) : Image = {
+		val newImg = Image.withDimensions(maxInclusive.x - min.x + 1, maxInclusive.y - min.y + 1)
+		var x = min.x; while ( x <= maxInclusive.x ) {
+			var y = min.y; while ( y <= maxInclusive.y ) {
+				newImg(x - min.x, y - min.y) = this(x,y)
+				y += 1}
+			x += 1}
+		newImg
+	}
+
 	override def toString: String = {
 		"Image(" + resourcePath.getOrElse("synthetic") + ")"
 	}
@@ -243,23 +255,97 @@ object Image{
 		image
 	}
 
+	def parseBGRA(bgra : Int) = {
+		val b = (bgra >> 0) & 0x00ff
+		val g = (bgra >> 8) & 0x00ff
+		val r = (bgra >> 16) & 0x00ff
+		val a = (bgra >> 24) & 0x00ff
+		Vec4i(r,g,b,a)
+	}
+
+	def gamma(v : ReadVec4i, gamma : Float) = {
+		Vec4i(
+			(math.pow(v.r/255.0f, gamma) * 255).toInt,
+			(math.pow(v.g/255.0f, gamma) * 255).toInt,
+			(math.pow(v.b/255.0f, gamma) * 255).toInt,
+			(math.pow(v.a/255.0f, gamma) * 255).toInt
+		)
+	}
+
 	def loadFromStream (inputStream : InputStream,closeOnFinish : Boolean) : Image = {
 		try {
 			import arx.Prelude._
 			timer.timeStmt {
 				val ret = new Image
 
-				val data = new PNGImageData2
-				val buffer = data.loadImage(inputStream,true,true,null)
-				if ( closeOnFinish ) { inputStream.close() }
 
+
+//				val bytes = Array.ofDim[Byte](1024 * 1024 * 10)
+//				val read = inputStream.read(bytes)
+
+
+//				val data = new PNGImageData2
+////				val buffer = data.loadImage(new ByteArrayInputStream(bytes, 0, read),true,true,null)
+//				val buffer = data.loadImage(inputStream,true,true,null)
+//				if ( closeOnFinish ) {
+//					inputStream.close()
+//				}
+//
+//				ret.data = buffer
+//				ret.width = data.getWidth
+//				ret.height = data.getHeight
+//				ret.hasAlpha = data.hasAlpha
+//				ret.textureWidth = data.getTexWidth
+//				ret.textureHeight = data.getTexHeight
+
+
+				val buffImage = ImageIO.read(inputStream)
+
+				val buffer = ByteBuffer.allocateDirect(buffImage.getWidth() * buffImage.getHeight() * 4).order(ByteOrder.nativeOrder)
 				ret.data = buffer
-				ret.width = data.getWidth
-				ret.height = data.getHeight
-				ret.hasAlpha = data.hasAlpha
-				ret.textureWidth = data.getTexWidth
-				ret.textureHeight = data.getTexHeight
+				ret.width = buffImage.getWidth
+				ret.height = buffImage.getHeight
+				ret.hasAlpha = true
+				ret.textureWidth = ret.width
+				ret.textureHeight = ret.height
 
+				for (i <- 0 until buffImage.getWidth; j <- 0 until buffImage.getHeight()) {
+					ret(i,buffImage.getHeight() - j - 1) = parseBGRA(buffImage.getRGB(i, j))
+				}
+
+
+
+
+
+//				val buffImage = ImageIO.read(new ByteArrayInputStream(bytes, 0, read))
+//
+//				println("Raw: " + parseBGRA(buffImage.getRGB(48,48)))
+//
+//				val linRGB = ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB)
+//				val srgb = ColorSpace.getInstance(ColorSpace.CS_sRGB)
+//
+//				val retMiddle = ret(48, 48)
+//				println("Ret middle: " + retMiddle)
+//
+//				val fromLinToSrgba = srgb.fromCIEXYZ(linRGB.toCIEXYZ(Array(retMiddle.r / 255.0f, retMiddle.g / 255.0f, retMiddle.b / 255.0f)))
+//				println("Converted : " + fromLinToSrgba.toList)
+//
+//				println("breka")
+//
+//////				val gamma = 1/1.4
+////				val gamma = 1.0f
+////				ret.transformPixelsByFunc((x,y,v) => {
+////					val r = (math.pow(v.r/255.0f, gamma) * 255).toInt
+////					val g = (math.pow(v.g/255.0f, gamma) * 255).toInt
+////					val b = (math.pow(v.b/255.0f, gamma) * 255).toInt
+////					Vec4i(r,g,b,v.a)
+////				})
+
+
+
+				if (closeOnFinish) {
+					inputStream.close()
+				}
 
 				ret
 

@@ -8,7 +8,22 @@ class EntityDataStore[T](val clazz : Class[T]) {
 	val values = AtomicMap.atomicNBHM[Long, EntityDataWrapper[T]]
 	val overlay = AtomicMap.atomicNBHM[Long, T]
 	var hasOverlay = false
-	val sentinel = ReflectionAssistant.instantiate(clazz)
+	val sentinel = {
+		ReflectionAssistant.instantiateOpt(clazz) match {
+			case Some(v) => v
+			case None => ReflectionAssistant.companionFor(clazz) match {
+				case Some(comp) if ReflectionAssistant.hasField(comp, "Sentinel") => {
+					val s = ReflectionAssistant.getFieldValue(comp, "Sentinel")
+					if (clazz.isAssignableFrom(s.getClass)) {
+						s.asInstanceOf[T]
+					} else {
+						throw new IllegalArgumentException(s"Could not create entity data store of class ${clazz.getSimpleName}, had sentinel value of wrong type")
+					}
+				}
+				case None => throw new IllegalArgumentException(s"Could not create entity data store of class ${clazz.getSimpleName}, could not create/identify sentinel value")
+			}
+		}
+	}
 
 	def entities = values.keys.view.map(k => new Entity(k))
 
@@ -54,6 +69,10 @@ class EntityDataStore[T](val clazz : Class[T]) {
 		}
 	}
 
+	def getRaw(entity : Entity) : Option[EntityDataWrapper[T]] = {
+		values.get(entity.id)
+	}
+
 	def getOverlayOpt(entity : Entity) : Option[T] = {
 		if (hasOverlay) {
 			overlay.get(entity.id)
@@ -64,6 +83,10 @@ class EntityDataStore[T](val clazz : Class[T]) {
 
 	def contains(entity : Entity) : Boolean = {
 		values.contains(entity.id) || (hasOverlay && overlay.contains(entity.id))
+	}
+
+	def remove(entity : Entity) : Boolean = {
+		values.remove(entity.id).isDefined
 	}
 
 	protected[engine] def getUntyped(entity : Entity) : AnyRef = {

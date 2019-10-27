@@ -28,9 +28,9 @@ abstract class SimpleEngine extends EngineCore {
 
 
 	override def draw(): Unit = {
-		if (canvas.startDraw()) {
+		if (canvas.startUpdate()) {
 			draw(canvas)
-			canvas.finishDraw()
+			canvas.finishUpdate()
 		}
 
 		arx.graphics.GL.glSetState(GL_CULL_FACE, enable = false)
@@ -41,7 +41,7 @@ abstract class SimpleEngine extends EngineCore {
 		shader.setUniform("ModelViewMatrix", modelview, tolerateAbsence = true)
 		shader.setUniform("ProjectionMatrix", projection, tolerateAbsence = true)
 
-		canvas.render()
+		canvas.draw()
 	}
 
 	override def update(deltaSeconds: Float): Unit = {

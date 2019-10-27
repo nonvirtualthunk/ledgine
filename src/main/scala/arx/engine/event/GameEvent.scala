@@ -9,7 +9,17 @@ package arx.engine.event
 
 import arx.Prelude._
 import arx.core.vec._
+import arx.engine.world.{EventState, World}
 
 class GameEvent extends Event {
 	val createdAtWallTime = curTime()
+	var state : EventState = EventState.Started
+	var world : World = _
+
+	def withWorld(w: World) : this.type = {
+		this.world = w
+		this
+	}
 }
+
+class WorldCreatedEvent extends GameEvent {}

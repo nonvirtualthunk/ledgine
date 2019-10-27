@@ -1,5 +1,6 @@
 package arx.graphics
 
+import java.nio
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 
@@ -624,7 +625,7 @@ object GL {
 		buf.put(mat.m31)
 		buf.put(mat.m32)
 		buf.put(mat.m33)
-		buf.flip()
+		val flipped : nio.Buffer = buf.flip()
 		buf
 	}
 
@@ -806,7 +807,7 @@ object GL {
 			}
 
 			synchronized {
-				buffer.position(0)
+				var unnecessary : java.nio.Buffer = buffer.position(0)
 				buffer.limit(buffer.capacity())
 	//				bufferCache.insert(insertBefore,new SoftReference(buffer))
 				bufCache += buffer.capacity -> (new SoftReference(buffer) :: bufCache.getOrElse(buffer.capacity,Nil))

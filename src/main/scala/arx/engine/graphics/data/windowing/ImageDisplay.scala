@@ -5,6 +5,7 @@ import arx.core.datastructures.Watcher
 import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.vec.ReadVec4f
+import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.data.Moddable
 import arx.engine.graphics.data.windowing.ImageDisplay.{PositionStyle, ScalingStyle}
@@ -19,9 +20,22 @@ class ImageDisplay extends TWidgetAuxData {
 	var positionStyle : PositionStyle = ImageDisplay.TopLeft
 	var color : Color = Color.White
 
-	override def loadFromConfig(configValue: ConfigValue, reload: Boolean): Unit = {
+	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (cv <- configValue.fieldOpt("image")) {
-			image = Moddable(cv.str : TToImage)
+			val str = cv.str
+			image = Widget.bindingParser.findFirstMatchIn(str) match {
+				case Some(matched) => Moddable(() => widget.resolveBinding(matched.group(1)) match {
+					case Some(boundValue) => boundValue match {
+						case img : Image => img
+						case str : String => ResourceManager.image(str)
+						case other =>
+							Noto.warn(s"invalid bound value for an image display : $other")
+							ResourceManager.defaultImage
+					}
+					case None => ResourceManager.defaultImage
+				})
+				case None => Moddable(str : TToImage)
+			}
 		}
 		for (ss <- configValue.fieldOpt("scalingStyle")) {
 			scalingStyle = ScalingStyle.parse(ss.str, scalingStyle)

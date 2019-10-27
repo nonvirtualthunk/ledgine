@@ -9,12 +9,11 @@ package arx.graphics
  */
 
 import arx.Prelude._
+import arx.application.Noto
 import arx.core.vec.ReadVec2i
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11._
-import org.lwjgl.opengl.ARBTextureFloat
-import org.lwjgl.opengl.GL12
-import org.lwjgl.opengl.GL30
+import org.lwjgl.opengl.{ARBTextureFloat, GL12, GL21, GL30}
 
 import scala.collection.mutable
 
@@ -57,7 +56,7 @@ class Texture {
 
 
 			imageData.data.rewind()
-			glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,imageData.width,imageData.height,0,GL_RGBA,GL_UNSIGNED_BYTE,imageData.data)
+			glTexImage2D(GL_TEXTURE_2D,0,internalFormat,imageData.width,imageData.height,0,targetFormat,GL_UNSIGNED_BYTE,imageData.data)
 			if ( mipmap ) {
 				GL30.glGenerateMipmap(GL_TEXTURE_2D)
 			}
@@ -74,7 +73,7 @@ class Texture {
 			}
 			floatData.rewind()
 
-			glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,imageData.width,imageData.height,0,ARBTextureFloat.GL_RGBA32F_ARB,GL_FLOAT,floatData)
+			glTexImage2D(GL_TEXTURE_2D,0,internalFormat,imageData.width,imageData.height,0,ARBTextureFloat.GL_RGBA32F_ARB,GL_FLOAT,floatData)
 		}
 		GL.bindTexture(toRebind)
 	}
@@ -89,7 +88,8 @@ class Texture {
 			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,magFilter)
 
 			imageData.data.rewind()
-			glTexSubImage2D(GL_TEXTURE_2D,0,offset.x,offset.y,dims.x,dims.y,GL_RGBA,GL_UNSIGNED_BYTE,imageData.data)
+			if (floatTexture) { Noto.warn("doesn't look like we support float sub texture commits yet, but shouldn't be hard to do") }
+			glTexSubImage2D(GL_TEXTURE_2D,0,offset.x,offset.y,dims.x,dims.y,targetFormat,GL_UNSIGNED_BYTE,imageData.data)
 			if ( mipmap ) {
 				GL30.glGenerateMipmap(GL_TEXTURE_2D)
 			}

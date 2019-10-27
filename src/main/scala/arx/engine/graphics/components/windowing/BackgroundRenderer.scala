@@ -156,7 +156,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 
 class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): List[WQuad] = widget.dataOpt[ImageDisplay] match {
-		case Some(idd) =>
+		case Some(idd) if beforeChildren =>
 			val img : Image = idd.image.resolve()
 
 

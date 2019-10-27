@@ -32,7 +32,7 @@ abstract class CustomCanvas[QuadBuilderType <: TQuadBuilder](attributeProfile: A
 	var viewportOverride = none[(Recti) => Recti]
 	protected var originalViewport = Recti(0, 0, 1, 1)
 
-	protected[engine] def render(): Unit = {
+	def draw(): Unit = {
 		textureBlock.bind()
 
 		vbo.bind()
@@ -40,7 +40,17 @@ abstract class CustomCanvas[QuadBuilderType <: TQuadBuilder](attributeProfile: A
 		vbo.drawElements(GL11.GL_TRIANGLES, skipPostDraw = true)
 	}
 
-	protected[engine] def startDraw() = {
+	def update(stmt : => Unit) : Boolean = {
+		if (startUpdate()) {
+			stmt
+			finishUpdate()
+			true
+		} else {
+			false
+		}
+	}
+
+	def startUpdate() : Boolean = {
 		if (vbo.state.compareAndSet(VBO.Clean, VBO.Updating)) {
 			vbo.clear()
 			true
@@ -49,13 +59,20 @@ abstract class CustomCanvas[QuadBuilderType <: TQuadBuilder](attributeProfile: A
 		}
 	}
 
-	protected[engine] def finishDraw() = {
+	def finishUpdate() = {
 		if (!vbo.state.compareAndSet(VBO.Updating, VBO.Updated)) {
 			Noto.error("Unexpected underlying vbo state in canvas")
 		}
 	}
 
-	def createQuadBuilder(): QuadBuilderType
+	protected def createQuadBuilderImpl(): QuadBuilderType
+
+	def createQuadBuilder() : QuadBuilderType = {
+		val qb = createQuadBuilderImpl()
+		qb.vbo = vbo
+		qb.textureBlock = textureBlock
+		qb
+	}
 
 	def useTexFilters(minFilter: Int, magFilter: Int): Unit = {
 		textureBlock.magFilter = magFilter
@@ -72,7 +89,7 @@ abstract class CustomCanvas[QuadBuilderType <: TQuadBuilder](attributeProfile: A
 }
 
 class Canvas extends CustomCanvas[QuadBuilder](SimpleAttributeProfile) {
-	override def createQuadBuilder(): QuadBuilder = new QuadBuilder(vbo, textureBlock, blankTC)
+	override def createQuadBuilderImpl(): QuadBuilder = new QuadBuilder(blankTC)
 
 
 	def drawLine(start: ReadVec2f, end: ReadVec2f, thickness: Float, color: ReadVec4f): Unit = {
@@ -162,10 +179,11 @@ class Canvas extends CustomCanvas[QuadBuilder](SimpleAttributeProfile) {
 
 
 trait TQuadBuilder {
-
+	protected[engine] var vbo : AVBO = _
+	protected[engine] var textureBlock : TextureBlock = _
 }
 
-class QuadBuilder(vbo: AVBO, textureBlock: TextureBlock, blankTC: Array[ReadVec2f]) extends TQuadBuilder {
+class QuadBuilder(blankTC: Array[ReadVec2f]) extends TQuadBuilder {
 	var forward = Vec3f.UnitX
 	var ortho = Vec3f.UnitY
 	var dimensions = Vec2f.One

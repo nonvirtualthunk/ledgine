@@ -7,15 +7,16 @@ package arx.engine.control.components.windowing.widgets.data
 import arx.core.math.Recti
 import arx.core.representation.ConfigValue
 import arx.core.vec._
+import arx.engine.control.components.windowing.Widget
 import arx.engine.data.TMutableAuxData
 import arx.graphics.TToImage
 import arx.graphics.helpers.Color
+import arx.resource.ResourceManager
 
 
 
 trait TWidgetAuxData extends TMutableAuxData {
-	def loadFromConfig(configValue: ConfigValue, reload : Boolean) : Unit = {}
-	def autoLoadSimpleValuesFromConfig : Boolean = true
+	def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {}
 
 	def modificationSignature : AnyRef = None
 }
@@ -54,21 +55,13 @@ class DrawingData extends TWidgetAuxData {
 	def clientDim = effectiveClientArea.dimensions
 	def clientOffset: ReadVec2i = effectiveClientArea.position
 
-//	var xWatcher = new Watcher[PositionExpression](PositionExpression.Flow)
-//	var yWatcher = new Watcher[PositionExpression](PositionExpression.Flow)
-//	var zWatcher = new Watcher[PositionExpression](PositionExpression.Flow)
-//
-//	var widthWatcher = new Watcher[DimensionExpression](DimensionExpression.Intrinsic)
-//	var heightWatcher = new Watcher[DimensionExpression](DimensionExpression.Intrinsic)
-//
-//	override def onAssignedToWidget(widget: Widget): Unit = {
-//		xWatcher = new Watcher(widget.x)
-//		yWatcher = new Watcher(widget.y)
-//		zWatcher = new Watcher(widget.z)
-//
-//		widthWatcher = new Watcher(widget.width)
-//		heightWatcher = new Watcher(widget.height)
-//	}
+	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
+		for (bcv <- configValue.fieldOpt("background")) {
+			for (cv <- bcv.fieldOpt("image")) {
+				backgroundImage = Some(ResourceManager.image(cv.str))
+			}
+		}
+	}
 }
 
 object DrawingData {

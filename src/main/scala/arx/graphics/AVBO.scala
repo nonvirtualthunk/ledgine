@@ -34,11 +34,11 @@ class AVBO(var _attribProfile : AttributeProfile) extends TRenderTarget {
 
 
 	def state = _state
-	def changeState(fromState : Int, toState : Int) = {
-		if (_state.compareAndSet(fromState, toState)) {
+	def changeState(fromState : AVBOState, toState : AVBOState) = {
+		if (_state.compareAndSet(fromState.intValue, toState.intValue)) {
 			// if we moved from updating to updated we should be ok to apply all the deferred tasks
 			// that were waiting until writing was finished
-			if (fromState == VBO.Updating) {
+			if (fromState == AVBO.Updating) {
 				while ( !deferredUntilAfterWrite.isEmpty ) {
 					deferredUntilAfterWrite.poll() match {
 						case null => // do nothing
@@ -334,10 +334,12 @@ case class AttribInfo(size : Int, dataType : Int, byteOffset : Int , name : Stri
 	var rawInteger = false
 }
 
+abstract class AVBOState(val intValue : Int)
+
 object AVBO {
-	val Clean = VBO.Clean
-	val Dirty = VBO.Dirty
-	val Updating = VBO.Updating
-	val Updated = VBO.Updated
-	val Solidified = VBO.Solidified
+	case object Clean extends AVBOState(VBO.Clean)
+	case object Dirty extends AVBOState(VBO.Dirty)
+	case object Updating extends AVBOState(VBO.Updating)
+	case object Updated extends AVBOState(VBO.Updated)
+	case object Solidified extends AVBOState(VBO.Solidified)
 }

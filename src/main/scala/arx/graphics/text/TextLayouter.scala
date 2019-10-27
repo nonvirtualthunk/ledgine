@@ -132,7 +132,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 					jumpIfNecessary(width)
 					maxSpacingThisLine = height // ensure that we don't collide with this image on the next line
 
-					addRect(Rectf(area.x + x,area.y + y + (lineHeight - height) / 2, width, height))
+					addRect(Rectf(area.x + x,(area.y + y + (lineHeight - height) / 2).toInt, width, height))
 
 					x += width + minSpacing
 					maxX = math.max(maxX,x)

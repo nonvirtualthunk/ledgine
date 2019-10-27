@@ -1,13 +1,13 @@
 package arx.engine.game.components
 
 import arx.core.units.UnitOfTime
-import arx.engine.event.{DeferredInitializationEventBusListener, Event, EventBusListener}
+import arx.engine.event.{DeferredInitializationEventBusListener, Event, EventBusListener, GameEvent}
 import arx.engine.game.GameEngine
 import arx.engine.traits.EngineComponent
 import arx.engine.world.World
 
 abstract class GameComponent extends EngineComponent[GameEngine] {
-	private val gameEvents = new DeferredInitializationEventBusListener
+	private val gameEvents = new DeferredInitializationEventBusListener[GameEvent](true)
 
 	override protected[engine] final def internalOnInitialize(engine: GameEngine): Unit = {
 		gameEvents.initialize(engine.eventBus)

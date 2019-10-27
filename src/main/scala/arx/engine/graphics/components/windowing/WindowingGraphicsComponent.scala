@@ -95,7 +95,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	}
 
 
-	override protected def onUpdate(game: World, graphics: World, dt: UnitOfTime): Unit = {
+	override protected def onUpdate(game: World, graphics: World, dt: UnitOfTime, time: UnitOfTime): Unit = {
 		val WD = graphics.worldData[WindowingGraphicsData]
 		val vbo = WD.vbo
 		WD.desktop.synchronized {
@@ -109,13 +109,13 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 			if (anyChanged) {
 				updateRevision.incrementAndGet()
-				if (!vbo.changeState(VBO.Updated, VBO.Dirty) && !vbo.changeState(VBO.Clean, VBO.Dirty)) {
+				if (!vbo.changeState(AVBO.Updated, AVBO.Dirty) && !vbo.changeState(AVBO.Clean, AVBO.Dirty)) {
 					Noto.info(s"Could not change to dirty on update, currently is : ${vbo.state.get()}")
 				}
 
 				updateResolvedWidgetVariables(WD.desktop, new mutable.HashSet[Widget]())
 
-				if (vbo.changeState(VBO.Dirty, VBO.Updating)) {
+				if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
 					vbo.softClear()
 					// could if(anyChanged) here
 					customVBOs = Nil

@@ -10,8 +10,10 @@ package arx.core.introspection
 import java.lang.reflect
 import java.lang.reflect.Modifier
 
+import arx.Prelude
 import arx.application.Noto
 import arx.core.async.Executor
+import arx.core.metrics.Metrics
 import arx.core.traits.TNonDiscoverable
 import org.reflections.Reflections
 import org.reflections.scanners.SubTypesScanner
@@ -20,6 +22,7 @@ import org.reflections.util.{ClasspathHelper, ConfigurationBuilder}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 import scala.reflect.ClassTag
+import arx.Prelude.toRichTimer
 
 
 object ReflectionAssistant {
@@ -37,19 +40,23 @@ object ReflectionAssistant {
 	def ensureReflectionsLoaded() : Unit = reflectionsFuture.get()
 
 	def loadReflections = {
-		val ref = new Reflections(
-			new ConfigurationBuilder()
-				.setUrls(ClasspathHelper.forPackage("arx"))
-				.setScanners(new SubTypesScanner()))
+		Metrics.timer("reflection-init").timeStmt {
+			val ref = new Reflections(
+				new ConfigurationBuilder()
+					.setUrls(ClasspathHelper.forPackage("arx"))
+					.setScanners(new SubTypesScanner()))
 
-		import scala.collection.JavaConversions._
-		for (c <- ref.getSubTypesOf(classOf[TEagerSingleton])) {
-			if (isSingleton(c)) {
-				getSingleton(c)
+			Metrics.checkpoint("reflections read")
+			import scala.collection.JavaConversions._
+			for (c <- ref.getSubTypesOf(classOf[TEagerSingleton])) {
+				if (isSingleton(c)) {
+					getSingleton(c)
+				}
 			}
-		}
+			Metrics.checkpoint("eager singletons initialized")
 
-		ref
+			ref
+		}
 	}
 
 	//	val provideInstanceOfMem = memoize((clazz : Class[_]) => {
@@ -95,7 +102,7 @@ object ReflectionAssistant {
 	def allSubTypesOf(clazz: Class[_]): List[Class[_]] = reflections.getSubTypesOf(clazz).toList.filterNot(cz => classOf[TNonDiscoverable].isAssignableFrom(cz))
 	def allSubTypesOf[T: Manifest]: List[Class[_ <: T]] = allSubTypesOf(manifest[T].runtimeClass).asInstanceOf[List[Class[_ <: T]]]
 
-	def isSingleton(c: Class[_]) = c.getSimpleName.endsWith("$") && !c.getSimpleName.startsWith("$")
+	def isSingleton(c: Class[_]) = c.getSimpleName.endsWith("$") && !c.getSimpleName.startsWith("$") && c.getFields.exists(f => f.getName == "MODULE$")
 	def getSingleton(c: Class[_]) = {
 		var moduleField = c.getField("MODULE$").get(null)
 		if (moduleField == null) {
@@ -160,15 +167,17 @@ object ReflectionAssistant {
 	def instancesOfSubtypesOf[T](clazz: Class[T]): List[T] = instancesOf[T](allSubTypesOf(clazz).distinct)
 	def instancesOfSubtypesOf[T: Manifest]: List[T] = instancesOfSubtypesOf(manifest[T].erasure.asInstanceOf[Class[T]])
 
-	def instantiate[T](man: Manifest[T]): T = { instantiate(man.erasure.asInstanceOf[Class[T]]) }
-	def instantiate[T](clazz: Class[T]): T = {
-		if (isSingleton(clazz)) {getSingleton(clazz).asInstanceOf[T]}
+	def instantiateOpt[T](clazz: Class[T]): Option[T] = {
+		if (isSingleton(clazz)) {Some(getSingleton(clazz).asInstanceOf[T])}
 		else {
 			val constructorOpt = clazz.getConstructors find {_.getParameterTypes.length == 0}
-			constructorOpt match {
-				case Some(constructor) => constructor.newInstance().asInstanceOf[T]
-				case None => throw new IllegalArgumentException("No default args constructor for class " + clazz.getName + ", cannot instantiate through reflection assistant")
-			}
+			constructorOpt.map(c => c.newInstance().asInstanceOf[T])
+		}
+	}
+	def instantiate[T](clazz: Class[T]): T = {
+		instantiateOpt[T](clazz) match {
+			case None => throw new IllegalArgumentException("No default args constructor for class " + clazz.getName + ", cannot instantiate through reflection assistant")
+			case Some(v) => v
 		}
 	}
 	def instantiate[T, U](clazz: Class[T], arg : U): T = {
@@ -181,6 +190,23 @@ object ReflectionAssistant {
 		constructorOpt match {
 			case Some(constructor) => constructor.newInstance(arg.asInstanceOf[AnyRef])
 			case None => throw new IllegalArgumentException("No default args constructor for class " + clazz.getName + ", cannot instantiate through reflection assistant")
+		}
+	}
+
+	def instantiate[T](implicit classTag : ClassTag[T]) : T = {
+		instantiate[T](classTag.runtimeClass.asInstanceOf[Class[T]])
+	}
+
+	def companionFor(clazz : Class[_]) : Option[AnyRef] = {
+		try {
+			val companionClass = Class.forName(clazz.getTypeName + "$")
+			if (isSingleton(companionClass)) {
+				Some(getSingleton(companionClass))
+			} else {
+				None
+			}
+		} catch {
+			case _ : Exception => None
 		}
 	}
 

@@ -20,7 +20,7 @@ class WindowingControlComponent extends ControlComponent {
 	}
 
 	override protected def onInitialize(game: World, display: World): Unit = {
-		display.onDataAddedCallbacks ::= ((entity, data) => {
+		display.onDataAddedCallbacks ::= ((world, entity, data) => {
 			data pmatch {
 				case _ : WidgetData => // do nothing
 				case otherWAD : TWidgetAuxData => {

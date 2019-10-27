@@ -1,8 +1,6 @@
 package arx.graphics
 
-import java.nio.ByteBuffer
-import java.nio.FloatBuffer
-import java.nio.ShortBuffer
+import java.nio.{Buffer, ByteBuffer, FloatBuffer, ShortBuffer}
 
 import arx.application.Application
 import arx.core.vec._
