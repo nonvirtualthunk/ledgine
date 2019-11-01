@@ -76,8 +76,8 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 	override def intrinsicSize(widget: Widget, fixedX: Option[Int], fixedY: Option[Int]): Option[ReadVec2i] = {
 		widget.dataOpt[TextDisplay] match {
 			case Some(textDisplay) =>
-				val points = layout(widget, textDisplay, Rectf(0.0f,0.0f,fixedX.map(_.toFloat).getOrElse(100000.0f),fixedY.map(_.toFloat).getOrElse(1000000.0f)))
-				Some(Vec2i((points.dimensions.x).toInt+4, points.dimensions.y.toInt))
+				val layoutResult = layout(widget, textDisplay, Rectf(0.0f,0.0f,fixedX.map(_.toFloat).getOrElse(100000.0f),fixedY.map(_.toFloat).getOrElse(1000000.0f)))
+				Some(Vec2i((layoutResult.dimensions.x).toInt+4, layoutResult.dimensions.y.toInt))
 			case _ => None
 		}
 	}

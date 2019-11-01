@@ -101,7 +101,7 @@ abstract class EnginePiece[T <: EnginePiece[T, Component, EventType], Component 
 	}
 
 	def resolveComponents(context : List[Any], onConstruction : Any => Unit) = {
-		val (comps, newContext) = Dependency.resolveByInjection(componentClasses, this :: context, onConstruction)
+		val (comps, newContext) = Dependency.resolveByInjection(componentClasses.reverse, this :: context, onConstruction)
 		newContext
 	}
 

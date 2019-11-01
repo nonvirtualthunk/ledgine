@@ -37,6 +37,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 	} )
 	val BlankImage : TToImage = ResourceManager.image("default/blank.png")
 
+	case class Corner(enabled : Boolean, width : Float, height : Float)
 	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): List[WQuad] = {
 		val DD = widget.drawing
 		import DD._
@@ -56,8 +57,14 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 				if (!drawAsForegroundBorder) {
 					if ( seg ) {
 						val coff = metrics.borderPixelWidth*pixelScale-1 //center offset
+
+						val startX = if (backgroundEdges(0)) { coff } else { 0.0f }
+						val startY = if (backgroundEdges(1)) { coff } else { 0.0f }
+						val endX = if (backgroundEdges(2)) { ww - coff } else { ww }
+						val endY = if (backgroundEdges(3)) { wh - coff } else { wh }
+
 						if ( drawCenterBackground ) {
-							List(WQuad(Rectf(bounds.x + coff, bounds.y + coff, ww - coff*2, wh - coff*2), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
+							List(WQuad(Rectf(bounds.x + startX, bounds.y + startY, endX - startX, endY - startY), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
 						} else {
 							Nil
 						}
@@ -70,6 +77,16 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 			} else {
 				var cornerWidth = (img.width / 2) * pixelScale
 				var cornerHeight = (img.height / 2) * pixelScale
+
+				val corners = Array.ofDim[Corner](4)
+				var q = 0
+				while (q < 4) {
+					val enabled = backgroundEdges(q) && backgroundEdges((q + 1)%4)
+					corners(q) = Corner(backgroundEdges(q) && backgroundEdges((q + 1)%4), if (enabled) { cornerWidth } else { 0.0f }, if (enabled) { cornerHeight } else { 0.0f })
+					q += 1
+				}
+
+				// todo : partial edges with small dimensions
 				var verticalPercent = 1.0f
 				var horizontalPercent = 1.0f
 				if ( cornerWidth > ww / 2 ) {
@@ -80,8 +97,6 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 					verticalPercent = (wh / 2).toFloat / cornerHeight.toFloat
 					cornerHeight = roundf(wh / 2).toInt
 				}
-				val sideWidth = ww - cornerWidth * 2
-				val sideHeight = wh - cornerHeight * 2
 
 				//Corner Texture coordinates
 				val ctx = 0.0f
@@ -101,22 +116,45 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 				val vstw = ctw
 				val vsth = 0
 
+				/*
+							1
+						0		2
+							3
+				 */
+
+
 				val cornerTR = Rectf(ctx,cty,ctw,cth)
-				var ret = List(
-					WQuad(Rectf(bounds.x,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR),
-					WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR),
-					WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR),
-					WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
-				)
+				var ret = List[WQuad]()
+				if (backgroundEdges(0) && backgroundEdges(1)) {
+					ret ::= WQuad(Rectf(bounds.x,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR)
+				}
+				if (backgroundEdges(1) && backgroundEdges(2)) {
+					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR)
+				}
+				if (backgroundEdges(2) && backgroundEdges(3)) {
+					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR)
+				}
+				if (backgroundEdges(3) && backgroundEdges(1)) {
+					ret ::= WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
+				}
+
 
 				if ( ww > cornerWidth * 2 ) {
-					ret ::= WQuad(Rectf(bounds.x + cornerWidth,bounds.y,sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(hstx,hsty,hstw,hsth))
-					ret ::= WQuad(Rectf(bounds.x + cornerWidth,bounds.y + wh - cornerHeight, sideWidth,cornerHeight),img,edgeColor, flipX = false, flipY = true, 0, Rectf(hstx,hsty,hstw,hsth))
+					if (backgroundEdges(1)) {
+						ret ::= WQuad(Rectf(bounds.x + corners(0).width, bounds.y, ww - corners(0).width - corners(1).width, cornerHeight), img, edgeColor, flipX = false, flipY = false, 0, Rectf(hstx, hsty, hstw, hsth))
+					}
+					if (backgroundEdges(3)) {
+						ret ::= WQuad(Rectf(bounds.x + corners(3).width, bounds.y + wh - cornerHeight, ww - corners(2).width - corners(3).width, cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, Rectf(hstx, hsty, hstw, hsth))
+					}
 				}
 
 				if ( wh > cornerHeight * 2 ) {
-					ret ::= WQuad(Rectf(bounds.x,cornerHeight,bounds.y + cornerWidth,sideHeight),img,edgeColor, flipX = false, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
-					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + cornerHeight,cornerWidth,sideHeight),img,edgeColor, flipX = true, flipY = false, 0, Rectf(vstx,vsty,vstw,vsth))
+					if (backgroundEdges(0)) {
+						ret ::= WQuad(Rectf(bounds.x, corners(0).height, bounds.y + cornerWidth, wh - corners(0).height - corners(3).height), img, edgeColor, flipX = false, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
+					}
+					if (backgroundEdges(2)) {
+						ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth, bounds.y + corners(1).height, cornerWidth, wh - corners(1).height - corners(2).height), img, edgeColor, flipX = true, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
+					}
 				}
 
 				ret.reverse

@@ -255,7 +255,7 @@ class World {
 			List(coreView, currentView)
 		}
 		for (view <- viewsToAlter) {
-			view.dataStoreForClassOpt(runtimeClass) match {
+			view.dataStores.get(runtimeClass) match {
 				case Some(dataStore) => {
 					val dataToProvide = if (!(view eq coreView)) {
 						CopyAssistant.copy(data)
@@ -295,12 +295,19 @@ class World {
 		new ModifierReference(index)
 	}
 
+	final def modify[T](entity : Entity, modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
+		modify(entity, modifier, None)
+	}
 	final def modify[T](entity : Entity, modifier : Modifier[T], source : String)(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(entity, modifier, Some(source))
 	}
 
 	final def modifyWorld[T](modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(selfEntity, modifier, source)
+	}
+
+	final def modifyWorld[T](modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
+		modify(selfEntity, modifier, None)
 	}
 
 	def view : WorldView = this.currentView
@@ -321,8 +328,8 @@ class World {
 
 		newDataRegistrations
    		.foreach(registration => {
-				val data = CopyAssistant.copy(coreView.dataStoreForClass(registration.dataType).getUntyped(registration.entity))
-				view.dataStoreForClass(registration.dataType).putUntyped(registration.entity, data, registration.atTime)
+				val data = CopyAssistant.copy(coreView.dataStores(registration.dataType).getUntyped(registration.entity))
+				view.dataStores(registration.dataType).putUntyped(registration.entity, data, registration.atTime)
 			})
 
 		view.nextDataRegistrationsIndex += newDataRegistrations.size

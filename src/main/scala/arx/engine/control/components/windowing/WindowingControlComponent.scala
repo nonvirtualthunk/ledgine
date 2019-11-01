@@ -10,13 +10,19 @@ import arx.engine.world.World
 import arx.graphics.GL
 import arx.Prelude._
 import arx.core.datastructures.Watcher
+import arx.engine.control.data.WindowingControlData
+import arx.engine.control.event.{KeyPressEvent, KeyReleaseEvent}
+import arx.resource.ResourceManager
+import org.lwjgl.glfw.GLFW
 
 class WindowingControlComponent extends ControlComponent {
 	var windowingSystem : WindowingSystem = _
 
 
-	override protected def onUpdate(game: World, graphics: World, dt: UnitOfTime): Unit = {
+	override protected def onUpdate(game: World, display: World, dt: UnitOfTime): Unit = {
 		windowingSystem.update()
+
+
 	}
 
 	override protected def onInitialize(game: World, display: World): Unit = {
@@ -39,5 +45,14 @@ class WindowingControlComponent extends ControlComponent {
 
 		WD.desktop.width = DimensionExpression.Constant(GL.viewport.width)
 		WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)
+
+		onControlEvent {
+			case KeyReleaseEvent(key, modifiers) if key == GLFW.GLFW_KEY_R && modifiers.ctrl => {
+				if (ResourceManager.useLocalResources) {
+					ResourceManager.refreshSML()
+					display[WindowingControlData].desktop.windowingSystem.reloadWidgets()
+				}
+			}
+		}
 	}
 }

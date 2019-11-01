@@ -218,7 +218,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 //			adjustLine()
 //		}
 
-		val lastLineHeight = lineHeight + descent + 4
+		val lastLineHeight = lineHeight //+ descent + 4
 		TextLayoutResult(rects,Vec2f(maxX,maxY + lastLineHeight.max(maxSpacingThisLine)), font, lineHeight)
 	}
 }

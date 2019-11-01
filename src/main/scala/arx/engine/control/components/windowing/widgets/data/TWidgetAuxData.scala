@@ -45,6 +45,7 @@ class DrawingData extends TWidgetAuxData {
 	// note, these won't necessarily take effect if changed
 	var interiorPadding : ReadVec2i = Vec2i.Zero
 	var effectiveClientArea : Recti = Recti(0,0,0,0)
+	var backgroundEdges : Set[Int] = DrawingData.AllEdges
 
 	var shouldRedraw = false
 
@@ -61,9 +62,15 @@ class DrawingData extends TWidgetAuxData {
 				backgroundImage = Some(ResourceManager.image(cv.str))
 			}
 		}
+
+		for (edges <- configValue.fieldOpt("backgroundEdges").map(e => e.arr.map(_.int).toSet)) {
+			backgroundEdges = edges
+		}
 	}
 }
 
 object DrawingData {
 	val Default = new DrawingData
+
+	val AllEdges = Set(0,1,2,3)
 }

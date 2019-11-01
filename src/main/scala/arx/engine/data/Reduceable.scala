@@ -15,6 +15,9 @@ case class Reduceable[T : Numeric](baseValue : T,reducedBy : T) {
 		}
 		new Reduceable(baseValue, newReducedBy)
 	}
+	def reduceTo(n : T) = {
+		new Reduceable(baseValue, NUM.minus(baseValue, n))
+	}
 	def recoverBy(n : T, limitToZero : Boolean) = {
 		var newReducedBy = NUM.minus(reducedBy, n)
 		if (limitToZero) {

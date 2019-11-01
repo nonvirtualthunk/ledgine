@@ -3,7 +3,7 @@ package arx.engine
 import arx.Prelude
 import arx.application.Noto
 import arx.core.metrics.Metrics
-import arx.core.vec.ReadVec2f
+import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2i}
 import arx.engine.control.ControlEngine
 import arx.engine.control.components.ControlComponent
 import arx.engine.control.event.{CharEnteredEvent, ControlEvent, KeyModifiers, KeyPressEvent, KeyReleaseEvent, KeyboardMirror, Mouse, MouseButton, MouseDragEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, ScrollEvent}
@@ -54,6 +54,23 @@ class Engine extends EngineCore with TEventUser {
 	 * starting a new game, could be a deserialized universe when loading saved state
 	 */
 	def loadScenario(scenario : Scenario, universe : Universe): Unit = {
+//		val windowSize = scenario.desiredWindowSize(universe)
+//		GLFW.glfwSetWindowSize(window, windowSize.x, windowSize.y)
+//		val monitor = GLFW.glfwGetWindowMonitor(window) match {
+//			case 0 => GLFW.glfwGetPrimaryMonitor()
+//			case other => other
+//		}
+//		val xa = Array.ofDim[Float](1)
+//		val ya = Array.ofDim[Float](1)
+//
+//		val xia = Array.ofDim[Int](1)
+//		val yia = Array.ofDim[Int](1)
+//		val wa = Array.ofDim[Int](1)
+//		val ha = Array.ofDim[Int](1)
+//		GLFW.glfwGetMonitorContentScale(monitor, xa, ya)
+//		GLFW.glfwGetMonitorWorkarea(monitor, xia, yia, wa, ha)
+//		GLFW.glfwSetWindowPos(window, xia(0) + (wa(0) - windowSize.x) / 2, yia(0) + (ha(0) - windowSize.y) / 2)
+
 		val scenarioName = scenario.getClass.getSimpleName
 		Metrics.checkpoint(s"scenario $scenarioName load started")
 

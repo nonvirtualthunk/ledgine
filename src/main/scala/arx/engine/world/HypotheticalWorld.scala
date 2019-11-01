@@ -95,7 +95,7 @@ class HypotheticalWorldView(val root : WorldView, world : HypotheticalWorld) ext
 	override def wrappedEvents: Vector[EventWrapper] = root.wrappedEvents ++ super.wrappedEvents
 
 	override def entitiesWithData[T <: TAuxData](implicit tag: ClassTag[T]): Iterable[Entity] = {
-		super.entitiesWithData ++ dataStore[T].entities
+		super.entitiesWithData ++ super.dataStore[T].entities
 	}
 
 	override def dataByClass[T <: TAuxData](entity: Entity, clazz: Class[T]): T = {
@@ -108,6 +108,16 @@ class HypotheticalWorldView(val root : WorldView, world : HypotheticalWorld) ext
 
 	override def hasDataByClass[T <: TAuxData](entity: Entity, runtimeClass: Class[_]): Boolean = {
 		super.hasDataByClass(entity, runtimeClass) || root.hasDataByClass[T](entity, runtimeClass)
+	}
+
+
+	override protected[engine] def dataStoreForClassOpt(clazz: Class[_]): Option[TEntityDataStore[_]] = {
+		(super.dataStoreForClassOpt(clazz), root.dataStoreForClassOpt(clazz)) match {
+			case (Some(primary), Some(secondary)) => Some(new UnionEntityDataStore[TAuxData](primary.asInstanceOf[TEntityDataStore[TAuxData]], secondary.asInstanceOf[TEntityDataStore[TAuxData]]))
+			case (None, Some(rootDataStore)) => Some(rootDataStore)
+			case (Some(hypDataStore), None) => Some(hypDataStore)
+			case _ => None
+		}
 	}
 
 	override def applyOverlayModification(modification: Modification): Unit = ???

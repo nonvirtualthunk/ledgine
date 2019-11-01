@@ -16,7 +16,7 @@ import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets._
 import arx.engine.control.components.windowing.widgets.data.{DrawingData, TWidgetAuxData}
-import arx.engine.graphics.components.GraphicsComponent
+import arx.engine.graphics.components.{DrawPriority, GraphicsComponent}
 import arx.engine.graphics.components.windowing.WindowingGraphicsComponent.WidgetWatchers
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics.helpers.Color
@@ -50,6 +50,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 	var customVBOs = List[AVBO]()
 	var needsRedraw = true
+
+
+	override def drawPriority: DrawPriority = DrawPriority.Final
 
 	def createWatchers(widget: Widget) = WidgetWatchers(Watcher(widget.position), Watcher(widget.dimensions), Watcher(widget.showing.resolve()))
 
@@ -351,7 +354,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					val baseRelPos = if (relativeTo.parent == widget.parent) {
 						relativeTo.drawing.relativePosition
 					} else {
-						relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition
+						relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
 					}
 
 					direction match {

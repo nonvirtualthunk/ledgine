@@ -126,6 +126,23 @@ object ConfigDataLoader {
 									}: Unit
 								case None => null
 							}
+						} else if (getter.returnType.typeSymbol == typeOf[Option[Any]].typeSymbol) {
+							val optionType = getter.returnType.typeArgs.head
+							extractConfigValueFunctionForType(optionType) match {
+								case Some(f) =>
+									(data: AnyRef, config: ConfigValue) => {
+										val subField = config.field(fieldName)
+										if (subField.nonEmpty) {
+											val substr = subField.str
+											if (substr == "none" || substr == "None") {
+												ReflectionAssistant.invoke(data, setter)(None)
+											} else {
+												ReflectionAssistant.invoke(data, setter)(Some(f(subField)))
+											}
+										}
+									}: Unit
+								case None => null
+							}
 						} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
 							(data : AnyRef, config : ConfigValue) => {
 								val subField = config.field(fieldName)

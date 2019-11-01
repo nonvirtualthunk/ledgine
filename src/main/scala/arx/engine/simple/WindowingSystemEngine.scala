@@ -44,10 +44,6 @@ object WindowingSystemEngine extends Engine {
 			WD.desktop.bind("demoBinding.image", ResourceManager.image("ui/hammer.png"))
 
 			onControlEvent {
-				case KeyPressEvent(key, modifiers, _) if key == GLFW.GLFW_KEY_R && modifiers.ctrl => {
-					ResourceManager.refreshSML()
-					WD.desktop.windowingSystem.reloadWidgets()
-				}
 				case KeyPressEvent(_,_,_) => {
 					text.bind("demoBinding.mode", "Counting presses")
 					keyCounter += 1

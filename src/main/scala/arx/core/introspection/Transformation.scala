@@ -116,6 +116,16 @@ object FieldOperations {
 		}
 	}
 
+	case class ReduceTo[T : Numeric](value: T) extends Transformation[Reduceable[T]] {
+		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
+			oldValue.reduceTo(value)
+		}
+
+		override def asSimpleString: String = s"reduce to $value"
+
+		override def impact = Impact.Negative
+	}
+
 	case class RecoverBy[T : Numeric](value: T) extends Transformation[Reduceable[T]] {
 		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
 			oldValue.recoverBy(value, limitToZero = true)
@@ -252,6 +262,8 @@ object FieldOperations {
 		def reduceBy(value: T) = FieldOperationModifier(field, ReduceBy(value, limitToZero = true))
 
 		def reduceBy(value: T, limitToZero : Boolean) = FieldOperationModifier(field, ReduceBy(value, limitToZero))
+
+		def reduceTo(value: T) = FieldOperationModifier(field, ReduceTo(value))
 
 		def recoverBy(value: T) = FieldOperationModifier(field, RecoverBy(value))
 

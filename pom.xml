@@ -16,7 +16,7 @@
     <name>ledgine</name>
 
     <properties>
-        <lwjgl.version>3.2.1</lwjgl.version>
+        <lwjgl.version>3.2.3</lwjgl.version>
     </properties>
 
     <profiles>

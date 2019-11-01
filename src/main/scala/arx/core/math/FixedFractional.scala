@@ -28,7 +28,7 @@ abstract class FixedFractional[T <: FixedFractional[T]](protected[math] val raw 
 	def <= (other : T) : Boolean = this.raw <= other.raw
 
 	def compareTo(other : T) : Int = this.raw.compareTo(other.raw)
-
+	def min(other : T) : T = if (other.raw < this.raw) { other } else { this.asInstanceOf[T] }
 
 	override def equals(obj: Any): Boolean = {
 		obj match {
@@ -53,6 +53,7 @@ abstract class FixedFractional[T <: FixedFractional[T]](protected[math] val raw 
 			s"$whole"
 		}
 	}
+
 }
 
 class FractionalNumeric[T <: FixedFractional[T]](override val zero : T) extends Numeric[T] {

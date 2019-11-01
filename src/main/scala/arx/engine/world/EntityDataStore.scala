@@ -4,7 +4,32 @@ import arx.core.introspection.{CopyAssistant, ReflectionAssistant}
 import arx.engine.entity.Entity
 import overlock.atomicmap.AtomicMap
 
-class EntityDataStore[T](val clazz : Class[T]) {
+
+trait TEntityDataStore[T] {
+	def entities : Iterable[Entity]
+
+	def getOpt(entity : Entity) : Option[T]
+
+	def get(entity : Entity) : T
+
+	def getRaw(entity : Entity) : Option[EntityDataWrapper[T]]
+
+	def contains(entity : Entity) : Boolean
+}
+
+class UnionEntityDataStore[T](primary : TEntityDataStore[T], secondary : TEntityDataStore[T]) extends TEntityDataStore [T] {
+	override def entities: Iterable[Entity] = primary.entities ++ secondary.entities
+
+	override def getOpt(entity: Entity): Option[T] = primary.getOpt(entity).orElse(secondary.getOpt(entity))
+
+	override def get(entity: Entity): T = primary.getOpt(entity).getOrElse(secondary.get(entity))
+
+	override def getRaw(entity: Entity): Option[EntityDataWrapper[T]] = primary.getRaw(entity).orElse(secondary.getRaw(entity))
+
+	override def contains(entity: Entity): Boolean = primary.contains(entity) || secondary.contains(entity)
+}
+
+class EntityDataStore[T](val clazz : Class[T]) extends TEntityDataStore[T] {
 	val values = AtomicMap.atomicNBHM[Long, EntityDataWrapper[T]]
 	val overlay = AtomicMap.atomicNBHM[Long, T]
 	var hasOverlay = false

@@ -10,6 +10,7 @@ package arx.core
 
 import arx.application.Noto
 import arx.core.introspection.ReflectionAssistant
+import arx.core.metrics.Metrics
 
 trait TDependable {
 	var _dependencies: List[Class[_]] = List()
@@ -21,35 +22,7 @@ trait TDependable {
 	}
 
 	var resolvedDependencies: List[AnyRef] = Nil
-
-	def reify[T <: AnyRef : Manifest]: T = {
-		resolvedDependencies.find(d => manifest[T].erasure.isAssignableFrom(d.getClass)) match {
-			case Some(t) => t.asInstanceOf[T]
-			case None => {
-				if (dependencies.exists(c => manifest[T].erasure.isAssignableFrom(c))) {
-					//				Noto.warn("Dependency resolution failed, attempted matches for " + manifest[T].erasure.getSimpleName + ":")
-					//				resolvedDependencies.foreach( d => Noto.warn("\t" + d.getClass.getSimpleName + ": " + manifest[T].erasure.isAssignableFrom(d.getClass)) )
-					//				Noto.warn("Printall: " + resolvedDependencies)
-					//				throw new IllegalStateException("Attempting to get dependency before dependencies have been resolved")
-					resolvedDependencies.find(d => manifest[T].erasure.isAssignableFrom(d.getClass)) match {
-						case Some(t) => t.asInstanceOf[T]
-						case None => if (dependencies.exists(c => manifest[T].erasure.isAssignableFrom(c))) {
-							Noto.warn("Dependency resolution failed, attempted matches for " + manifest[T].erasure.getSimpleName + ":")
-							resolvedDependencies.foreach(d => if (manifest[T].erasure.isAssignableFrom(d.getClass)) {
-								return d.asInstanceOf[T]
-							})
-							throw new IllegalStateException("Attempting to get dependency before dependencies have been resolved")
-						} else {
-							throw new IllegalStateException("Attempting to get instance of class not specified as a dependency")
-						}
-					}
-				} else {
-					throw new IllegalStateException("Attempting to get instance of class not specified as a dependency")
-				}
-			}
-		}
-	}
-
+	
 	def subDependables: List[TDependable] = Nil
 }
 
@@ -143,18 +116,20 @@ object Dependency {
 	}
 
 	def inject(c: Class[_], ctx: Context, onConstruction: Any => Unit = _ => {}): Any = {
+		import arx.Prelude.toRichTimer
+
 		ctx.allInstances.find(inst => c.isAssignableFrom(inst.getClass)) match {
 			case Some(existing) => existing
 			case None =>
 				val constructor = c.getConstructors.maxBy(_.getParameterCount)
-				val newInst : Any =
+				val newInst: Any =
 					if (ReflectionAssistant.isSingleton(c)) {
 						ReflectionAssistant.getSingleton(c).asInstanceOf[Any]
 					} else if (constructor.getParameterCount == 0) {
 						ReflectionAssistant.instantiate(c).asInstanceOf[Any]
 					} else {
 						val parameters = constructor.getParameterTypes.map(pt => inject(pt, ctx, onConstruction).asInstanceOf[AnyRef])
-						constructor.newInstance(parameters:_*).asInstanceOf[Any]
+						constructor.newInstance(parameters: _*).asInstanceOf[Any]
 					}
 
 				onConstruction(newInst)

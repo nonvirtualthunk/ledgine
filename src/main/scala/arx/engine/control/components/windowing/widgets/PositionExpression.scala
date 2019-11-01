@@ -54,25 +54,28 @@ object PositionExpression {
 	private val orientedConstantPattern = "([0-9]+) from (.*)".r
 	private val simpleConstantPattern = "([0-9]+)$".r
 	private val pxConstantPattern = "([0-9]+)px$".r
-	def parse(s : String) : Option[PositionExpression] = {
+	private val belowPattern = "([0-9]+) below ([a-zA-Z0-9]+)".r
+	def parse(s : String, siblings : List[Widget]) : Option[PositionExpression] = {
 		Option(s.toLowerCase() match {
 			case "flow" => Flow
 			case "centered" | "center" => Centered
-			case matchPattern(matchTarget) => {
+			case matchPattern(matchTarget) =>
 				throw new UnsupportedOperationException("matching other widgets not yet supported")
-			}
-			case proportionPattern(pcnt) => {
+			case proportionPattern(pcnt) =>
 				Proportional(pcnt.toFloat / 100.0f)
-			}
-			case orientedConstantPattern(amount, from) => {
+			case orientedConstantPattern(amount, from) =>
 				Constant(amount.toFloat.toInt, WindowingOrientation.fromString(from, TopLeft))
-			}
-			case simpleConstantPattern(amount) => {
+			case simpleConstantPattern(amount) =>
 				Constant(amount.toFloat.toInt)
-			}
-			case pxConstantPattern(amount) => {
+			case pxConstantPattern(amount) =>
 				Constant(amount.toFloat.toInt)
-			}
+			case belowPattern(amount, target) =>
+				siblings.find(w => w.identifier.map(_.toLowerCase()).contains(target.toLowerCase()) || w.configIdentifier.map(_.toLowerCase()).contains(target.toLowerCase)) match {
+					case Some(w) => Relative(w, amount.toFloat.toInt, Cardinals.Bottom)
+					case None =>
+						Noto.error(s"Relative position with no matching reference point $target")
+						null
+				}
 			case _ =>
 				Noto.error(s"unsupported position expression: $s")
 				null

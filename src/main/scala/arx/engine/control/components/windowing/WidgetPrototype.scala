@@ -1,5 +1,6 @@
 package arx.engine.control.components.windowing
 
+import arx.application.Noto
 import arx.core.introspection.ReflectionAssistant
 import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
@@ -9,7 +10,8 @@ import arx.resource.ResourceManager
 
 trait WidgetPrototype {
 	def instantiate(ws : WindowingSystem) : Widget
-	def reload(w : Widget)
+	def reload(w : Widget) : Unit
+	def load(w : Widget) : Unit = reload(w)
 }
 
 object WidgetPrototype {
@@ -36,6 +38,10 @@ object WidgetPrototype {
 }
 
 class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype {
+	/**
+	 * Instantiates the base information for the widget, but does not load the actual prototyped data. Allows for
+	 * a two phase initialization such that children of a widget can reference one another
+	 */
 	override def instantiate(ws : WindowingSystem): Widget = {
 		ReflectionAssistant.ensureReflectionsLoaded()
 
@@ -43,8 +49,6 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 		val widgetType = config.field("type").strOrElse("SimpleWidget")
 		val w = ws.createWidget()
 		WidgetType.types(widgetType).initializeWidget(w)
-
-		reload(w)
 
 		w.data[WidgetPrototypeData].prototype = this
 
@@ -67,17 +71,21 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 
 		val childrenToDelete = w.children.filterNot(w => w.configIdentifier.forall(ci => childIdentifiers.contains(ci)))
 		childrenToDelete.foreach(w => w.destroy())
-		val childrenToUpdate = w.children.filter(w => w.configIdentifier.exists(ci => childIdentifiers.contains(ci)))
-		childrenToUpdate.foreach(w => reload(w))
+		if (childrenToDelete.nonEmpty) { Noto.info(s"deleting ${childrenToDelete.size} children")}
+//		val childrenToUpdate = w.children.filter(w => w.configIdentifier.exists(ci => childIdentifiers.contains(ci)))
+//		childrenToUpdate.foreach(w => reload(w))
+//		if (childrenToUpdate.nonEmpty) { Noto.info(s"updating ${childrenToUpdate.size} children")}
 		val childrenToCreate = childFields.filter(t => ! w.children.exists(w => w.configIdentifier.contains(t._1)))
-		childrenToCreate.foreach {
+		val createdChildren = childrenToCreate.map {
 			case (configIdent, _) => {
 				val prototype = new SMLWidgetPrototype(() => configFunc().field("children").fields(configIdent))
 				val child = prototype.instantiate(w.windowingSystem)
 				child.parent = w
 				child.widgetData.configIdentifier = Some(configIdent)
+				prototype -> child
 			}
 		}
+		createdChildren.foreach { case (prototype, c) => prototype.load(c) }
 
 		w.children
 	}

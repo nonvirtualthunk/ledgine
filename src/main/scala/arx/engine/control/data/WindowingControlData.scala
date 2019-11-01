@@ -6,12 +6,12 @@ package arx.engine.control.data
 
 import arx.Prelude._
 import arx.engine.control.components.windowing.Widget
-import arx.engine.data.TMutableAuxData
+import arx.engine.data.{TMutableAuxData, TWorldAuxData}
 
 import scala.collection.immutable.Stack
 
 
-class WindowingControlData extends TControlData with TMutableAuxData {
+class WindowingControlData extends TControlData with TMutableAuxData with TWorldAuxData {
 	var desktop : Widget = _
 	var focusedWidget : Option[Widget] = None
 	var lastWidgetUnderMouse : Option[Widget] = None

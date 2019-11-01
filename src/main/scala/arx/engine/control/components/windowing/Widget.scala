@@ -106,6 +106,8 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	override def hashCode(): Int = entity.hashCode()
 
 	override def equals(obj: Any): Boolean = entity.equals(obj)
+
+	override def toString: String = widgetData.identifier.orElse(widgetData.configIdentifier).getOrElse(s"Widget($entity)")
 }
 
 
@@ -141,6 +143,13 @@ class SimpleWidget(w : Widget) extends WidgetInstance {
 }
 object SimpleWidget extends WidgetType[SimpleWidget, WidgetData] {
 	override def initializeWidget(widget: Widget): SimpleWidget = new SimpleWidget(widget)
+}
+
+class Div(w : Widget) extends WidgetInstance {
+	override def widget: Widget = w
+}
+object Div extends WidgetType[Div, WidgetData] {
+	override def initializeWidget(widget: Widget): Div = new Div(widget)
 }
 
 @GenerateCompanion
@@ -213,12 +222,12 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 		for (pos <- configValue.fieldOpt("position")) {
 			for (posArr <- pos.arrOpt) {
 				for ((cv,idx) <- posArr.toList.zipWithIndex; if idx < 3) {
-					PositionExpression.parse(cv.str).ifPresent(pe => position(idx) = pe)
+					PositionExpression.parse(cv.str, widget.parent.children).ifPresent(pe => position(idx) = pe)
 				}
 			}
 		}
-		configValue.fieldOpt("x").flatMap(xv => PositionExpression.parse(xv.str)).ifPresent(xv => x = xv)
-		configValue.fieldOpt("y").flatMap(yv => PositionExpression.parse(yv.str)).ifPresent(yv => y = yv)
+		configValue.fieldOpt("x").flatMap(xv => PositionExpression.parse(xv.str, widget.parent.children)).ifPresent(xv => x = xv)
+		configValue.fieldOpt("y").flatMap(yv => PositionExpression.parse(yv.str, widget.parent.children)).ifPresent(yv => y = yv)
 
 		for (dim <- configValue.fieldOpt("dimensions").orElse(configValue.fieldOpt("dim"))) {
 			for (dimArr <- dim.arrOpt) {
@@ -231,6 +240,7 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str)).ifPresent(wv => width = wv)
 		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str)).ifPresent(hv => height = hv)
 		dataBinding = configValue.fieldOpt("dataBinding").map(_.str).flatMap(s => Widget.bindingParser.findFirstMatchIn(s).map(m => m.group(1)))
+		markModified()
 	}
 
 }

@@ -363,8 +363,8 @@ abstract class EngineCore {
 	}
 }
 object EngineCore {
-	var windowWidth = 800
-	var windowHeight = 600
+	var windowWidth = 1000
+	var windowHeight = 700
 	var pixelWidth = windowWidth
 	var pixelHeight = windowHeight
 

@@ -44,14 +44,6 @@ object Executor {
 		})
 	}
 
-	def submitAsync(runnable : Runnable): Unit = {
-		threadpool.submit(runnable)
-	}
-
-	def submitAsync[T](callable : Callable[T]) = {
-		threadpool.submit(callable)
-	}
-
 	def schedulePeriodic(interval : UnitOfTime, func : () => Unit) = {
 		scheduledThreadpool.schedule(new Runnable {
 			override def run(): Unit = func()

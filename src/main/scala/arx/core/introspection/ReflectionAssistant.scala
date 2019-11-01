@@ -9,6 +9,7 @@ package arx.core.introspection
 
 import java.lang.reflect
 import java.lang.reflect.Modifier
+import java.net.{URL, URLClassLoader}
 
 import arx.Prelude
 import arx.application.Noto
@@ -29,7 +30,19 @@ object ReflectionAssistant {
 	import scala.reflect.runtime.universe._
 	import scala.reflect.runtime.{universe => u}
 	val classloader = Thread.currentThread().getContextClassLoader
-	val mirror = u.runtimeMirror(classloader)
+	val mirrorFuture = Executor.submitAsync(() => {
+		val urls = ClasspathHelper.forPackage("arx")
+		val urlsArray = Array.ofDim[URL](urls.size())
+		urls.toArray(urlsArray)
+		val filteredClassloader = new URLClassLoader(urlsArray)
+		val ret = Metrics.timer("reflection.universe-init").timeStmt(u.runtimeMirror(filteredClassloader))
+		Metrics.checkpoint("scala reflect universe loaded")
+		ret
+	})
+	def mirror = {
+		val ret = mirrorFuture.get()
+		ret
+	}
 
 
 	val reflectionsFuture = Executor.submitAsync(loadReflections _)

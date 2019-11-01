@@ -123,7 +123,10 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	}
 
 	def createWidget(resourcePath : String, key : String) : Widget = {
-		WidgetPrototype.fromConfig(resourcePath, key).instantiate(this)
+		val prototype = WidgetPrototype.fromConfig(resourcePath, key)
+		val w = prototype.instantiate(this)
+		prototype.load(w)
+		w
 	}
 
 	def destroyWidget(widget : Widget) : Unit = {

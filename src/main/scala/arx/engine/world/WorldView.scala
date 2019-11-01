@@ -25,11 +25,11 @@ class WorldView(val world : World) {
 
 	def entities : Iterable[Entity] = _entities.view.map(ew => ew.entity)
 
-	protected[engine] def dataStoreForClassOpt(clazz : Class[_]) : Option[EntityDataStore[_]] = {
+	protected[engine] def dataStoreForClassOpt(clazz : Class[_]) : Option[TEntityDataStore[_]] = {
 		dataStores.get(clazz)
 	}
 
-	protected[engine] final def dataStoreForClass(clazz : Class[_]) : EntityDataStore[_] = {
+	protected[engine] final def dataStoreForClass(clazz : Class[_]) : TEntityDataStore[_] = {
 		dataStoreForClassOpt(clazz) match {
 			case Some(store) => store
 			case None => throw new IllegalStateException(s"Types must be registered with a world before use, ${clazz} was not")
@@ -38,6 +38,10 @@ class WorldView(val world : World) {
 
 	def entitiesWithData[T <: TAuxData](implicit tag : ClassTag[T]) : Iterable[Entity] = {
 		dataStore[T].entities
+	}
+
+	final def entitiesMatching[T <: TAuxData](predicate : T => Boolean)(implicit tag : ClassTag[T]) : Iterable[Entity] = {
+		entitiesWithData[T].filter(e => predicate(this.data[T](e)))
 	}
 
 	@inline
@@ -135,8 +139,8 @@ class WorldView(val world : World) {
 
 	// +================================ convenience methods ===========================================+
 
-	final def dataStore[T <: TAuxData](implicit tag : ClassTag[T]) : EntityDataStore[T] = {
-		dataStoreForClass(tag.runtimeClass.asInstanceOf[Class[T]]).asInstanceOf[EntityDataStore[T]]
+	final def dataStore[T <: TAuxData](implicit tag : ClassTag[T]) : TEntityDataStore[T] = {
+		dataStoreForClass(tag.runtimeClass.asInstanceOf[Class[T]]).asInstanceOf[TEntityDataStore[T]]
 	}
 
 	final def data[T <: TAuxData](entity : Entity)(implicit tag : ClassTag[T]) : T = {

@@ -70,16 +70,11 @@ object LazyImageFunc {
 
 
 	def load (func : => Image,holder : LazyImageFunc) {
-		Executor.submitAsync(new ImageLoaderRunnable(func,holder))//execute(new ImageLoaderRunnable(func,holder))
-	}
-
-	class ImageLoaderRunnable(func : => Image,holder : LazyImageFunc) extends Runnable {
-		def run() {
+		Executor.submitAsync(() => {
 			val tmp : Image = func
 			holder.img = tmp
-		}
+		})
 	}
-
 
 
 }

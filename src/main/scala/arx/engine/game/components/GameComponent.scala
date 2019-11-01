@@ -14,7 +14,7 @@ abstract class GameComponent extends EngineComponent[GameEngine] {
 		listeners = List(gameEvents.eventBusListener)
 	}
 
-	def onGameEvent(listener: PartialFunction[Event,_]): Unit = {
+	def onGameEvent(listener: PartialFunction[GameEvent,_]): Unit = {
 		gameEvents.onEvent(listener)
 	}
 

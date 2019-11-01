@@ -69,6 +69,8 @@ object AxialVec {
 		AxialVec(1, 0), AxialVec(1, -1), AxialVec(0, -1),
 		AxialVec(-1, 0), AxialVec(-1, 1), AxialVec(0, 1))
 
+	val CartesianDelta = AxialDelta.map(ad => ad.asCartesian(1.0f).normalizeSafe)
+
 	def fromCartesian(v : Vec2f, size : Float) : AxialVec = {
 		val q = (v.x * 1.33333333f) / size
 		val r = ((-v.x / 1.5f) + ((Prelude.sqrtf(3.0f)/1.5f) * v.y)) / size
