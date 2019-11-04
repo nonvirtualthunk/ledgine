@@ -17,7 +17,7 @@ import arx.engine.EngineCore
 import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetType, WindowingSystem}
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.graphics.{Image, TextureBlock}
-import arx.graphics.helpers.{Color, ImageSection, RichText, RichTextSection, TextSection}
+import arx.graphics.helpers.{Color, ImageSection, RichText, RichTextSection, THasRichTextRepresentation, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont}
 import arx.resource.ResourceManager
 
@@ -28,7 +28,7 @@ import scala.language.implicitConversions
 class TextDisplay extends TWidgetAuxData {
 	var text : Moddable[RichText] = Moddable(RichText(""))
 	var fontScale = 1.0f
-	var fontColor : Moddable[ReadVec4f] = Moddable( Color.Black )
+	var fontColor : Moddable[Color] = Moddable( Color.Black )
 	var font = none[FontWrapper]
 	var textAlignment : Moddable[HorizontalTextAlignment] = Moddable(HorizontalTextAlignment.Left)
 	var orientFromTop = Moddable(true)
@@ -75,6 +75,8 @@ class TextDisplay extends TWidgetAuxData {
 												strAccum.clear()
 											}
 											richTextSections :+= ImageSection(img, 1.0f, Color.White)
+										case richText : RichText => richTextSections ++= richText.sections
+										case renderToRich : THasRichTextRepresentation => richTextSections ++= renderToRich.toRichText.sections
 										case other => strAccum.append(other.toString)
 									}
 								}

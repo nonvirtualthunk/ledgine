@@ -22,7 +22,7 @@ trait TDependable {
 	}
 
 	var resolvedDependencies: List[AnyRef] = Nil
-	
+
 	def subDependables: List[TDependable] = Nil
 }
 

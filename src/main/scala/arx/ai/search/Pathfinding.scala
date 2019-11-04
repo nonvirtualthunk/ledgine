@@ -18,11 +18,15 @@ case class Pathfinder[T](name : String,
 		findPathToAny(entity, from, to :: Nil, maximumCost)
 	}
 	def findPathToAny(entity : Entity, from: T, toList: List[T], maximumCost: Option[Float] = None): Option[Path[T]] = {
+		val heuristicTarget = toList.head
+		val to = toList.toSet
+
+		findPathToMatching(entity, from, heuristicTarget, to.contains, maximumCost)
+	}
+
+	def findPathToMatching(entity : Entity, from: T, heuristicTarget : T, matchFunc : (T) => Boolean, maximumCost: Option[Float] = None): Option[Path[T]] = {
 		timer.timeStmt {
 			var examined = 0
-
-			val heuristicTarget = toList.head
-			val to = toList.toSet
 
 			val heap = new FibonacciHeap[SearchNode[T]]
 			heap.enqueue(SearchNode(from, null, 0.0f, heuristicFunction(from, heuristicTarget)))
@@ -36,7 +40,7 @@ case class Pathfinder[T](name : String,
 				val node = heap.dequeue()
 				examined += 1
 
-				if (to.contains(node.pos)) {
+				if (matchFunc(node.pos)) {
 					examinedNodeHistogram.update(examined)
 					return Some(node.path)
 				} else {

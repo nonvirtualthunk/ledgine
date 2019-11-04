@@ -76,6 +76,15 @@ class WorldView(val world : World) {
 		modification.modifier.applyUntyped(data)
 	}
 
+	protected[engine] def toggleModification(modificationRef : ModifierReference, newRootValue : AnyRef, enable : Boolean) : Unit = {
+		val data = dataStores(modificationRef.modifiedType)
+		val modification = modifications(modificationRef.index)
+		modification.toggles :+= (currentTime -> enable)
+		val entity = modification.entity
+		modifications.filter(_.entity == entity).foreach(_.modifier.applyUntyped(newRootValue))
+		// we want to copy all values _into_ the given data so that the reference remains valid
+	}
+
 	protected[engine] def copyAtTime(atTime : GameEventClock) : WorldView = {
 		val view = new WorldView(world)
 		view.selfEntity = selfEntity
@@ -95,7 +104,7 @@ class WorldView(val world : World) {
 
 		val upToModificationIndex = view.wrappedEvents.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
 		view.modifications = this.modifications.take(upToModificationIndex)
-		view.modifications.foreach(m => view.applyModification(m))
+		view.modifications.foreach(m => if (m.isActiveAt(atTime)) { view.applyModification(m) })
 
 		view
 	}

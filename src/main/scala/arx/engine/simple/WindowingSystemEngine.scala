@@ -37,11 +37,16 @@ object WindowingSystemEngine extends Engine {
 
 			val text = WD.desktop.createChild("DemoWidgets.DemoText")
 
+			val list = WD.desktop.createChild("DemoWidgets.DemoListWidget")
+
 			WD.desktop.bind("demoBinding.presses", () => keyCounter)
 			WD.desktop.bind("demoBinding.mode", "Waiting on presses")
 			WD.desktop.bind("demoBinding.icon", ResourceManager.image("ui/plusSign.png"))
 			WD.desktop.bind("demoBinding.textData", "Bound Data")
 			WD.desktop.bind("demoBinding.image", ResourceManager.image("ui/hammer.png"))
+
+			val messages = List("hello", "world", "another list item")
+			WD.desktop.bind("listItems", messages.map(m => Map("text" -> m)))
 
 			onControlEvent {
 				case KeyPressEvent(_,_,_) => {

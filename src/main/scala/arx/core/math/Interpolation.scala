@@ -10,6 +10,7 @@ import arx.engine.data.Reduceable
 import arx.graphics.helpers.HSBA
 
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 trait Interpolation[T] {
 	def interpolate(pcnt : Float) : T
@@ -54,11 +55,75 @@ trait Interpolation[T] {
 	}
 }
 
+class InterpolationBuilder[T] {
+	import arx.Prelude._
+
+	private var _keyframes : Seq[T] = Nil
+	private var _curve : Float => Float = identity
+	private var _applicationFunction : (T,T,Float) => T = (a,_,_) => a
+	private var _rawFunction : Float => T = _
+
+	def toInterpolation: Interpolation[T] = new Interpolation[T] {
+		override def interpolate(pcnt: Float): T = {
+			val t = _curve(pcnt)
+
+			if (_keyframes.nonEmpty) {
+				val startIndex = (t * _keyframes.size).toInt.clamp(0, _keyframes.size - 1)
+				val endIndex = (startIndex + 1).clamp(0, _keyframes.size - 1)
+
+				val startF = startIndex / (_keyframes.size - 1).toFloat
+				val endF = endIndex / (_keyframes.size - 1).toFloat
+
+				val localT = (t - startF) / (endF - startF)
+				_applicationFunction(_keyframes(startIndex), _keyframes(endIndex), localT)
+			} else if (_rawFunction != null) {
+				_rawFunction(t)
+			} else {
+				???
+			}
+		}
+	}
+
+	def curve(func : Float => Float) : this.type = {
+		_curve = func
+		this
+	}
+	def keyframes(frames : T*) : this.type = {
+		_keyframes = frames.toSeq
+		this
+	}
+	def apply(func : (T,T, Float) => T) : this.type = {
+		_applicationFunction = func
+		this
+	}
+	def rawFunction(func : Float => T) : this.type = {
+		_rawFunction = func
+		this
+	}
+}
+
 //class LinearInterpolation[T <: { def -(a : T) : T; def * (f : Float) : T; def +(a : T) : T }](a : T, b : T) extends Interpolation[T] {
 //	override def interpolate(pcnt: Float): T = a + (b - a) * pcnt
 //}
 
 object Interpolation {
+	implicit def fromBuilder[T] (builder : InterpolationBuilder[T]) : Interpolation[T] = builder.toInterpolation
+
+	def fromFunction[T](f : Float => T) : InterpolationBuilder[T] = {
+		new InterpolationBuilder[T]().rawFunction(f)
+	}
+
+	def apply[T](keyframes : T*)(implicit classTag: ClassTag[T]) : InterpolationBuilder[T] = {
+		val builder = new InterpolationBuilder[T]
+		builder.keyframes(keyframes : _*)
+		if (classTag.runtimeClass == classOf[Float]) {
+			builder.apply(((a:Float,b:Float, t :Float) => a + (b - a) * t).asInstanceOf[(T,T,Float) => T])
+		} else if (classTag.runtimeClass == classOf[ReadVec3f]) {
+			builder.apply(((a:ReadVec3f,b:ReadVec3f, t :Float) => a + (b - a) * t).asInstanceOf[(T,T,Float) => T])
+		}
+		builder
+	}
+
 	def constant[T](v : T) : Interpolation[T] = new Interpolation[T] {
 		override def interpolate(pcnt: Float): T = v
 	}
@@ -77,6 +142,14 @@ object Interpolation {
 
 	def between(a : ReadVec2f, b : ReadVec2f) : Interpolation[ReadVec2f] = new Interpolation[ReadVec2f] {
 		override def interpolate(pcnt: Float): ReadVec2f = a + (b-a) * pcnt
+	}
+
+	def between(a : ReadVec2f, b : ReadVec2f, c : ReadVec2f) : Interpolation[ReadVec2f] = new Interpolation[ReadVec2f] {
+		override def interpolate(pcnt: Float): ReadVec2f = if (pcnt < 0.5f) {
+			a + (b-a) * pcnt * 2.0f
+		} else {
+			b + (c-b) * (pcnt - 0.5f) * 2.0f
+		}
 	}
 
 	def between(a : CartVec3, b : CartVec3) : Interpolation[CartVec3] = new Interpolation[CartVec3] {
@@ -202,4 +275,6 @@ object Interpolation {
 		val index = interpolateStepF(x,controlPoints)
 		controlPoints(index)._2
 	}
+
+	def sin010(pcnt : Float) = Prelude.sinf(pcnt * math.Pi)
 }

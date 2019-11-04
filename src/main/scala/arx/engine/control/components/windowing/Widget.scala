@@ -7,7 +7,7 @@ package arx.engine.control.components.windowing
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.datastructures.Watcher
-import arx.core.introspection.TEagerSingleton
+import arx.core.introspection.{ReflectionAssistant, TEagerSingleton}
 import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.traits.TSentinelable
@@ -85,15 +85,65 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 			case f : (() => T) => widgetData.bindings += (key -> Moddable(f))
 			case v : T => widgetData.bindings += (key -> Moddable(v))
 		}
+	}
+
+
+	private def subResolve(thing : Any, subKeys : Seq[String]) : Option[_] = {
+		subKeys.headOption match {
+			case Some(nextKey) =>
+				val subRes = thing match {
+					case Some(x) => subResolve(x, subKeys)
+					case m : Map[String, Any] => m.get(nextKey)
+					case other =>
+						if (ReflectionAssistant.hasField(other, nextKey)) {
+							Some(ReflectionAssistant.getFieldValue(other, nextKey))
+						} else {
+							Noto.error(s"unsupported sub resolution type in widget binding: $thing")
+							None
+						}
+				}
+				subRes.map {
+					case m : Moddable[_] => m.resolve()
+					case supplier : (() => Any) => supplier()
+					case Some(x) => x
+					case other => other
+				} match {
+					case Some(res) => subResolve(res, subKeys.tail)
+					case None => None
+				}
+			case None =>
+				Some(thing)
+		}
 
 	}
 
 	def resolveBinding(bindingKey : String) : Option[_] = {
-		widgetData.bindings.get(bindingKey) match {
-			case Some(value) => Some(value.resolve())
+		val splitSections = bindingKey.split('.')
+
+		val accumKey = new StringBuilder
+		var remainingKeys = Vector[String]()
+		var subResolved : Option[_] = None
+		for (subKey <- splitSections ) {
+			if (subResolved.isEmpty) {
+				accumKey.append(subKey)
+				subResolved = widgetData.bindings.get(accumKey.toString()).map(_.resolve())
+				accumKey.append('.')
+			} else {
+				remainingKeys :+= subKey
+			}
+		}
+
+		subResolved match {
+			case Some(thing) => subResolve(thing, remainingKeys)
 			case None if widgetData.parent.isSentinel => None
 			case _ => widgetData.parent.resolveBinding(bindingKey)
 		}
+
+//		widgetData.bindings.get(bindingKey) match {
+//			case Some(value) => Some(value.resolve())
+//			case None if widgetData.parent.isSentinel => None
+//			case _ => widgetData.parent.resolveBinding(bindingKey)
+//		}
 	}
 
 	/**

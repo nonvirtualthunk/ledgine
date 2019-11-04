@@ -16,7 +16,7 @@ import arx.core.datastructures.Watcher
 import arx.core.representation.ConfigValue
 import arx.core.vec._
 import arx.engine.control.components.windowing.events.{DropEvent, FocusGainedEvent, FocusLostEvent, RequestFocusEvent}
-import arx.engine.control.components.windowing.subcomponents.WindowingSystemComponent
+import arx.engine.control.components.windowing.subcomponents.{DynamicWidgetComponent, WindowingSystemComponent}
 import arx.engine.control.data.WindowingControlData
 import arx.engine.control.event._
 import arx.engine.entity.Entity
@@ -34,8 +34,7 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	val WGD = displayWorld.worldData[WindowingGraphicsData]
 	WGD.desktop = WD.desktop
 
-	// Unused at this time
-	var components : List[WindowingSystemComponent] = Nil
+	var components : List[WindowingSystemComponent] = List(DynamicWidgetComponent)
 	var componentClasses : List[Class[_ <: WindowingSystemComponent]] = Nil
 
 	var watchersByWidget : Map[Widget, List[Watcher[_]]] = Map()

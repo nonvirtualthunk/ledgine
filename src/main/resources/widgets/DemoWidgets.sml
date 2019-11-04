@@ -53,3 +53,27 @@ DemoText {
   position: [centered, "10 from bottom"]
 }
 
+
+DemoListWidget {
+  type : ListWidget
+
+  width : 500
+  height : 700
+  position : ["10", "centered"]
+
+  listItemArchetype : DemoWidgets.DemoListItem
+  listItemBinding : "listItems -> item"
+
+  listItemGapSize : 0
+}
+
+DemoListItem {
+  type : TextDisplayWidget
+  text : "%(item.text)"
+
+  drawBackground: true
+  background.image: "ui/minimalistBorder_ne.png"
+  fontScale : 2
+
+  width : 100%
+}

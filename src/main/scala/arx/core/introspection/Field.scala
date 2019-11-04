@@ -10,7 +10,8 @@ package arx.core.introspection
 import java.nio.file.{Files, Path, Paths}
 
 import arx.Prelude._
-import arx.core.async.Executor
+import arx.core.async.KillableThread.ApplicationLevel
+import arx.core.async.{Executor, KillableThread, OnExitRegistry}
 import arx.core.macros.GenerateCompanion
 import arx.core.vec._
 import arx.engine.data.{TAuxData, TNestedData, TTestAuxData}
@@ -96,7 +97,11 @@ object Field {
 
 object FieldGenerator {
 	def main(args: Array[String]): Unit = {
+		ReflectionAssistant.ignoreEagerSingletons.set(true)
 		generate(args.headOption.getOrElse(""), testClasses = if (args.length == 2) { args(1).toBoolean } else { false })
+		KillableThread.kill(ApplicationLevel)
+		Executor.onQuit()
+		OnExitRegistry.onExit()
 	}
 
 	def generate(prefixFilter : String, testClasses : Boolean) {
@@ -123,12 +128,17 @@ object FieldGenerator {
 				addLine(s"""object ${className} extends Clazz[$className]("$className", classOf[$className]){""")
 				addLine(s"\tval Sentinel = new $className")
 				addLine(s"\toverride def instantiate = new $className")
-				for (field <- clazz.getDeclaredFields) {
-					var fieldName = field.getName
-					if (fieldName.startsWith("_")) {
-						fieldName = fieldName.substring(1)
-					}
 
+				val fieldNames = clazz.getDeclaredFields.map(f => {
+					val name = f.getName
+					if (name.startsWith("_")) {
+						name.substring(1)
+					} else {
+						name
+					}
+				})
+
+				for (fieldName <- fieldNames) {
 					addLine(s"""\tval $fieldName = Field.fromValue(Sentinel.$fieldName).createField[$className]("$fieldName",f => f.$fieldName, (f,$fieldName) => f.$fieldName = $fieldName, $className) """)
 					addLine(s"""\tfields += "$fieldName" -> $fieldName""")
 				}
@@ -137,6 +147,12 @@ object FieldGenerator {
 						|\tdef apply(f : $className => Unit) : $className = { val v = new $className; f(v); v }
 					 """.stripMargin)
 				addLine("}")
+
+				addLine(s"\tdef copyInto(from : $className, to : $className) {")
+				for (fieldName <- fieldNames) {
+					addLine(s"\t\tto.$fieldName = from.$fieldName")
+				}
+				addLine(s"\t}")
 			}
 
 			addLine("}")
@@ -147,7 +163,8 @@ object FieldGenerator {
 			val dirName = s"src/$genSrcDir/scala/${packageName.replace('.', '/')}"
 			val fileName =  dirName + "/Companions.scala"
 			Files.createDirectories(Paths.get(dirName))
-			writeToFile(fileName, body.toString())
+//			writeToFile(fileName, body.toString())
+			println(body.toString())
 		}
 
 

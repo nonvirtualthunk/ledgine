@@ -55,6 +55,7 @@ object PositionExpression {
 	private val simpleConstantPattern = "([0-9]+)$".r
 	private val pxConstantPattern = "([0-9]+)px$".r
 	private val belowPattern = "([0-9]+) below ([a-zA-Z0-9]+)".r
+	private val rightLeftPattern = "(?i)([0-9]+) (right|left) of ([a-zA-Z0-9]+)".r
 	def parse(s : String, siblings : List[Widget]) : Option[PositionExpression] = {
 		Option(s.toLowerCase() match {
 			case "flow" => Flow
@@ -72,6 +73,18 @@ object PositionExpression {
 			case belowPattern(amount, target) =>
 				siblings.find(w => w.identifier.map(_.toLowerCase()).contains(target.toLowerCase()) || w.configIdentifier.map(_.toLowerCase()).contains(target.toLowerCase)) match {
 					case Some(w) => Relative(w, amount.toFloat.toInt, Cardinals.Bottom)
+					case None =>
+						Noto.error(s"Relative position with no matching reference point $target")
+						null
+				}
+			case rightLeftPattern(amount, rightLeft, target) =>
+				siblings.find(w => w.identifier.map(_.toLowerCase()).contains(target.toLowerCase()) || w.configIdentifier.map(_.toLowerCase()).contains(target.toLowerCase)) match {
+					case Some(w) =>
+						if (rightLeft.toLowerCase() == "right") {
+							Relative(w, amount.toFloat.toInt, Cardinals.Right)
+						} else {
+							Relative(w, amount.toFloat.toInt, Cardinals.Left)
+						}
 					case None =>
 						Noto.error(s"Relative position with no matching reference point $target")
 						null
@@ -103,7 +116,7 @@ object DimensionExpression {
 	private val relativePattern = "rel\\(([0-9]+)\\)".r
 	private val constantPattern = "([0-9]+)".r
 	def parse(s : String) : Option[DimensionExpression] = {
-		Option(s.toLowerCase() match {
+		Option(s.toLowerCase().stripWhitespace match {
 			case proportionPattern(pcnt) => Proportional(pcnt.toFloat / 100.0f)
 			case relativePattern(delta) => Relative(delta.toFloat.toInt)
 			case "expandtoparent" => ExpandToParent

@@ -49,8 +49,8 @@ class PixelCamera(pixelsPerSecond : Int, secondsToFullSpeed : Float) extends TCa
 		val curTime = GLFW.glfwGetTime()
 		val dt = (curTime - lastUpdatedTime).toFloat // in seconds
 
-		offsetTargetVelocity.x = deltaFromMappings(MoveLeft, MoveRight, 1.0f)
-		offsetTargetVelocity.y = deltaFromMappings(MoveDown, MoveUp, 1.0f)
+		offsetTargetVelocity.x = deltaFromMappings(MoveRight, MoveLeft, 1.0f)
+		offsetTargetVelocity.y = deltaFromMappings(MoveUp, MoveDown, 1.0f)
 
 		offset += offsetVelocity * moveSpeedMultiplier * dt
 		for (axis <- 0 until 2) {

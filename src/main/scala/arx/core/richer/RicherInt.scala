@@ -17,4 +17,6 @@ class RicherInt ( val f : Int ) extends AnyVal {
 	def clamp ( minimum : Int , maximum : Int ) : Int = { scala.math.min(maximum,scala.math.max(f,minimum)) }
 	def isBitSet ( bitFlag : Int ) = Prelude.isBitSet(f,bitFlag)
 	def anyBitsSet ( bitMask : Int ) = (f & bitMask) != 0
+
+	def toSignedString : String = if (f > 0) { s"+$f" } else { s"$f" }
 }

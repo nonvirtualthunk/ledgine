@@ -15,7 +15,7 @@ case class AxialVec(q: Int, r: Int) {
 		((q - other.q).abs + (q + r - other.q - other.r).abs + (r - other.r).abs) / 2.0f
 	}
 
-	def asCartesian(): CartVec = CartVec(q * 0.75f, (r + q * 0.5f) * 0.866025388f)
+	def asCartesian: CartVec = CartVec(q * 0.75f, (r + q * 0.5f) * 0.866025388f)
 	def asCartesian(scale : Float) : Vec2f = Vec2f(q * 0.75f * scale, (r + q / 2.0f) * 0.866025388f * scale)
 
 	def cartesianX(scale : Float = 1.0f) = q * 0.75f * scale

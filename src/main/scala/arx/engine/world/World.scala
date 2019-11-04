@@ -87,7 +87,7 @@ case class NestedKeyedModifier[C, K, V <: AnyRef, NV](topField : Field[C, Map[K,
 }
 
 
-case class Modification(modifiedType : Class[_], entity : Entity,modifier : Modifier[_],source : Option[String], var toggles : List[(GameEventClock, Boolean)] = Nil) {
+case class Modification(modifiedType : Class[_], entity : Entity,modifier : Modifier[_],source : Option[String], var toggles : Vector[(GameEventClock, Boolean)] = Vector()) {
 	def isActiveAt(time : GameEventClock) : Boolean = if (toggles.isEmpty) {
 		true
 	} else {
@@ -99,7 +99,7 @@ object Modification {
 		new Modification(tag.runtimeClass, entity, modifier, source)
 	}
 }
-class ModifierReference(protected[engine] val index : Int) extends AnyVal {}
+class ModifierReference(protected[engine] val index : Int, protected[engine] val modifiedType: Class[_]) {}
 
 sealed abstract class EventState {}
 object EventState {
@@ -292,7 +292,7 @@ class World {
 
 		currentView.applyModification(coreView.modifications.last)
 
-		new ModifierReference(index)
+		new ModifierReference(index, tag.runtimeClass)
 	}
 
 	final def modify[T](entity : Entity, modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {

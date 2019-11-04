@@ -85,3 +85,24 @@ object CachedFloat {
 object CachedInt {
 	implicit def cachedToValue ( c : CachedInt ) = c.resolve()
 }
+
+class CachedKeyedValue[K, V] {
+	var lastKey : Option[K] = None
+	var lastValue : Option[V] = None
+
+	def getOrElseUpdate(key : K, func : => V) : V = synchronized {
+		if (!lastKey.contains(key)) {
+			lastKey = Some(key)
+			lastValue = Some(func)
+		}
+		lastValue.get
+	}
+
+	def getOrElseTryUpdate(key : K, func : => Option[V]) : Option[V] = synchronized {
+		if (!lastKey.contains(key)) {
+			lastKey = Some(key)
+			lastValue = func
+		}
+		lastValue
+	}
+}

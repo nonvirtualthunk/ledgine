@@ -77,15 +77,19 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 //		if (childrenToUpdate.nonEmpty) { Noto.info(s"updating ${childrenToUpdate.size} children")}
 		val childrenToCreate = childFields.filter(t => ! w.children.exists(w => w.configIdentifier.contains(t._1)))
 		val createdChildren = childrenToCreate.map {
-			case (configIdent, _) => {
-				val prototype = new SMLWidgetPrototype(() => configFunc().field("children").fields(configIdent))
-				val child = prototype.instantiate(w.windowingSystem)
-				child.parent = w
-				child.widgetData.configIdentifier = Some(configIdent)
-				prototype -> child
+			case (configIdent, configValue) => {
+				if (configValue.isStr) {
+					None -> w.createChild(configValue.str)
+				} else {
+					val prototype = new SMLWidgetPrototype(() => configFunc().field("children").fields(configIdent))
+					val child = prototype.instantiate(w.windowingSystem)
+					child.parent = w
+					child.widgetData.configIdentifier = Some(configIdent)
+					Some(prototype) -> child
+				}
 			}
 		}
-		createdChildren.foreach { case (prototype, c) => prototype.load(c) }
+		createdChildren.foreach { case (Some(prototype), c) => prototype.load(c); case _ => }
 
 		w.children
 	}

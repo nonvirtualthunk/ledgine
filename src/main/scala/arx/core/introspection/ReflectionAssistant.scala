@@ -10,6 +10,7 @@ package arx.core.introspection
 import java.lang.reflect
 import java.lang.reflect.Modifier
 import java.net.{URL, URLClassLoader}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import arx.Prelude
 import arx.application.Noto
@@ -30,6 +31,7 @@ object ReflectionAssistant {
 	import scala.reflect.runtime.universe._
 	import scala.reflect.runtime.{universe => u}
 	val classloader = Thread.currentThread().getContextClassLoader
+	var ignoreEagerSingletons = new AtomicBoolean(false)
 	val mirrorFuture = Executor.submitAsync(() => {
 		val urls = ClasspathHelper.forPackage("arx")
 		val urlsArray = Array.ofDim[URL](urls.size())
@@ -61,9 +63,11 @@ object ReflectionAssistant {
 
 			Metrics.checkpoint("reflections read")
 			import scala.collection.JavaConversions._
-			for (c <- ref.getSubTypesOf(classOf[TEagerSingleton])) {
-				if (isSingleton(c)) {
-					getSingleton(c)
+			if (!ignoreEagerSingletons.get()) {
+				for (c <- ref.getSubTypesOf(classOf[TEagerSingleton])) {
+					if (isSingleton(c)) {
+						getSingleton(c)
+					}
 				}
 			}
 			Metrics.checkpoint("eager singletons initialized")
@@ -280,10 +284,10 @@ object ReflectionAssistant {
 		})
 	}
 
-	def fieldType(obj: AnyRef, field: String) = {
+	def fieldType(obj: Any, field: String) = {
 		obj.getClass.getMethod(field).getReturnType
 	}
-	def hasField(obj: AnyRef, field: String) = try {
+	def hasField(obj: Any, field: String) = try {
 		obj.getClass.getMethod(field)
 		true
 	} catch {
@@ -304,10 +308,10 @@ object ReflectionAssistant {
 		}
 	}
 
-	def getFieldValue(obj: AnyRef, field: String): Any = {
+	def getFieldValue(obj: Any, field: String): Any = {
 		obj.getClass.getMethod(field).invoke(obj)
 	}
-	def getFieldValue(obj: AnyRef, field : reflect.Field) : Any = {
+	def getFieldValue(obj: Any, field : reflect.Field) : Any = {
 		getFieldValue(obj, field.getName)
 	}
 	def setFieldValue[T <: AnyRef : Manifest](obj: AnyRef, field: String, value: T) {

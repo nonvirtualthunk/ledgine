@@ -150,7 +150,7 @@ object Noto {
 		}
 	}
 
-	OnExitRegistry.register(() => executor.shutdown())
+	OnExitRegistry.register(() => `executor`.shutdown())
 }
 
 trait TLoggingLevelProvider {

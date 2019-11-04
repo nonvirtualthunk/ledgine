@@ -292,6 +292,20 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					} else {
 						None
 					})(axis)
+				case DimensionExpression.WrapContent =>
+					val inPad = widget.drawing.interiorPadding
+					val minV = Vec2i(0, 0)
+					val maxV = Vec2i(0, 0)
+					widget.children.foreach(w => {
+						val rpos = w.drawing.relativePosition
+						val edim = w.drawing.effectiveDimensions
+						minV.x = minV.x.min(rpos.x)
+						minV.y = minV.y.min(rpos.y)
+						maxV.x = maxV.x.max(rpos.x + edim.x)
+						maxV.y = maxV.y.max(rpos.y + edim.y)
+					})
+					ret(axis) = maxV(axis) - minV(axis) + inPad(axis) * 2
+//					Some(maxV(axis) - minV(axis) + inPad(axis) * 2)
 				case _ => // do nothing further
 			}
 		}
@@ -314,19 +328,6 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				Some(widget.parent.drawing.clientDim(axis) + delta)
 			//			case DimensionExpression.ExpandToParent =>
 			//				Some( widget.parent.drawing.clientDim(axis) - widget.drawing.relativePosition)
-			case DimensionExpression.WrapContent =>
-				val inPad = widget.drawing.interiorPadding
-				val minV = Vec2i(0, 0)
-				val maxV = Vec2i(0, 0)
-				widget.children.foreach(w => {
-					val rpos = w.drawing.relativePosition
-					val edim = w.drawing.effectiveDimensions
-					minV.x = minV.x.min(rpos.x)
-					minV.y = minV.y.min(rpos.y)
-					maxV.x = maxV.x.max(rpos.x + edim.x)
-					maxV.y = maxV.y.max(rpos.y + edim.y)
-				})
-				Some(maxV(axis) - minV(axis) + inPad(axis) * 2)
 			case _ => None
 		}
 	}
@@ -421,6 +422,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					}
 				}
 			}
+
+//			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
+//			DD.effectiveDimensions = afterEffDim
+//			DD.effectiveClientArea = afterEffClientArea
 		}
 	}
 }

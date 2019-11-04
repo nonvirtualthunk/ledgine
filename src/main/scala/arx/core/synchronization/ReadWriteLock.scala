@@ -17,18 +17,21 @@ class ReadWriteLock {
 	def readLock[T] (func : => T): T = {
 		intern.readLock().lock()
 
-		val ret = func
-
-		intern.readLock().unlock()
-		ret
+		try {
+			val ret = func
+			ret
+		} finally {
+			intern.readLock().unlock()
+		}
 	}
 
 	def writeLock[T] (func : => T): T = {
 		intern.writeLock().lock()
 
-		val ret = func
-
-		intern.writeLock().unlock()
-		ret
+		try {
+			func
+		} finally {
+			intern.writeLock().unlock()
+		}
 	}
 }

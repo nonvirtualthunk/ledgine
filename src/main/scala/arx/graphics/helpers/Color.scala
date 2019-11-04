@@ -45,12 +45,12 @@ object Color {
 
 	def scaleRGB ( v : ReadVec4f, rgbMult : Float ) = Vec4f(v.r * rgbMult,v.g * rgbMult,v.b * rgbMult,v.a)
 
-	val Black : RGBA = this(0.0f,1.0f)
-	val White : RGBA = this(1.0f,1.0f)
-	val Grey  : RGBA = this(0.5f,1.0f)
-	val Red : RGBA = RGBA(1.0f,0.0f,0.0f,1.0f)
-	val Green : RGBA = RGBA(0.0f,1.0f,0.0f,1.0f)
-	val Blue : RGBA = RGBA(0.0f,0.0f,1.0f,1.0f)
+	val Black : Color = this(0.0f,1.0f)
+	val White : Color = this(1.0f,1.0f)
+	val Grey  : Color = this(0.5f,1.0f)
+	val Red : Color = RGBA(1.0f,0.0f,0.0f,1.0f)
+	val Green : Color = RGBA(0.0f,1.0f,0.0f,1.0f)
+	val Blue : Color = RGBA(0.0f,0.0f,1.0f,1.0f)
 
 	def fromInt ( i : Int ) = {
 		val r = ((i & 0xff000000) >>> 24) / 255.0f
@@ -255,7 +255,10 @@ class HSBA(ha:Float,sa:Float,ba:Float,aa:Float) extends Vec4f(ha,sa,ba,aa) with 
 		HSBA(hueShiftedH(target,pcnt), s, b, a)
 	}
 	def saturationShifted(target : Float, pcnt : Float) = {
-		HSBA(h,s * (target - s) * pcnt,b,a)
+		HSBA(h,s + (target - s) * pcnt,b,a)
+	}
+	def brightnessShifted(target : Float, pcnt : Float) = {
+		HSBA(h,s, b + (target - b) * pcnt, a)
 	}
 	def mix(other : HSBA, pcnt : Float) = {
 		HSBA(hueShiftedH(other.h,pcnt), s + (other.s - s) * pcnt, b + (other.b - b) * pcnt, a + (other.a - a) * pcnt)

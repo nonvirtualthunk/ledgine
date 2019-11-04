@@ -83,6 +83,10 @@ object RichText {
 	val Empty = RichText(Nil)
 }
 
+trait THasRichTextRepresentation {
+	def toRichText : RichText
+}
+
 trait TTextLayouter {
 	def layOutText (text : RichText, font : TBitmappedFont, fontScale : Float, area : Rectf, spacingMultiple : Float = 1.0f, minSpacing : Float = 0.0f, textAlignment :Int = Cardinals.Left) : TextLayoutResult
 	def layOutText ( params : LayoutParameters ) : TextLayoutResult = {
