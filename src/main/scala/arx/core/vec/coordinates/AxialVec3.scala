@@ -31,10 +31,10 @@ case class AxialVec3(q : Int, r : Int, l : Int) {
 		AxialVec3(ax.q, ax.r, l)
 	}
 
-	def sideClosestTo(other : AxialVec3, tieBreaker : AxialVec3) : Int = {
+	def sideClosestTo(other : AxialVec3, tieBreaker : AxialVec3) : HexDirection = {
 		qr.sideClosestTo(other.qr, tieBreaker.qr)
 	}
-	def sideClosestTo(other : AxialVec, tieBreaker : AxialVec) : Int = {
+	def sideClosestTo(other : AxialVec, tieBreaker : AxialVec) : HexDirection = {
 		qr.sideClosestTo(other, tieBreaker)
 	}
 

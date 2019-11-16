@@ -77,3 +77,62 @@ DemoListItem {
 
   width : 100%
 }
+
+DemoTabWidget : {
+  x : "0 from right"
+  width : 400
+  height : 700
+
+
+  type : TabWidget
+
+  tabs : [
+    { heading : "Hammer", tab : HammerDisplay },
+    { heading : "Other", tab : OtherDisplay}
+  ]
+
+  tabHeight : 75
+
+  children : {
+    HammerDisplay : {
+      type : Div
+
+      backgroundPixelScale : 1
+      background.image : "ui/greenWoodBorder.png"
+
+      children : {
+        HammerImage {
+          type: ImageDisplayWidget
+
+          width: intrinsic
+          height: intrinsic
+          scalingStyle: Scale(1)
+
+          image: "ui/hammer.png"
+
+          background.image : "ui/raisedBorder.png"
+        }
+      }
+    }
+
+    OtherDisplay : {
+      type : Div
+
+      backgroundPixelScale : 1
+      background.image : "ui/raisedBorderBW.png"
+      backgroundColor : [0.67,0.47,0.34,1.0]
+      edgeColor : [0.67,0.47,0.34,1.0]
+
+      children : {
+        HammerImage {
+          type: TextDisplayWidget
+
+          text: "Greetings to you"
+          fontScale : 1.5
+
+          drawBackground : false
+        }
+      }
+    }
+  }
+}

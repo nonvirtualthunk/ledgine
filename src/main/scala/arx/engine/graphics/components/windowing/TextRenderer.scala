@@ -34,7 +34,7 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 
 		val ret = cachedLayout.getOrElseUpdate((effFont, textDisplay.effectiveFontScale, text, area), {
 			val layouter = TextLayouter(effFont, textDisplay.effectiveFontScale)
-			val layout = layouter.layoutText(text, area, textDisplay.textAlignment)
+			val layout = layouter.layoutText(text, area, textDisplay.textAlignment, textDisplay.verticalTextAlignment)
 
 			layout
 		})

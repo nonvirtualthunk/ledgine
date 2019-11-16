@@ -7,7 +7,8 @@ import arx.engine.world.{Modifier, ModifierReference, World, WorldView}
 
 import scala.reflect.ClassTag
 
-class Entity(val id : Long) extends AnyVal {
+// the AnyVal aspect is disabled at the moment because of the effect it has on using the debugger, the debug
+class Entity(val id : Long) /* extends AnyVal */ {
 	def data[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : T = view.data[T](this)
 	def data[T <: TAuxData](clazz : Clazz[T])(implicit view : WorldView) : T = view.data[T](clazz)(this)
 	def dataOpt[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Option[T] = view.dataOpt[T](this)
@@ -26,6 +27,13 @@ class Entity(val id : Long) extends AnyVal {
 	override def toString: String = s"Entity($id)"
 
 	def isSentinel = id == -1L
+
+	override def hashCode(): Int = id.hashCode()
+
+	override def equals(obj: Any): Boolean = obj match {
+		case e : Entity => e.id == this.id
+		case _ => false
+	}
 }
 
 

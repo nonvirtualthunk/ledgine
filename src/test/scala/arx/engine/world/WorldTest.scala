@@ -17,6 +17,9 @@ case class FooData(
 	var b : Float = 0.0f,
 	var nested : Nested = new Nested,
 	var nestedMap : Map[AnyRef, Nested] = Map()) extends TAuxData {
+	def this() {
+		this(0,0.0f,new Nested,Map())
+	}
 }
 
 case class Nested() {
@@ -34,6 +37,13 @@ object FooData extends Clazz[FooData]("FooData", classOf[FooData]) {
 	fields += "nested" -> nested
 	val nestedMap = Field.fromValue(Sentinel.nestedMap).createField[FooData]("nestedMap", f => f.nestedMap, (f,nestedMap) => f.nestedMap = nestedMap, FooData)
 	fields += "nestedMap" -> nestedMap
+
+	override def copyInto(from: FooData, to: FooData): Unit = {
+		to.a = from.a
+		to.b = from.b
+		to.nested = from.nested
+		to.nestedMap = from.nestedMap
+	}
 }
 
 object Nested extends Clazz[Nested]("Nested", classOf[Nested]) {
@@ -42,6 +52,11 @@ object Nested extends Clazz[Nested]("Nested", classOf[Nested]) {
 	fields += "x" -> x
 	val y = Field.fromValue(Sentinel.y).createField[Nested]("y", f => f.y, (f,y) => f.y = y, Nested)
 	fields += "y" -> y
+
+	override def copyInto(from: Nested, to: Nested): Unit = {
+		to.x = from.x
+		to.y = from.y
+	}
 }
 
 case class TestEvent(i : Int) extends GameEvent {
@@ -88,10 +103,15 @@ class WorldTest extends FlatSpec {
 
 		val viewAt1 = world.viewAtTime(world.currentTime - 1)
 
-		val foo2At1 = viewAt1.data[FooData](entity2)
+		val foo2At1 = viewAt1.dataOpt[FooData](entity2)
+
+		val viewAt2 = world.viewAtTime(world.currentTime)
+
+		val foo2At2 = viewAt2.dataOpt[FooData](entity2)
 
 		assert(viewAt1.wrappedEvents.size == 1)
-		assert(foo2At1.b == 0.0f)
+		assert(foo2At1.isEmpty)
+		assert(foo2At2.exists(foo => foo.b == 1.0f))
 	}
 	
 	"Ledger world" should "be able to support nested field modifications" in {
@@ -166,5 +186,46 @@ class WorldTest extends FlatSpec {
 
 		assert(breakdownB.elements(0).impact == Impact.Positive)
 		assert(breakdownB.elements(0).source.contains("modification 2"))
+	}
+
+	"world view" should "be able to enable and disable modifications and see the effects reflected" in {
+		val world = new World
+		world.register[FooData]
+
+		val curView = world.view
+
+		val entity1 = world.createEntity()
+		val entity2 = world.createEntity()
+
+		entity1.attach(new FooData(1,1.0f)).in(world)
+		entity2.attach(new FooData(2,2.0f)).in(world)
+
+		val t0 = world.addEvent(TestEvent(0))
+
+		val modRef = world.modify(entity1, FooData.a + 3)
+
+		val t1 = world.addEvent(TestEvent(1))
+
+		assert(entity1(FooData)(curView).a == 4)
+
+		world.toggleModification(modRef, enable = false)
+		val t2 = world.addEvent(TestEvent(2))
+
+		assert(entity1(FooData)(curView).a == 1)
+
+		world.toggleModification(modRef, enable = true)
+		val t3 = world.addEvent(TestEvent(3))
+
+		assert(entity1(FooData)(curView).a == 4)
+
+
+		val walkView = world.viewAtTime(t0)
+		assert(entity1(FooData)(walkView).a == 1)
+		world.updateViewToTime(walkView, t1)
+		assert(entity1(FooData)(walkView).a == 4)
+		world.updateViewToTime(walkView, t2)
+		assert(entity1(FooData)(walkView).a == 1)
+		world.updateViewToTime(walkView, t3)
+		assert(entity1(FooData)(walkView).a == 4)
 	}
 }

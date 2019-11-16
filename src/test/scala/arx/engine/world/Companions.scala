@@ -11,7 +11,11 @@ object TestCreatureData extends Clazz[TestCreatureData]("TestCreatureData", clas
 	fields += "size" -> size
 
 	def apply(f : TestCreatureData => Unit) : TestCreatureData = { val v = new TestCreatureData; f(v); v }
-					 
+
+	override def copyInto(from: TestCreatureData, to: TestCreatureData): Unit = {
+		to.hp = from.hp
+		to.size = from.size
+	}
 }
 import arx.engine.world.HypotheticalWorldTest.TestAttackData
 object TestAttackData extends Clazz[TestAttackData]("TestAttackData", classOf[TestAttackData]){
@@ -24,6 +28,11 @@ object TestAttackData extends Clazz[TestAttackData]("TestAttackData", classOf[Te
 	fields += "strikeDamage" -> strikeDamage
 
 	def apply(f : TestAttackData => Unit) : TestAttackData = { val v = new TestAttackData; f(v); v }
-					 
+
+	override def copyInto(from: TestAttackData, to: TestAttackData): Unit = {
+		to.toHit = from.toHit
+		to.strikeCount = from.strikeCount
+		to.strikeDamage = from.strikeDamage
+	}
 }
 }

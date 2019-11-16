@@ -87,16 +87,16 @@ case class NestedKeyedModifier[C, K, V <: AnyRef, NV](topField : Field[C, Map[K,
 }
 
 
-case class Modification(modifiedType : Class[_], entity : Entity,modifier : Modifier[_],source : Option[String], var toggles : Vector[(GameEventClock, Boolean)] = Vector()) {
+case class Modification(modifiedType : Class[_ <: TAuxData], entity : Entity,modifier : Modifier[_],source : Option[String], var toggles : Vector[(GameEventClock, Boolean)] = Vector()) {
 	def isActiveAt(time : GameEventClock) : Boolean = if (toggles.isEmpty) {
 		true
 	} else {
-		toggles.takeWhile(t => t._1 <= time).lastOption.map(t => t._2).getOrElse(true)
+		toggles.takeWhile(t => t._1 <= time).lastOption.forall(t => t._2)
 	}
 }
 object Modification {
-	def apply[C](entity : Entity, modifier : Modifier[C], source : Option[String])(implicit tag : ClassTag[C]) : Modification = {
-		new Modification(tag.runtimeClass, entity, modifier, source)
+	def apply[C <: TAuxData](entity : Entity, modifier : Modifier[C], source : Option[String])(implicit tag : ClassTag[C]) : Modification = {
+		new Modification(tag.runtimeClass.asInstanceOf[Class[_ <: TAuxData]], entity, modifier, source)
 	}
 }
 class ModifierReference(protected[engine] val index : Int, protected[engine] val modifiedType: Class[_]) {}
@@ -116,10 +116,12 @@ protected[engine] class EventWrapper(val event : GameEvent, val occurredAt : Gam
 protected[engine] class EntityWrapper(val entity : Entity, val addedAt : GameEventClock)
 protected[engine] class EntityDataWrapper[T](val data : T, val addedAt : GameEventClock)
 protected[engine] case class EntityDataRegistration(entity : Entity, dataType : Class[_], atTime : GameEventClock)
+protected[engine] case class ModifierToggle(modifierReference : ModifierReference, atTime : GameEventClock)
 
 class World {
 	protected[world] var entityCounter = new AtomicLong(0)
 	protected[world] var dataRegistrations = Vector[EntityDataRegistration]()
+	protected[world] var toggles = Vector[ModifierToggle]()
 	protected[world] val foreignEntities = AtomicMap.atomicNBHM[Long,Long]
 
 	var onEntityAddedCallbacks = List[(World, Entity) => Unit]()
@@ -285,9 +287,9 @@ class World {
 		attachData[T](selfEntity, data)
 	}
 
-	def modify[T](entity : Entity, modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
+	def modify[T <: TAuxData](entity : Entity, modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
 		val index = coreView.modifications.size
-		coreView.modifications :+= new Modification(tag.runtimeClass, entity, modifier, source)
+		coreView.modifications :+= new Modification(tag.runtimeClass.asInstanceOf[Class[_ <: TAuxData]], entity, modifier, source)
 		currentView.modifications = coreView.modifications
 
 		currentView.applyModification(coreView.modifications.last)
@@ -295,19 +297,26 @@ class World {
 		new ModifierReference(index, tag.runtimeClass)
 	}
 
-	final def modify[T](entity : Entity, modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modify[T <: TAuxData](entity : Entity, modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(entity, modifier, None)
 	}
-	final def modify[T](entity : Entity, modifier : Modifier[T], source : String)(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modify[T <: TAuxData](entity : Entity, modifier : Modifier[T], source : String)(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(entity, modifier, Some(source))
 	}
 
-	final def modifyWorld[T](modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modifyWorld[T <: TAuxData](modifier : Modifier[T], source : Option[String])(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(selfEntity, modifier, source)
 	}
 
-	final def modifyWorld[T](modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
+	final def modifyWorld[T <: TAuxData](modifier : Modifier[T])(implicit tag : ClassTag[T]) : ModifierReference = {
 		modify(selfEntity, modifier, None)
+	}
+
+	def toggleModification(modifierReference: ModifierReference, enable : Boolean) : Unit = {
+		val mod = coreView.resolveModification(modifierReference)
+		val rootValue = coreView.dataByClass(mod.entity, mod.modifiedType)
+		view.toggleModification(modifierReference, rootValue, enable)
+		toggles :+= ModifierToggle(modifierReference, currentTime)
 	}
 
 	def view : WorldView = this.currentView
@@ -315,6 +324,7 @@ class World {
 	def viewAtTime(time : GameEventClock): WorldView = {
 		val newView = coreView.copyAtTime(time)
 		newView.nextDataRegistrationsIndex = dataRegistrations.lastIndexWhere(r => r.atTime <= time) + 1
+		newView.nextToggleIndex = toggles.lastIndexWhere(r => r.atTime <= time) + 1
 		newView
 	}
 
@@ -334,6 +344,16 @@ class World {
 
 		view.nextDataRegistrationsIndex += newDataRegistrations.size
 
+		val newToggles = toggles.slice(view.nextToggleIndex, toggles.size)
+   		.takeWhile(r => r.atTime <= time)
+
+		newToggles
+			.foreach(toggle => {
+				val mod = coreView.resolveModification(toggle.modifierReference)
+				view.recomputeData(mod.entity, mod.modifiedType, coreView.dataByClass(mod.entity, mod.modifiedType))
+			})
+
+
 		val nextModificationStart = view.wrappedEvents.lastOption.map(e => e.modificationIndexLimit).getOrElse(0)
 		val newEvents = coreView.wrappedEvents.slice(view.nextTime.time, time.asInt+1) // +1 because we want to go up to and include the given time
 		view._events ++= newEvents
@@ -344,7 +364,7 @@ class World {
 		view.modifications ++= newModifications
 	}
 
-	protected[engine] def pushEvent(event : GameEvent, state : EventState): Unit = {
+	protected[engine] def pushEvent(event : GameEvent, state : EventState): GameEventClock = {
 		val time = nextTime
 		event.world = this
 		event.state = state
@@ -352,12 +372,13 @@ class World {
 		coreView._events :+= eventWrapper
 		currentView._events = coreView.wrappedEvents
 		onEventCallbacks.foreach(cb => cb(this, event))
+		time
 	}
 
-	final def startEvent(event : GameEvent): Unit = { this.pushEvent(event, EventState.Started) }
-	final def continueEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Continues) }
-	final def endEvent(event : GameEvent) : Unit = { this.pushEvent(event, EventState.Ended) }
-	final def addEvent(event : GameEvent) : Unit = {
+	final def startEvent(event : GameEvent): GameEventClock = { this.pushEvent(event, EventState.Started) }
+	final def continueEvent(event : GameEvent) : GameEventClock = { this.pushEvent(event, EventState.Continues) }
+	final def endEvent(event : GameEvent) : GameEventClock = { this.pushEvent(event, EventState.Ended) }
+	final def addEvent(event : GameEvent) : GameEventClock = {
 		this.pushEvent(event, EventState.Started)
 		this.pushEvent(event, EventState.Ended)
 	}

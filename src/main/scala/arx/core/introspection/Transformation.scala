@@ -191,6 +191,21 @@ object FieldOperations {
 		override def impact = Impact.Neutral
 	}
 
+	case class IncrementIntKey[K](key : K, delta : Int) extends Transformation[Map[K,Int]] {
+		/** Immutable operation returning a new value based on the old. Must not mutate given value */
+		override def transform(oldValue: Map[K, Int]): Map[K, Int] = oldValue + (key -> (oldValue.getOrElse(key, 0) + delta))
+
+		override def asSimpleString: String = s"$key${delta.toSignedString}"
+
+		override def impact: Impact = if (delta > 0) {
+			Impact.Positive
+		} else if (delta < 0) {
+			Impact.Negative
+		} else {
+			Impact.Neutral
+		}
+	}
+
 	case class RemoveKey[K,V](key : K) extends Transformation[Map[K,V]] {
 		/** Immutable operation returning a new value based on the old. Must not mutate given value */
 		override def transform(oldValue: Map[K, V]): Map[K, V] = {
@@ -251,6 +266,11 @@ object FieldOperations {
 		def put(key : K, value : V) = FieldOperationModifier(field, SetKey((key,value)))
 		def +(entry : (K,V)) = FieldOperationModifier(field, SetKey(entry))
 		def remove(key : K) = FieldOperationModifier[C,Map[K,V]](field, RemoveKey(key))
+	}
+
+	implicit class MapIntField[C,K](field : Field[C,Map[K,Int]]) {
+		def incrementKey(key : K, by : Int) = FieldOperationModifier(field, IncrementIntKey(key,by))
+		def decrementKey(key : K, by : Int) = FieldOperationModifier(field, IncrementIntKey(key,-by))
 	}
 
 	implicit class SetField[C,V](field : Field[C,collection.immutable.Set[V]]) {

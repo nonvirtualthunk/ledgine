@@ -16,6 +16,8 @@ import arx.engine.control.components.windowing.widgets.DimensionExpression.Intri
 import arx.engine.control.components.windowing.widgets.PositionExpression.Flow
 import arx.engine.control.components.windowing.widgets.data.{DragAndDropData, DrawingData, TWidgetAuxData}
 import arx.engine.control.components.windowing.widgets.{DimensionExpression, ImageDisplayWidget, PositionExpression}
+import arx.engine.control.data.WindowingControlData
+import arx.engine.control.event.{Mouse, MouseButton, MousePressEvent, MouseReleaseEvent}
 import arx.engine.data.Moddable
 import arx.engine.entity.Entity
 import arx.engine.event.TEventUser
@@ -40,6 +42,9 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	def close(): Unit = {
 		destroy()
 	}
+
+	def isUnderPress = windowingSystem.displayWorld[WindowingControlData].lastWidgetUnderMouse
+		.exists(w => w.selfAndAncestors.contains(this)) && Mouse.buttonDown(MouseButton.Left)
 
 	def attachData[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
 	def apply[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
@@ -79,6 +84,14 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 		w
 	}
 
+	def childWithIdentifier(identifier : String) : Option[Widget] = {
+		widgetData.children.find(c => c.identifier.contains(identifier) || c.configIdentifier.contains(identifier))
+	}
+	def descendantsWithIdentifier(identifier : String) : List[Widget] = {
+		widgetData.children.filter(c => c.identifier.contains(identifier) || c.configIdentifier.contains(identifier)) :::
+			widgetData.children.flatMap(c => c.descendantsWithIdentifier(identifier))
+	}
+
 	def bind[T](key : String, value : T) : Unit = {
 		value match {
 			case m : Moddable[T] => widgetData.bindings += (key -> m)
@@ -98,7 +111,7 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 						if (ReflectionAssistant.hasField(other, nextKey)) {
 							Some(ReflectionAssistant.getFieldValue(other, nextKey))
 						} else {
-							Noto.error(s"unsupported sub resolution type in widget binding: $thing")
+							Noto.debug(s"unsupported sub resolution type in widget binding: $thing")
 							None
 						}
 				}
@@ -112,7 +125,10 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 					case None => None
 				}
 			case None =>
-				Some(thing)
+				thing match {
+					case Some(wrappedThing) => Some(wrappedThing)
+					case unwrapped => Some(unwrapped)
+				}
 		}
 
 	}
@@ -155,7 +171,11 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 
 	override def hashCode(): Int = entity.hashCode()
 
-	override def equals(obj: Any): Boolean = entity.equals(obj)
+	override def equals(obj: Any): Boolean = obj match {
+		case w : Widget => this.entity == w.entity
+		case e : Entity => this.entity == e
+		case _ => false
+	}
 
 	override def toString: String = widgetData.identifier.orElse(widgetData.configIdentifier).getOrElse(s"Widget($entity)")
 }
@@ -238,9 +258,14 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	var modificationCriteria = List[Widget => Boolean]()
 	var modificationWatchers = List[Watcher[_]]()
 
+	var notConfigManaged = false
+
 	def isModified = markedModified || modificationCriteria.exists(criteria => criteria(widget)) || modificationWatchers.exists(w => w.hasChanged)
 	def markModified() { markedModified = true }
 	def unmarkModified() { markedModified = false }
+
+	def hasIdentifier(ident : String) = identifier.contains(ident) || configIdentifier.contains(ident)
+	def effectiveIdentifier : String = identifier.orElse(configIdentifier).getOrElse("unidentified")
 
 	def x = position.x
 	def x_= (t : PositionExpression) = position.x = t
@@ -278,17 +303,42 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 		}
 		configValue.fieldOpt("x").flatMap(xv => PositionExpression.parse(xv.str, widget.parent.children)).ifPresent(xv => x = xv)
 		configValue.fieldOpt("y").flatMap(yv => PositionExpression.parse(yv.str, widget.parent.children)).ifPresent(yv => y = yv)
+		configValue.fieldOpt("z").flatMap(zv => PositionExpression.parse(zv.str, widget.parent.children)).ifPresent(zv => z = zv)
 
 		for (dim <- configValue.fieldOpt("dimensions").orElse(configValue.fieldOpt("dim"))) {
 			for (dimArr <- dim.arrOpt) {
 				for ((cv,idx) <- dimArr.toList.zipWithIndex; if idx < 2) {
-					DimensionExpression.parse(cv.str).ifPresent(de => dimensions(idx) = de)
+					DimensionExpression.parse(cv.str, widget.parent.children).ifPresent(de => dimensions(idx) = de)
 				}
 			}
 		}
 
-		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str)).ifPresent(wv => width = wv)
-		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str)).ifPresent(hv => height = hv)
+		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str, widget.parent.children)).ifPresent(wv => width = wv)
+		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str, widget.parent.children)).ifPresent(hv => height = hv)
+
+		for (showConf <- configValue.fieldOpt("showing")) {
+			showing = showConf.str match {
+				case Widget.bindingParser(key) => Moddable(() => widget.resolveBinding(key) match {
+					case Some(b) => b match {
+						case boolean: Boolean =>
+//							Noto.info(s"Resolved showing to $boolean")
+							boolean
+						case _ =>
+							Noto.warn(s"invalid type for showing binding : $b")
+							true
+					}
+					case _ => true
+				})
+			}
+		}
+
+		if (configValue.consumeMouseButtonEvents.boolOrElse(false)) {
+			consumeEvent {
+				case mpe : MousePressEvent =>
+				case mre : MouseReleaseEvent =>
+			}
+		}
+
 		dataBinding = configValue.fieldOpt("dataBinding").map(_.str).flatMap(s => Widget.bindingParser.findFirstMatchIn(s).map(m => m.group(1)))
 		markModified()
 	}

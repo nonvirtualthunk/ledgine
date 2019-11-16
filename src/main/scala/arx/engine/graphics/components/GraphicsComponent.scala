@@ -25,11 +25,11 @@ abstract class GraphicsComponent extends EngineComponent[GraphicsEngine] {
 	}
 
 	def onGameEvent(listener: PartialFunction[Event,_]): Unit = {
-		gameEvents.onEvent(listener)
+		gameEvents.onEvent(0)(listener)
 	}
 
 	def onGraphicsEvent(listener : PartialFunction[Event,_]) : Unit = {
-		graphicsEvents.onEvent(listener)
+		graphicsEvents.onEvent(0)(listener)
 	}
 
 

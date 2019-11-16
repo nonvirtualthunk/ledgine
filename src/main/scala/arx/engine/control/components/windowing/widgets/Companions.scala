@@ -21,5 +21,45 @@ object TextDisplay extends Clazz[TextDisplay]("TextDisplay", classOf[TextDisplay
 
 	def apply(f : TextDisplay => Unit) : TextDisplay = { val v = new TextDisplay; f(v); v }
 					 
+	def copyInto(from : TextDisplay, to : TextDisplay) {
+		to.text = from.text
+		to.fontScale = from.fontScale
+		to.fontColor = from.fontColor
+		to.font = from.font
+		to.textAlignment = from.textAlignment
+		to.orientFromTop = from.orientFromTop
+	}
+}
+import arx.engine.control.components.windowing.widgets.ListWidgetData
+object ListWidgetData extends Clazz[ListWidgetData]("ListWidgetData", classOf[ListWidgetData]){
+	val Sentinel = new ListWidgetData
+	override def instantiate = new ListWidgetData
+	val listItemGapSize = Field.fromValue(Sentinel.listItemGapSize).createField[ListWidgetData]("listItemGapSize",f => f.listItemGapSize, (f,listItemGapSize) => f.listItemGapSize = listItemGapSize, ListWidgetData) 
+	fields += "listItemGapSize" -> listItemGapSize
+
+	def apply(f : ListWidgetData => Unit) : ListWidgetData = { val v = new ListWidgetData; f(v); v }
+					 
+	def copyInto(from : ListWidgetData, to : ListWidgetData) {
+		to.listItemGapSize = from.listItemGapSize
+	}
+}
+import arx.engine.control.components.windowing.widgets.DynamicWidgetData
+object DynamicWidgetData extends Clazz[DynamicWidgetData]("DynamicWidgetData", classOf[DynamicWidgetData]){
+	val Sentinel = new DynamicWidgetData
+	override def instantiate = new DynamicWidgetData
+	val dynWidgetFunctions = Field.fromValue(Sentinel.dynWidgetFunctions).createField[DynamicWidgetData]("dynWidgetFunctions",f => f.dynWidgetFunctions, (f,dynWidgetFunctions) => f.dynWidgetFunctions = dynWidgetFunctions, DynamicWidgetData) 
+	fields += "dynWidgetFunctions" -> dynWidgetFunctions
+	val lastChildrenData = Field.fromValue(Sentinel.lastChildrenData).createField[DynamicWidgetData]("lastChildrenData",f => f.lastChildrenData, (f,lastChildrenData) => f.lastChildrenData = lastChildrenData, DynamicWidgetData) 
+	fields += "lastChildrenData" -> lastChildrenData
+	val lastChildren = Field.fromValue(Sentinel.lastChildren).createField[DynamicWidgetData]("lastChildren",f => f.lastChildren, (f,lastChildren) => f.lastChildren = lastChildren, DynamicWidgetData) 
+	fields += "lastChildren" -> lastChildren
+
+	def apply(f : DynamicWidgetData => Unit) : DynamicWidgetData = { val v = new DynamicWidgetData; f(v); v }
+					 
+	def copyInto(from : DynamicWidgetData, to : DynamicWidgetData) {
+		to.dynWidgetFunctions = from.dynWidgetFunctions
+		to.lastChildrenData = from.lastChildrenData
+		to.lastChildren = from.lastChildren
+	}
 }
 }

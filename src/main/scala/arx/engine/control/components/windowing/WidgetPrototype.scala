@@ -46,6 +46,9 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 		ReflectionAssistant.ensureReflectionsLoaded()
 
 		val config = configFunc()
+		if (! config.hasField("type")) {
+			Noto.warn("Loading widget from sml that does not have a type specified")
+		}
 		val widgetType = config.field("type").strOrElse("SimpleWidget")
 		val w = ws.createWidget()
 		WidgetType.types(widgetType).initializeWidget(w)
@@ -57,21 +60,15 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 
 	override def reload(w: Widget): Unit = {
 		val config = configFunc()
-		w.allData.foreach {
-			case wad : TWidgetAuxData =>
-				if (wad.autoLoadSimpleValuesFromConfig) {
-					ConfigDataLoader.loadSimpleValuesFromConfig(wad, config)
-				}
-				wad.loadFromConfig(w, config, reload = false)
-			case _ => // do nothing for not-widget data
-		}
 
 		val childFields = config.field("children").fields
 		val childIdentifiers = childFields.keys.toSet
 
-		val childrenToDelete = w.children.filterNot(w => w.configIdentifier.forall(ci => childIdentifiers.contains(ci)))
+		val childrenToDelete = w.children.filterNot(w => w.notConfigManaged || w.configIdentifier.forall(ci => childIdentifiers.contains(ci)))
+		if (childrenToDelete.nonEmpty) {
+			Noto.info(s"deleting ${childrenToDelete.size} children")
+		}
 		childrenToDelete.foreach(w => w.destroy())
-		if (childrenToDelete.nonEmpty) { Noto.info(s"deleting ${childrenToDelete.size} children")}
 //		val childrenToUpdate = w.children.filter(w => w.configIdentifier.exists(ci => childIdentifiers.contains(ci)))
 //		childrenToUpdate.foreach(w => reload(w))
 //		if (childrenToUpdate.nonEmpty) { Noto.info(s"updating ${childrenToUpdate.size} children")}
@@ -89,6 +86,16 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 				}
 			}
 		}
+
+		w.allData.foreach {
+			case wad : TWidgetAuxData =>
+				if (wad.autoLoadSimpleValuesFromConfig) {
+					ConfigDataLoader.loadSimpleValuesFromConfig(wad, config)
+				}
+				wad.loadFromConfig(w, config, reload = false)
+			case _ => // do nothing for not-widget data
+		}
+
 		createdChildren.foreach { case (Some(prototype), c) => prototype.load(c); case _ => }
 
 		w.children

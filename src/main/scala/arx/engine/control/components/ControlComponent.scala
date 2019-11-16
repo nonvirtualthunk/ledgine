@@ -26,15 +26,18 @@ abstract class ControlComponent extends EngineComponent[ControlEngine] {
 	}
 
 	def onGameEvent(listener: PartialFunction[Event,_]): Unit = {
-		gameEvents.onEvent(listener)
+		gameEvents.onEvent(0)(listener)
 	}
 
 	def onGraphicsEvent(listener : PartialFunction[Event,_]) : Unit = {
-		graphicsEvents.onEvent(listener)
+		graphicsEvents.onEvent(0)(listener)
 	}
 
 	def onControlEvent(listener : PartialFunction[Event,_]) : Unit = {
-		controlEvents.onEvent(listener)
+		controlEvents.onEvent(0)(listener)
+	}
+	def onControlEventWithPrecedence(precedence : Int)(listener : PartialFunction[Event,_]) : Unit = {
+		controlEvents.onEvent(precedence)(listener)
 	}
 
 	def fireEvent(event : ControlEvent) : Unit = {

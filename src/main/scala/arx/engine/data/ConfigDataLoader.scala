@@ -30,7 +30,7 @@ object ConfigDataLoader {
 		} else if (t == typeOf[String]) {
 			c => c.str
 		} else if (t == typeOf[Boolean]) {
-			c => c.bool
+			c => c.boolOpt.orNull
 		} else if (t == typeOf[ReadVec4f]) {
 			c => c.v4
 		} else if (t == typeOf[ReadVec3f]) {

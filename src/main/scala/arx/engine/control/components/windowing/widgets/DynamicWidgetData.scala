@@ -1,11 +1,14 @@
 package arx.engine.control.components.windowing.widgets
 
 import arx.application.Noto
+import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.vec.Cardinals
 import arx.engine.control.components.windowing.{SimpleWidget, Widget, WidgetInstance, WidgetType}
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
+import arx.engine.control.event.{MouseButton, MouseReleaseEvent, UIEvent}
 
+@GenerateCompanion
 class DynamicWidgetData extends TWidgetAuxData {
 	var dynWidgetFunctions : DynamicWidgetFunctions = new DynamicWidgetFunctions {
 		override def computeChildrenData(dynWidget: Widget): List[Any] = Nil
@@ -52,12 +55,21 @@ class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, binding
 		data match {
 			case index : Int =>
 				val child = dynWidget.createChild(archRef)
-				child.bind(bindingTo, () => dynWidget.resolveBinding(bindingFrom).flatMap {
-					case s : Seq[_] if s.size > index => Some(s(index))
-					case other =>
-						Noto.warn(s"list binding is to non sequence, that won't work: $other")
-						None
+				child.notConfigManaged = true
+				child.bind(bindingTo, () => dynWidget.resolveBinding(bindingFrom) match {
+					case Some(boundSeq) =>
+						boundSeq match {
+							case s : Seq[_] if s.size > index => Some(s(index))
+							case other =>
+								Noto.warn(s"list binding is to non sequence, that won't work: $other")
+								None
+						}
+					case _ => None
 				})
+				child.onEvent {
+					case MouseReleaseEvent(MouseButton.Left, _,_) =>
+						dynWidget.handleEvent(ListItemSelected(dynWidget.effectiveIdentifier, index, child.resolveBinding(bindingTo)))
+				}
 				child
 			case _ => ???
 		}
@@ -71,6 +83,7 @@ class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, binding
 	}
 }
 
+@GenerateCompanion
 class ListWidgetData extends TWidgetAuxData {
 	var listItemGapSize : Int = 0
 }
@@ -87,3 +100,5 @@ object ListWidget extends WidgetType[ListWidget, ListWidgetData] {
 
 
 }
+
+case class ListItemSelected(listId : String, index : Int, data : Option[Any]) extends UIEvent

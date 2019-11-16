@@ -23,6 +23,7 @@ object DebugWorld {
 	}
 
 	var world : World = _
+	var displayWorld : World = _
 }
 
 

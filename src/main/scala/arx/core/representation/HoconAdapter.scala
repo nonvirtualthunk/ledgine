@@ -79,6 +79,7 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def isArr: Boolean
 	def isRoot : Boolean = false
 	def bool: Boolean
+	def boolOpt : Option[Boolean]
 	def float: Float
 	def int: Int
 	def str: String
@@ -163,6 +164,7 @@ object ConfigValue {
 		override def isStr: Boolean = false
 		override def isArr: Boolean = false
 		override def bool: Boolean = illegalAccess()
+		override def boolOpt : Option[Boolean] = None
 		override def float: Float = illegalAccess()
 		override def int: Int = illegalAccess()
 		override def str: String = illegalAccess()
@@ -257,13 +259,16 @@ object Hocon {
 			}
 			case _ => Noto.error(f"Unacceptable datatype (float requested, ${value.valueType()} found"); 0.0f
 		}
-		def bool : Boolean = value.unwrapped() match {
-			case s : String => s.toBooleanOpt match {
-				case Some(b) => b
-				case None => Noto.error(f"could not convert $s to boolean"); false
-			}
-			case b : java.lang.Boolean => b
-			case o => Noto.error(f"Invalid unwrapped type for converting to boolean : $o"); false
+		def bool : Boolean = boolOpt match {
+			case Some(b) => b
+			case None =>
+				Noto.error(s"Could not treat raw value $unwrapped as boolean")
+				false
+		}
+		override def boolOpt : Option[Boolean] = value.unwrapped match {
+			case s : String => s.toBooleanOpt
+			case b : java.lang.Boolean => Some(b)
+			case _ => None
 		}
 		def isArr = value.valueType() == ConfigValueType.LIST
 		def isStr = value.valueType() == ConfigValueType.STRING
@@ -395,6 +400,7 @@ object Hocon {
 		override def isStr: Boolean = illegalAccess()
 		override def isArr: Boolean = illegalAccess()
 		override def bool: Boolean = illegalAccess()
+		override def boolOpt : Option[Boolean] = None
 		override def float: Float = illegalAccess()
 		override def int: Int = illegalAccess()
 		override def str: String = illegalAccess()
@@ -441,6 +447,7 @@ class StringConfigValue(intern : String) extends ConfigValue {
 	override def isStr: Boolean = true
 	override def isArr: Boolean = false
 	override def bool: Boolean = intern.toBooleanOpt.getOrElse(illegalAccess())
+	override def boolOpt : Option[Boolean] = intern.toBooleanOpt
 	override def float: Float = intern.toFloatOpt.getOrElse(illegalAccess())
 	override def int: Int = intern.toIntOpt.getOrElse(illegalAccess())
 	override def str: String = intern

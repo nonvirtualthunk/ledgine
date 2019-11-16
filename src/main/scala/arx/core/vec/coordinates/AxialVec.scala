@@ -7,7 +7,7 @@ import arx.core.vec.{Vec2f, Vec3i}
 case class AxialVec(q: Int, r: Int) {
 	def asCubeVec = CubeVec(q, -q - r, r)
 
-	def neighbor(n: Int) = this + AxialVec.AxialDelta(n)
+	def neighbor(n: Int) = this + AxialVec.AxialDeltaWithCenter(n)
 
 	def neighbors = AxialVec.AxialDelta.map(d => this + d)
 
@@ -23,10 +23,9 @@ case class AxialVec(q: Int, r: Int) {
 
 	def rounded = CubeVec.roundedAxial(q, r).asAxialVec
 
-	def sideClosestTo(other : AxialVec, tieBreaker : AxialVec) : Int = {
+	def sideClosestTo(other : AxialVec, tieBreaker : AxialVec) : HexDirection = {
 		if (other == this) {
-			Noto.warn("Side closest to self doesn't really make sense")
-			return 0
+			return HexDirection.Center
 		}
 		val selfCube = this.asCubeVec
 		val deltaA = other.asCubeVec - selfCube
@@ -38,26 +37,31 @@ case class AxialVec(q: Int, r: Int) {
 
 		if (a.abs > b.abs && a.abs > c.abs) {
 			if (a < 0.0f) {
-				3
+				HexDirection.LowerLeft
 			} else {
-				0
+				HexDirection.UpperRight
 			}
 		} else if (b.abs > a.abs && b.abs > c.abs) {
 			if (b < 0.0f) {
-				5
+				HexDirection.Top
 			} else {
-				2
+				HexDirection.Bottom
 			}
 		} else {
 			if (c < 0.0) {
-				1
+				HexDirection.LowerRight
 			} else {
-				4
+				HexDirection.UpperLeft
 			}
 		}
 	}
 
 	def +(other: AxialVec) = AxialVec(q + other.q, r + other.r)
+	def *(scale : Int) = AxialVec(q * scale, r * scale)
+
+	def plusDir(dir : HexDirection, dist : Int) = {
+		this + AxialVec.AxialDeltaWithCenter(dir) * dist
+	}
 
 	def withLayer(l : Int) = AxialVec3(q,r,l)
 }
@@ -68,6 +72,11 @@ object AxialVec {
 	val AxialDelta = Array(
 		AxialVec(1, 0), AxialVec(1, -1), AxialVec(0, -1),
 		AxialVec(-1, 0), AxialVec(-1, 1), AxialVec(0, 1))
+
+	val AxialDeltaWithCenter = Array(
+		AxialVec(1, 0), AxialVec(1, -1), AxialVec(0, -1),
+		AxialVec(-1, 0), AxialVec(-1, 1), AxialVec(0, 1),
+		AxialVec(0,0))
 
 	val CartesianDelta = AxialDelta.map(ad => ad.asCartesian(1.0f).normalizeSafe)
 
@@ -134,6 +143,11 @@ object HexDirection {
 	val LowerLeft = new HexDirection(3)
 	val UpperLeft = new HexDirection(4)
 	val Top = new HexDirection(5)
+	val Center = new HexDirection(6)
+
+	implicit def toInt(hd : HexDirection) : Int = hd.q
+
+	def fromInt(q : Int) = new HexDirection(q)
 }
 
 object Hex {

@@ -26,6 +26,11 @@ abstract class Clazz[C](val className: String, val runtimeClass: Class[C]) {
 	def allFields = fields.values
 
 	override def toString: String = className
+
+	def copyInto(from : C, to : C)
+	def copyIntoUntyped(from : AnyRef, to : AnyRef): Unit = {
+		copyInto(from.asInstanceOf[C], to.asInstanceOf[C])
+	}
 }
 
 object Clazz {
@@ -34,6 +39,7 @@ object Clazz {
 	private lazy val _fromClass : Map[Class[_], Clazz[_]] = allClazzes.map(c => c.runtimeClass -> c).toMap
 
 	def fromClass[T](klass : Class[T]) : Clazz[T] = _fromClass(klass).asInstanceOf[Clazz[T]]
+	def fromClassOpt[T](klass : Class[T]) : Option[Clazz[T]] = _fromClass.get(klass).asInstanceOf[Option[Clazz[T]]]
 
 }
 
@@ -146,13 +152,16 @@ object FieldGenerator {
 					s"""
 						|\tdef apply(f : $className => Unit) : $className = { val v = new $className; f(v); v }
 					 """.stripMargin)
-				addLine("}")
 
 				addLine(s"\tdef copyInto(from : $className, to : $className) {")
 				for (fieldName <- fieldNames) {
 					addLine(s"\t\tto.$fieldName = from.$fieldName")
 				}
 				addLine(s"\t}")
+
+
+
+				addLine("}")
 			}
 
 			addLine("}")
@@ -163,8 +172,7 @@ object FieldGenerator {
 			val dirName = s"src/$genSrcDir/scala/${packageName.replace('.', '/')}"
 			val fileName =  dirName + "/Companions.scala"
 			Files.createDirectories(Paths.get(dirName))
-//			writeToFile(fileName, body.toString())
-			println(body.toString())
+			writeToFile(fileName, body.toString())
 		}
 
 

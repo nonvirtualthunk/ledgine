@@ -124,6 +124,7 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	def createWidget(resourcePath : String, key : String) : Widget = {
 		val prototype = WidgetPrototype.fromConfig(resourcePath, key)
 		val w = prototype.instantiate(this)
+		w.configIdentifier = Some(key)
 		prototype.load(w)
 		w
 	}
@@ -163,15 +164,33 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	def widgetAtMousePosition(pos : ReadVec2f) : Option[Widget] = {
 		WGD.pov.unprojectAtZ(pos,0.0f,GL.maximumViewport) match {
 			case Some(clickedPos) =>
-				WD.desktop.widgetData.selfAndChildren.toStream.reverse.find(w => {
-					val apos = w.drawing.absolutePosition
-					val adim = w.drawing.effectiveDimensions
-					apos.x <= clickedPos.x && apos.y <= clickedPos.y &&
-						apos.x + adim.x >= clickedPos.x && apos.y + adim.y >= clickedPos.y
-				})
+				deepestIntersectingWidget(WD.desktop, clickedPos)
 			case None =>
 				Noto.info("click did not intersect plane?")
 				None
+		}
+	}
+
+	def deepestIntersectingWidget(w : Widget, clickedPos : ReadVec3f) : Option[Widget] = {
+		if (w.showing.resolve()) {
+			val apos = w.drawing.absolutePosition
+			val adim = w.drawing.effectiveDimensions
+
+			for (c <- w.children) {
+				deepestIntersectingWidget(c, clickedPos) match {
+					case Some(deeperWidget) => return Some(deeperWidget)
+					case None => // do nothing
+				}
+			}
+
+			if (apos.x <= clickedPos.x && apos.y <= clickedPos.y &&
+				apos.x + adim.x >= clickedPos.x && apos.y + adim.y >= clickedPos.y) {
+				Some(w)
+			} else {
+				None
+			}
+		} else {
+			None
 		}
 	}
 

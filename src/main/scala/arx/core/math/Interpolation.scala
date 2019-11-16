@@ -7,7 +7,7 @@ import arx.core.units.{RatioUnitOfMeasure, UnitOfMeasure, UnitOfTime}
 import arx.core.vec.coordinates.{CartVec, CartVec3}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec4f, ReadVec4i, Vec2i, Vec4f, Vec4i}
 import arx.engine.data.Reduceable
-import arx.graphics.helpers.HSBA
+import arx.graphics.helpers.{Color, HSBA, RGBA}
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -156,8 +156,21 @@ object Interpolation {
 		override def interpolate(pcnt: Float): CartVec3 = a + (b-a) * pcnt
 	}
 
-	def between(a : HSBA, b : HSBA) : Interpolation[HSBA] = new Interpolation[HSBA] {
-		override def interpolate(pcnt: Float): HSBA = HSBA(a + (b-a) * pcnt)
+	def between(a : CartVec, b : CartVec) : Interpolation[CartVec] = new Interpolation[CartVec] {
+		override def interpolate(pcnt: Float): CartVec = a + (b-a) * pcnt
+	}
+
+	def between(a : Color, b : Color) : Interpolation[Color] = new Interpolation[Color] {
+		override def interpolate(pcnt: Float): Color = {
+			(a,b) match {
+				case (ha : HSBA, hb : HSBA) => HSBA(ha + (hb-ha) * pcnt)
+				case (ha : RGBA, hb : RGBA) => RGBA(ha + (hb-ha) * pcnt)
+				case (ha : RGBA, hb : HSBA) => HSBA(ha.asHSBA + (hb-ha.asHSBA) * pcnt)
+				case (ha : HSBA, hb : RGBA) => RGBA(ha.asRGBA + (hb-ha.asRGBA) * pcnt)
+				case _ => RGBA(a.asRGBA + (b.asRGBA - a.asRGBA) * pcnt)
+			}
+
+		}
 	}
 
 	def between[T <: TArxNumeric[T]](a : T , b : T) : Interpolation[T] = new Interpolation[T] {

@@ -8,7 +8,7 @@ import arx.core.math.Recti
 import arx.core.representation.ConfigValue
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
-import arx.engine.data.TMutableAuxData
+import arx.engine.data.{Moddable, TMutableAuxData}
 import arx.graphics.TToImage
 import arx.graphics.helpers.Color
 import arx.resource.ResourceManager
@@ -39,7 +39,7 @@ class DrawingData extends TWidgetAuxData {
 	var drawAsForegroundBorder = false
 	var backgroundImage : Option[TToImage] = None
 	var backgroundPixelScale = 1
-	var backgroundColor = Color.White
+	var backgroundColor = Moddable(Color.White)
 	var edgeColor = Color.White
 	var drawCenterBackground = true
 	// note, these won't necessarily take effect if changed
@@ -55,6 +55,8 @@ class DrawingData extends TWidgetAuxData {
 
 	def clientDim = effectiveClientArea.dimensions
 	def clientOffset: ReadVec2i = effectiveClientArea.position
+
+	override def modificationSignature: AnyRef = (backgroundColor.resolve())
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (bcv <- configValue.fieldOpt("background")) {

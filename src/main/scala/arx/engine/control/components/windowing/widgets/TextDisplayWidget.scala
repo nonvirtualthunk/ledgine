@@ -16,9 +16,9 @@ import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2f}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetType, WindowingSystem}
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
-import arx.graphics.{Image, TextureBlock}
+import arx.graphics.{Image, ScaledImage, TextureBlock}
 import arx.graphics.helpers.{Color, ImageSection, RichText, RichTextSection, THasRichTextRepresentation, TextSection}
-import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont}
+import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, VerticalTextAlignment}
 import arx.resource.ResourceManager
 
 import scala.language.implicitConversions
@@ -31,9 +31,10 @@ class TextDisplay extends TWidgetAuxData {
 	var fontColor : Moddable[Color] = Moddable( Color.Black )
 	var font = none[FontWrapper]
 	var textAlignment : Moddable[HorizontalTextAlignment] = Moddable(HorizontalTextAlignment.Left)
+	var verticalTextAlignment : Moddable[VerticalTextAlignment] = Moddable(VerticalTextAlignment.Bottom)
 	var orientFromTop = Moddable(true)
 
-	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor, font)
+	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor, font, textAlignment, verticalTextAlignment)
 
 	def effectiveFontScale = fontScale
 //	constructed = true
@@ -75,6 +76,12 @@ class TextDisplay extends TWidgetAuxData {
 												strAccum.clear()
 											}
 											richTextSections :+= ImageSection(img, 1.0f, Color.White)
+										case scaledImage: ScaledImage =>
+											if (strAccum.nonEmpty) {
+												richTextSections :+= TextSection(strAccum.toString())
+												strAccum.clear()
+											}
+											richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x, Color.White)
 										case richText : RichText => richTextSections ++= richText.sections
 										case renderToRich : THasRichTextRepresentation => richTextSections ++= renderToRich.toRichText.sections
 										case other => strAccum.append(other.toString)
@@ -91,6 +98,13 @@ class TextDisplay extends TWidgetAuxData {
 			} else {
 				this.text = Moddable(RichText(text))
 			}
+		}
+
+		for (alignmentConf <- configValue.fieldOpt("textAlignment")) {
+			textAlignment = Moddable(HorizontalTextAlignment.parse(alignmentConf.str))
+		}
+		for (alignmentConf <- configValue.fieldOpt("verticalTextAlignment")) {
+			verticalTextAlignment = Moddable(VerticalTextAlignment.parse(alignmentConf.str))
 		}
 	}
 }

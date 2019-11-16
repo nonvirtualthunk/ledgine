@@ -21,8 +21,11 @@ trait TEventUser {
 	def consumeEvent ( func : PartialFunction[Event,_] ){
 		eventListeners ::= Listener(func,consume = true,0)
 	}
+	def consumeEventHighPrecedence(func : PartialFunction[Event,_]): Unit = {
+		eventListeners ::= Listener(func,consume = true,1)
+	}
 	def onEventFallback ( func : PartialFunction[Event,_]): Unit = {
-		eventListeners ::= Listener(func,consume = false,1)
+		eventListeners ::= Listener(func,consume = false,-1)
 	}
 
 	/**
@@ -33,7 +36,7 @@ trait TEventUser {
 		TEventUser.pushEvent(event)
 		// Sort the event listeners in order of precedence
 		if (_eventListeners != null) {
-			_eventListeners = _eventListeners.sortBy(_.precedence)
+			_eventListeners = _eventListeners.sortBy(_.precedence * -1)
 		}
 
 		var processed = false

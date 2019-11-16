@@ -37,7 +37,7 @@ class WindowingControlComponent extends ControlComponent {
 			}
 		})
 
-		windowingSystem = new WindowingSystem(display, func => onControlEvent(func))
+		windowingSystem = new WindowingSystem(display, func => onControlEventWithPrecedence(1)(func))
 		val WD = display.worldData[WindowingGraphicsData]
 		WD.desktop.x = PositionExpression.Constant(0)
 		WD.desktop.y = PositionExpression.Constant(0)
@@ -46,7 +46,7 @@ class WindowingControlComponent extends ControlComponent {
 		WD.desktop.width = DimensionExpression.Constant(GL.viewport.width)
 		WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)
 
-		onControlEvent {
+		onControlEventWithPrecedence(0) {
 			case KeyReleaseEvent(key, modifiers) if key == GLFW.GLFW_KEY_R && modifiers.ctrl => {
 				if (ResourceManager.useLocalResources) {
 					ResourceManager.refreshSML()

@@ -26,12 +26,10 @@ object Metrics extends MetricRegistry {
 		tmp
 	}
 
-	class RichTimer ( timer : Timer ) {
+	class RichTimer ( val timer : Timer ) extends AnyVal {
 		def timeStmt[T] (stmt : => T): T = {
-			timer.time(new Callable[T] {
-				override def call(): T = {
-					stmt
-				}
+			timer.time(() => {
+				stmt
 			})
 		}
 	}

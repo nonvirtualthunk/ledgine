@@ -39,6 +39,8 @@ object WindowingSystemEngine extends Engine {
 
 			val list = WD.desktop.createChild("DemoWidgets.DemoListWidget")
 
+			val tabs = WD.desktop.createChild("DemoWidgets.DemoTabWidget")
+
 			WD.desktop.bind("demoBinding.presses", () => keyCounter)
 			WD.desktop.bind("demoBinding.mode", "Waiting on presses")
 			WD.desktop.bind("demoBinding.icon", ResourceManager.image("ui/plusSign.png"))

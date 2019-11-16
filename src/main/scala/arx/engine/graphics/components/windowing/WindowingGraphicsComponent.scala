@@ -14,6 +14,7 @@ import arx.core.math.{Rectf, Recti}
 import arx.core.units.UnitOfTime
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
+import arx.engine.control.components.windowing.widgets.DimensionExpression.ExpandTo
 import arx.engine.control.components.windowing.widgets._
 import arx.engine.control.components.windowing.widgets.data.{DrawingData, TWidgetAuxData}
 import arx.engine.graphics.components.{DrawPriority, GraphicsComponent}
@@ -117,6 +118,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				}
 
 				updateResolvedWidgetVariables(WD.desktop, new mutable.HashSet[Widget]())
+				unmarkAllModified(WD.desktop)
 
 				if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
 					vbo.softClear()
@@ -126,8 +128,14 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					vbo.state.set(VBO.Updated)
 					needsRedraw = true
 				}
+
 			}
 		}
+	}
+
+	def unmarkAllModified(w : Widget): Unit = {
+		w.unmarkModified()
+		w.children.foreach(unmarkAllModified)
 	}
 
 	val colors = Color(255, 255, 255, 255) :: Color(255, 0, 0, 255) :: Color(0, 255, 0, 255) :: Color(255, 255, 0, 255) :: Nil
@@ -226,7 +234,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		val size = w.drawing.clientDim
 		val newBounds = bounds.intersect(Recti(pos.x, pos.y, size.x, size.y))
 
-		for (child <- w.children) {
+		for (child <- w.children.sortBy(_.drawing.absolutePosition.z)) {
 			updateWindowingDrawData(WD, child, newBounds)
 		}
 
@@ -265,8 +273,59 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			})
 
 		val anyChildModified = widget.children.exists(checkForWidgetChanges)
+		if (ret) {
+			Noto.info("Found ret")
+		} else if (anyChildModified) {
+			Noto.info("Found child")
+		}
 		ret || anyChildModified
 	}
+
+//	def resolveEffectiveDimensionsForAxis(widget: Widget, axis : Int) = {
+//		var fixedOnAxis = false
+//		var ret = 0
+//
+//		for (v <- resolveFixedDimensionFor(widget, axis)) {
+//			ret = v
+//			fixedOnAxis = true
+//		}
+//
+//
+//		widget.dimensions(axis) match {
+//			case DimensionExpression.Intrinsic =>
+//				ret = calculateIntrinsicDimFor(widget, if (fixedOnAxis) {
+//					Some(ret(0))
+//				} else {
+//					None
+//				}, if (fixedOnAxis.y) {
+//					Some(ret(1))
+//				} else {
+//					None
+//				})(axis)
+//			case DimensionExpression.WrapContent =>
+//				val inPad = widget.drawing.interiorPadding
+//				val minV = Vec2i(0, 0)
+//				val maxV = Vec2i(0, 0)
+//				widget.children.foreach(w => {
+//					val rpos = w.drawing.relativePosition
+//					val edim = w.drawing.effectiveDimensions
+//					minV.x = minV.x.min(rpos.x)
+//					minV.y = minV.y.min(rpos.y)
+//					maxV.x = maxV.x.max(rpos.x + edim.x)
+//					maxV.y = maxV.y.max(rpos.y + edim.y)
+//				})
+//				ret(axis) = maxV(axis) - minV(axis) + inPad(axis) * 2
+//			//					Some(maxV(axis) - minV(axis) + inPad(axis) * 2)
+//			case _ => // do nothing further
+//		}
+//
+//		val clientArea = Recti(0,0,ret(0),ret(1))
+//		for (render <- renderers) {
+//			render.modifyBounds(widget, fixedOnAxis, clientArea, ret)
+//		}
+//
+//		(ret, clientArea)
+//	}
 
 	def resolveEffectiveDimensions(widget: Widget) = {
 		val fixedOnAxis = Vec2T(false, false)
@@ -328,6 +387,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				Some(widget.parent.drawing.clientDim(axis) + delta)
 			//			case DimensionExpression.ExpandToParent =>
 			//				Some( widget.parent.drawing.clientDim(axis) - widget.drawing.relativePosition)
+			case ExpandTo(sibling) =>
+				Some(sibling.drawing.relativePosition(axis) - widget.drawing.relativePosition(axis))
 			case _ => None
 		}
 	}
@@ -390,9 +451,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		ret
 	}
 
-	def updateResolvedWidgetVariables(w: Widget, resolved: mutable.Set[Widget]): Unit = {
+	def updateResolvedWidgetVariablesForAxis(w: Widget, axis : Int, resolved: mutable.Set[Widget]): Unit = {
 		if (w.showing) {
-			w.widget.unmarkModified()
 			val DD = w[DrawingData]
 			val (effDim, effClientArea) = resolveEffectiveDimensions(w)
 			DD.effectiveDimensions = effDim
@@ -423,9 +483,52 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				}
 			}
 
-//			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
-//			DD.effectiveDimensions = afterEffDim
-//			DD.effectiveClientArea = afterEffClientArea
+			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
+			DD.effectiveDimensions = afterEffDim
+			DD.effectiveClientArea = afterEffClientArea
+		} else {
+			resolved += w
+		}
+	}
+
+	def updateResolvedWidgetVariables(w: Widget, resolved: mutable.Set[Widget]): Unit = {
+		if (w.showing) {
+//			w.unmarkModified()
+			val DD = w[DrawingData]
+			val (effDim, effClientArea) = resolveEffectiveDimensions(w)
+			DD.effectiveDimensions = effDim
+			DD.effectiveClientArea = effClientArea
+
+			if (w.parent.notSentinel) {
+				DD.relativePosition = resolveRelativePosition(w)
+				DD.absolutePosition = w.parent.drawing.absolutePosition + Vec3i(w.parent.drawing.clientOffset, 0) + DD.relativePosition
+			}
+
+			resolved += w
+
+			var toResolve = w.children
+			while (toResolve.nonEmpty) {
+				val picked = toResolve.head
+				if (resolved(picked)) {
+					toResolve = toResolve.tail
+				} else {
+					val requires = picked.x.dependsOn ::: picked.y.dependsOn ::: picked.width.dependsOn(picked) ::: picked.height.dependsOn(picked)
+					val unfulfilled = requires.filterNot(resolved)
+					unfulfilled match {
+						case Nil =>
+							updateResolvedWidgetVariables(picked, resolved)
+							toResolve = toResolve.tail
+						case _ =>
+							toResolve = unfulfilled ::: toResolve
+					}
+				}
+			}
+
+			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
+			DD.effectiveDimensions = afterEffDim
+			DD.effectiveClientArea = afterEffClientArea
+		} else {
+			resolved += w
 		}
 	}
 }

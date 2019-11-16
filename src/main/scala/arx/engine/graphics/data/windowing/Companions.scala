@@ -17,5 +17,11 @@ object ImageDisplay extends Clazz[ImageDisplay]("ImageDisplay", classOf[ImageDis
 
 	def apply(f : ImageDisplay => Unit) : ImageDisplay = { val v = new ImageDisplay; f(v); v }
 					 
+	def copyInto(from : ImageDisplay, to : ImageDisplay) {
+		to.image = from.image
+		to.scalingStyle = from.scalingStyle
+		to.positionStyle = from.positionStyle
+		to.color = from.color
+	}
 }
 }

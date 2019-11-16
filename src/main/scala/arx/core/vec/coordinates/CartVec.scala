@@ -51,6 +51,7 @@ class CartVec3(x_ : Float, y_ : Float, z_ : Float) extends Vec3f(x_, y_, z_) {
 object CartVec3 {
 	def apply(x : Float, y : Float, z : Float) = new CartVec3(x,y,z)
 	def apply(v : ReadVec3f) = new CartVec3(v.x,v.y,v.z)
+	def apply(v : CartVec, l : Int) = new CartVec3(v.x,v.y,l)
 
 	def Zero = new CartVec3(0.0f,0.0f,0.0f)
 }

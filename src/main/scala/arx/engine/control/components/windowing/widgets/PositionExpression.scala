@@ -108,14 +108,18 @@ object DimensionExpression {
 	case object ExpandToParent extends DimensionExpression
 	case object Intrinsic extends DimensionExpression
 	case object WrapContent extends DimensionExpression {
-		override def dependsOn(w : Widget) = w.widgetData.children
+		override def dependsOn(w : Widget) = Nil //w.widgetData.children
 	}
 	def MatchParent = Proportional(1.0f)
+	case class ExpandTo(sibling : Widget) extends DimensionExpression {
+		override def dependsOn(w: Widget): List[Widget] = List(sibling)
+	}
 
 	private val proportionPattern = "([0-9]+)%".r
-	private val relativePattern = "rel\\(([0-9]+)\\)".r
+	private val relativePattern = "rel\\((-?[0-9]+)\\)".r
 	private val constantPattern = "([0-9]+)".r
-	def parse(s : String) : Option[DimensionExpression] = {
+	private val expandToPattern = "(?i)expand to ([a-zZ-Z0-9]+)".r
+	def parse(s : String, siblings : List[Widget]) : Option[DimensionExpression] = {
 		Option(s.toLowerCase().stripWhitespace match {
 			case proportionPattern(pcnt) => Proportional(pcnt.toFloat / 100.0f)
 			case relativePattern(delta) => Relative(delta.toFloat.toInt)
@@ -123,7 +127,15 @@ object DimensionExpression {
 			case "intrinsic" => Intrinsic
 			case "wrapcontent" => WrapContent
 			case constantPattern(amount) => Constant(amount.toFloat.toInt)
-			case _ => null
+			case expandToPattern(target) => siblings.find(s => s.hasIdentifier(target)) match {
+				case Some(sibling) => ExpandTo(sibling)
+				case None =>
+					Noto.warn(s"could not find target to expand to : $target")
+					null
+			}
+			case _ =>
+				Noto.warn(s"unsupported dimension expression : $s")
+				null
 		})
 	}
 }

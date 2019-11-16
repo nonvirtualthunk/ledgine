@@ -41,6 +41,12 @@ class HypotheticalWorld(root : World, rootView : WorldView) extends World {
 		super.createEntity(providedId)
 	}
 
+
+	override def toggleModification(modifierReference: ModifierReference, enable: Boolean): Unit = {
+		Noto.severeError("HypotheticalWorld does not yet have toggleModification support, though it should be possible to do so")
+		???
+	}
+
 	override def data[T <: TMutableAuxData](entity: Entity)(implicit tag: ClassTag[T]): T = ???
 
 	override def allData(entity: Entity): Iterable[_ <: TMutableAuxData] = ???
@@ -53,7 +59,7 @@ class HypotheticalWorld(root : World, rootView : WorldView) extends World {
 
 	override def attachDataByClass(entity: Entity, data: TAuxData, runtimeClass: Class[_ <: TAuxData]): Unit = super.attachDataByClass(entity, data, runtimeClass)
 
-	override def modify[T](entity: Entity, modifier: Modifier[T], source: Option[String])(implicit tag: ClassTag[T]): ModifierReference = super.modify(entity, modifier, source)
+	override def modify[T <: TAuxData](entity: Entity, modifier: Modifier[T], source: Option[String])(implicit tag: ClassTag[T]): ModifierReference = super.modify(entity, modifier, source)
 
 	override def view: HypotheticalWorldView = super.view.asInstanceOf[HypotheticalWorldView]
 
@@ -65,7 +71,7 @@ class HypotheticalWorld(root : World, rootView : WorldView) extends World {
 	 */
 	override def updateViewToTime(view: WorldView, time: GameEventClock): Unit = ???
 
-	override protected[engine] def pushEvent(event: GameEvent, state: EventState): Unit = super.pushEvent(event, state)
+	override protected[engine] def pushEvent(event: GameEvent, state: EventState): GameEventClock = super.pushEvent(event, state)
 
 	override def isHypothetical: Boolean = true
 }

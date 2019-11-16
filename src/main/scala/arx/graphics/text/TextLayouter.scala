@@ -41,6 +41,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		var y = 0.0f
 		var maxX = 0.0f
 		var maxY = 0.0f
+		var minRectY = 0.0f
 
 		var maxSpacingThisLine = 0.0f
 
@@ -63,6 +64,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 
 		def addRect(rect : Rectf): Unit = {
 			rects :+= rect
+			minRectY = minRectY.min(rect.y)
 		}
 
 		def renderWord(word: String) {
@@ -140,6 +142,10 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 			if (pre + section.symbolCount != rects.size) {
 				println("wrong")
 			}
+		}
+
+		if (minRectY < 0.0f) {
+			rects.foreach(r => r.y += -minRectY + 10)
 		}
 
 		if (horizontalAlignment != HorizontalTextAlignment.Left && rects.nonEmpty) {
@@ -246,6 +252,15 @@ object HorizontalTextAlignment {
 	case object Left extends HorizontalTextAlignment
 	case object Right extends HorizontalTextAlignment
 	case object Centered extends HorizontalTextAlignment
+
+	def parse(str : String) : HorizontalTextAlignment = str.toLowerCase match {
+		case "left" => Left
+		case "right" => Right
+		case "center" | "centered" => Centered
+		case _ =>
+			Noto.warn(s"Invalid horizontal text alignment $str")
+			Left
+	}
 }
 
 sealed trait VerticalTextAlignment
@@ -253,4 +268,13 @@ object VerticalTextAlignment {
 	case object Top extends VerticalTextAlignment
 	case object Bottom extends VerticalTextAlignment
 	case object Centered extends VerticalTextAlignment
+
+	def parse(str : String) : VerticalTextAlignment = str.toLowerCase match {
+		case "top" => Top
+		case "bottom" => Bottom
+		case "center" | "centered" => Centered
+		case _ =>
+			Noto.warn(s"Invalid horizontal text alignment $str")
+			Bottom
+	}
 }

@@ -2,6 +2,7 @@ package arx.engine.world
 
 import arx.application.Noto
 import arx.core.introspection.{Clazz, CopyAssistant, Field}
+import arx.core.metrics.Metrics
 import arx.engine.data.{TAuxData, TMutableAuxData}
 import arx.engine.entity.Entity
 import arx.engine.event.GameEvent
@@ -15,6 +16,7 @@ class WorldView(val world : World) {
 	protected[engine] var modifications = Vector[Modification]()
 
 	protected[engine] var nextDataRegistrationsIndex = 0
+	protected[engine] var nextToggleIndex = 0
 	protected[engine] var selfEntity : Entity = Entity.Sentinel
 
 	def nextTime = GameEventClock(wrappedEvents.size)
@@ -76,13 +78,32 @@ class WorldView(val world : World) {
 		modification.modifier.applyUntyped(data)
 	}
 
-	protected[engine] def toggleModification(modificationRef : ModifierReference, newRootValue : AnyRef, enable : Boolean) : Unit = {
-		val data = dataStores(modificationRef.modifiedType)
-		val modification = modifications(modificationRef.index)
-		modification.toggles :+= (currentTime -> enable)
-		val entity = modification.entity
-		modifications.filter(_.entity == entity).foreach(_.modifier.applyUntyped(newRootValue))
+	protected[engine] def toggleModification(modificationRef : ModifierReference, rootValue : AnyRef, enable : Boolean) : Unit = {
+		import arx.Prelude.toRichTimer
+		WorldView.toggleTimer.timeStmt {
+			val modification = resolveModification(modificationRef)
+			modification.toggles :+= (currentTime -> enable)
+			val entity = modification.entity
+			recomputeData(entity, modificationRef.modifiedType, rootValue)
+		}
+	}
+
+	protected[engine] def recomputeData(entity : Entity, dataType : Class[_], rootValue : AnyRef) : Unit = {
+		val data = dataStores(dataType)
 		// we want to copy all values _into_ the given data so that the reference remains valid
+		Clazz.fromClassOpt(dataType) match {
+			case Some(clazz) =>
+				val entityData = data.get(entity)
+				// reset the root value to the starting point provided
+				clazz.copyIntoUntyped(rootValue, entityData)
+				// re-apply all of the modifications that are relevant to the given entity/data type pair
+				modifications.filter(m => m.entity == entity && m.modifiedType == dataType && m.isActiveAt(currentTime)).foreach(_.modifier.applyUntyped(entityData))
+			case None => Noto.severeError("Cannot toggle modifications without a Clazz implementation")
+		}
+	}
+
+	protected[engine] def resolveModification(modificationRef: ModifierReference) : Modification = {
+		modifications(modificationRef.index)
 	}
 
 	protected[engine] def copyAtTime(atTime : GameEventClock) : WorldView = {
@@ -184,4 +205,8 @@ class WorldView(val world : World) {
 			case None => throw new IllegalStateException(s"Types must be registered with an entity and world before use, ${clazz} was not")
 		}
 	}
+}
+
+object WorldView {
+	val toggleTimer = Metrics.timer("WorldView.toggleModification")
 }

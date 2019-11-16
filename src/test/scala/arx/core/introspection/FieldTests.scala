@@ -27,6 +27,11 @@ object Thimble extends Clazz[Thimble]("Thimble", classOf[Thimble]) {
 	fields += "i" -> i
 	val s = Field.fromValue(Sentinel.s).createField[Thimble]("s",f => f.s, (f,s) => f.s = s, Thimble)
 	fields += "s" -> s
+
+	override def copyInto(from: Thimble, to: Thimble): Unit = {
+		to.i = from.i
+		to.s = from.s
+	}
 }
 
 class FieldTests extends FlatSpec {

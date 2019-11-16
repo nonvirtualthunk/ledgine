@@ -10,7 +10,7 @@ import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.data.Moddable
 import arx.engine.graphics.data.windowing.ImageDisplay.{PositionStyle, ScalingStyle}
 import arx.graphics.helpers.{Color, RGBA}
-import arx.graphics.{Image, TToImage}
+import arx.graphics.{Image, ScaledImage, TToImage}
 import arx.resource.ResourceManager
 
 @GenerateCompanion
@@ -18,7 +18,10 @@ class ImageDisplay extends TWidgetAuxData {
 	var image : Moddable[TToImage] = Moddable(ResourceManager.blankImage : TToImage)
 	var scalingStyle : ScalingStyle = ImageDisplay.Scale(1.0f)
 	var positionStyle : PositionStyle = ImageDisplay.TopLeft
-	var color : Color = Color.White
+	var color : Moddable[Color] = Moddable(Color.White)
+
+
+	override def autoLoadSimpleValuesFromConfig: Boolean = false
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (cv <- configValue.fieldOpt("image")) {
@@ -27,7 +30,9 @@ class ImageDisplay extends TWidgetAuxData {
 				case Some(matched) => Moddable(() => widget.resolveBinding(matched.group(1)) match {
 					case Some(boundValue) => boundValue match {
 						case img : Image => img
+						case scaledImage : ScaledImage => scaledImage.image
 						case str : String => ResourceManager.image(str)
+						case timg: TToImage => timg.image
 						case other =>
 							Noto.warn(s"invalid bound value for an image display : $other")
 							ResourceManager.defaultImage
@@ -43,9 +48,25 @@ class ImageDisplay extends TWidgetAuxData {
 		for (ps <- configValue.fieldOpt("positionStyle")) {
 			positionStyle = PositionStyle.parse(ps.str, positionStyle)
 		}
+		for (cv <- configValue.fieldOpt("color") if cv.isStr) {
+			cv.str match {
+				case Widget.bindingParser(binding) =>
+					color = Moddable(() => widget.resolveBinding(binding) match {
+						case Some(boundValue) => boundValue match {
+							case color : Color => color
+							case v : ReadVec4f => RGBA(v)
+							case other =>
+								Noto.warn(s"invalid bound value for an image display color : $other")
+								Color.White
+						}
+						case None => Color.White
+					})
+				case _ => // do nothing
+			}
+		}
 	}
 
-	override def modificationSignature: AnyRef = (image.resolve(), color, positionStyle, scalingStyle)
+	override def modificationSignature: AnyRef = (image.resolve(), color.resolve(), positionStyle, scalingStyle)
 }
 
 

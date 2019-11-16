@@ -13,5 +13,9 @@ object IdentityData extends Clazz[IdentityData]("IdentityData", classOf[Identity
 
 	def apply(f : IdentityData => Unit) : IdentityData = { val v = new IdentityData; f(v); v }
 					 
+	def copyInto(from : IdentityData, to : IdentityData) {
+		to.name = from.name
+		to.kind = from.kind
+	}
 }
 }

@@ -135,7 +135,7 @@ class ArxString(val intern: String) extends AnyVal {
 		try {
 			Some(intern.toBoolean)
 		} catch {
-			case nfe : NumberFormatException => {
+			case nfe : IllegalArgumentException => {
 				None
 			}
 		}

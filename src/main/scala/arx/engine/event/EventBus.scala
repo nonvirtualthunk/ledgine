@@ -90,7 +90,7 @@ class EventBusListener[T <: Event](val bus : EventBus[T]) extends TSentinelable 
 				}
 			}
 			toProcess.foreach(e => {
-				val relevantListeners = listeners.filter(l => l.func.isDefinedAt(e))
+				val relevantListeners = listeners.filter(l => l.func.isDefinedAt(e)).sortBy(_.precedence * -1)
 				for (l <- relevantListeners) {
 					if (e.notConsumed || l.processConsumed) {
 						l.func.apply(e) match {
@@ -109,13 +109,19 @@ class EventBusListener[T <: Event](val bus : EventBus[T]) extends TSentinelable 
 		newListener
 	}
 
+	def onEventWithPrecedence (precedence : Int)(listener: PartialFunction[T,_]) : Listener[T] = {
+		val newListener = Listener(listener, processConsumed = false, precedence = precedence)
+		listeners ::= newListener
+		newListener
+	}
+
 	def listen (listener: PartialFunction[T,_]) = {
 		onEvent(listener)
 	}
 }
 
 object EventBusListener {
-	case class Listener[T](func : PartialFunction[T,_], processConsumed : Boolean = false, var active : Boolean = true) {
+	case class Listener[T](func : PartialFunction[T,_], processConsumed : Boolean = false, var active : Boolean = true, var precedence : Int = 0) {
 		def activate() { active = true }
 		def deactivate() { active = false }
 	}
@@ -132,13 +138,13 @@ class DeferredInitializationEventBusListener[T <: Event](sync : Boolean) {
 	var eventBusListener = EventBusListener.Sentinel[T]
 	var pendingListeners = List[EventBusListener.Listener[T]]()
 
-	def onEvent(func : PartialFunction[T, _]) : Unit = {
+	def onEvent(precedence : Int)(func : PartialFunction[T, _]) : Unit = {
 		if (eventBusListener.isSentinel) {
-			val l = Listener[T](func, processConsumed = false, active = true)
+			val l = Listener[T](func, processConsumed = false, active = true, precedence = precedence)
 			pendingListeners ::= l
 			l
 		} else {
-			eventBusListener.onEvent(func)
+			eventBusListener.onEventWithPrecedence(precedence)(func)
 		}
 	}
 
