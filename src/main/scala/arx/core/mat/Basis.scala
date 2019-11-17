@@ -123,7 +123,7 @@ object Basis {
 	def apply(xaxis : ReadVec3f , yaxis : ReadVec3f, zaxis : ReadVec3f)= new Basis(xaxis,yaxis,zaxis)
 	val StandardBasis = IdentityBasis
 	val StandardBases = (for ( i <- 0 until 6 ) yield {
-		if ( i == Right ) { IdentityBasis }
+		if ( i == Right.index ) { IdentityBasis }
 		else { new Basis(XAxes(i),YAxes(i),ZAxes(i)) } }).toArray
 
 	val Identity : Basis = IdentityBasis

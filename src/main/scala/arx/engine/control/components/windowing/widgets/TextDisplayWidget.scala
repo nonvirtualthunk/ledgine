@@ -5,6 +5,8 @@ package arx.engine.control.components.windowing.widgets
   */
 
 import arx.Prelude._
+import arx.application.Noto
+import arx.core.NoAutoLoad
 import arx.engine.data.Moddable
 import arx.core.datastructures.Watcher
 import arx.core.function.MemoizingFunction
@@ -17,7 +19,7 @@ import arx.engine.EngineCore
 import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetType, WindowingSystem}
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.graphics.{Image, ScaledImage, TextureBlock}
-import arx.graphics.helpers.{Color, ImageSection, RichText, RichTextSection, THasRichTextRepresentation, TextSection}
+import arx.graphics.helpers.{Color, ImageSection, RGBA, RichText, RichTextSection, THasRichTextRepresentation, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, VerticalTextAlignment}
 import arx.resource.ResourceManager
 
@@ -28,13 +30,14 @@ import scala.language.implicitConversions
 class TextDisplay extends TWidgetAuxData {
 	var text : Moddable[RichText] = Moddable(RichText(""))
 	var fontScale = 1.0f
+	@NoAutoLoad
 	var fontColor : Moddable[Color] = Moddable( Color.Black )
 	var font = none[FontWrapper]
 	var textAlignment : Moddable[HorizontalTextAlignment] = Moddable(HorizontalTextAlignment.Left)
 	var verticalTextAlignment : Moddable[VerticalTextAlignment] = Moddable(VerticalTextAlignment.Bottom)
 	var orientFromTop = Moddable(true)
 
-	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor, font, textAlignment, verticalTextAlignment)
+	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor.resolve(), font, textAlignment, verticalTextAlignment)
 
 	def effectiveFontScale = fontScale
 //	constructed = true
@@ -72,16 +75,16 @@ class TextDisplay extends TWidgetAuxData {
 									boundObj match {
 										case img: Image =>
 											if (strAccum.nonEmpty) {
-												richTextSections :+= TextSection(strAccum.toString())
+												richTextSections :+= TextSection(strAccum.toString(), fontColor.resolve())
 												strAccum.clear()
 											}
-											richTextSections :+= ImageSection(img, 1.0f, Color.White)
+											richTextSections :+= ImageSection(img, 1.0f, fontColor.resolve())
 										case scaledImage: ScaledImage =>
 											if (strAccum.nonEmpty) {
-												richTextSections :+= TextSection(strAccum.toString())
+												richTextSections :+= TextSection(strAccum.toString(), fontColor.resolve())
 												strAccum.clear()
 											}
-											richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x, Color.White)
+											richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x, fontColor.resolve())
 										case richText : RichText => richTextSections ++= richText.sections
 										case renderToRich : THasRichTextRepresentation => richTextSections ++= renderToRich.toRichText.sections
 										case other => strAccum.append(other.toString)
@@ -91,7 +94,7 @@ class TextDisplay extends TWidgetAuxData {
 						}
 					}
 					if (strAccum.nonEmpty) {
-						richTextSections :+= TextSection(strAccum.toString())
+						richTextSections :+= TextSection(strAccum.toString(), fontColor.resolve())
 					}
 					RichText(richTextSections)
 				})
@@ -105,6 +108,27 @@ class TextDisplay extends TWidgetAuxData {
 		}
 		for (alignmentConf <- configValue.fieldOpt("verticalTextAlignment")) {
 			verticalTextAlignment = Moddable(VerticalTextAlignment.parse(alignmentConf.str))
+		}
+
+		for (cv <- configValue.fieldOpt("fontColor")) {
+			if (cv.isStr) {
+				cv.str match {
+					case Widget.bindingParser(binding) =>
+						fontColor = Moddable(() => widget.resolveBinding(binding) match {
+							case Some(boundValue) => boundValue match {
+								case color: Color => color
+								case v: ReadVec4f => RGBA(v)
+								case other =>
+									Noto.warn(s"invalid bound value for an image display color : $other")
+									Color.White
+							}
+							case None => Color.White
+						})
+					case _ => // do nothing
+				}
+			} else {
+				fontColor = Moddable(RGBA(cv.v4))
+			}
 		}
 	}
 }

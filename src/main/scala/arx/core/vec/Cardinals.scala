@@ -8,16 +8,35 @@ package arx.core.vec
  */
 
 import arx.Prelude._
+import arx.application.Noto
+import arx.graphics.Axis
 
+import scala.language.implicitConversions
+
+
+class Cardinal(val index : Int) extends AnyVal {
+	def axis = index match {
+		case 0 => Axis.X
+		case 1 => Axis.Y
+		case 2 => Axis.Z
+		case 3 => Axis.X
+		case 4 => Axis.Y
+		case 5 => Axis.Z
+		case _ => Noto.error(s"No valid axis for cardinal $index"); Axis.X
+	}
+}
 
 object Cardinals {
-	val Left = 0
-	val Back = 1
-	val Bottom = 2
-	val Right = 3
-	val Front = 4
-	val Top = 5
-	val Center = 6
+	implicit def toInt(c : Cardinal) : Int = c.index
+
+	val Left = new Cardinal(0)
+	val Back = new Cardinal(1)
+	val Bottom = new Cardinal(2)
+	val Right = new Cardinal(3)
+	val Front = new Cardinal(4)
+	val Top = new Cardinal(5)
+	val Center = new Cardinal(6)
+
 
 	val Up = Top
 	val Down = Bottom
@@ -39,13 +58,13 @@ object Cardinals {
 	val expandedDirVec2d = Array[Vec3i](Vec3i(-1,0,0),Vec3i(0,-1,0),Vec3i(1,0,0),Vec3i(0,1,0),Vec3i(-1,-1,0),Vec3i(1,-1,0),Vec3i(1,1,0),Vec3i(-1,1,0))
 
 	val distanceBetweenDirections = for (i <- 0 until 7) yield { for(j <- 0 until 7) yield {
-		if ( i == Center || j == Center ) { 0 }
+		if ( i == Center.index || j == Center.index ) { 0 }
 		else if ( j == (i + 3)%6 ) { 2 }
 		else if ( j == i ) { 0 }
 		else { 1 }
 	} }
 	def distanceBetweenDirections(i:Int,j:Int) : Int = distanceBetweenDirections(i)(j)
-	val oppositeDirection = for ( i <- 0 until 7 ) yield { if ( i == Center ) { Center } else { (i + 3)%6 } }
+	val oppositeDirection = for ( i <- 0 until 7 ) yield { if ( i == Center.index ) { Center } else { (i + 3)%6 } }
 
 	val cardinalsX = Array(-1,0,0,1,0,0,0)
 	val cardinalsY = Array(0,-1,0,0,1,0,0)

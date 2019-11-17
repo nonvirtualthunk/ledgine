@@ -6,13 +6,16 @@ package arx.engine.control.components.windowing.widgets
 
 import arx.Prelude._
 import arx.application.Noto
-import arx.core.vec.Cardinals
+import arx.core.introspection.ReflectionAssistant
+import arx.core.vec.{Cardinal, Cardinals}
 import arx.engine.control.components.windowing.Widget
+import arx.engine.graphics.components.windowing.WindowingRenderer
+import arx.graphics.Axis
 
 
 
 trait PositionExpression {
-	def dependsOn : List[Widget] = Nil
+	def dependsOn(w : Widget, axis : Axis) : List[(Widget, Axis)] = Nil
 }
 
 sealed class WindowingOrientation {}
@@ -37,14 +40,24 @@ object WindowingOrientation {
 }
 
 object PositionExpression {
-	case class Constant(value : Int, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression
-	case class Proportional(proportion : Float, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression
-	case object Centered extends PositionExpression
-	case class Relative(relativeTo: Widget, offset : Int, direction : Int = Cardinals.Right) extends PositionExpression {
-		override def dependsOn = List(relativeTo)
+	case class Constant(value : Int, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression {
+		override def dependsOn(widget : Widget, axis : Axis) = axis match {
+			case Axis.X if relativeTo != TopLeft && relativeTo != BottomLeft => List(widget.parent -> Axis.X)
+			case Axis.Y if relativeTo != BottomLeft && relativeTo != BottomRight => List(widget.parent -> Axis.Y)
+			case _ => Nil
+		}
+	}
+	case class Proportional(proportion : Float, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression {
+		override def dependsOn(w: Widget, axis : Axis) = List(w.parent -> axis)
+	}
+	case object Centered extends PositionExpression {
+		override def dependsOn(w: Widget, axis : Axis) = List(w.parent -> axis)
+	}
+	case class Relative(relativeTo: Widget, offset : Int, direction : Cardinal = Cardinals.Right) extends PositionExpression {
+		override def dependsOn(widget : Widget, axis : Axis) = List(relativeTo -> axis)
 	}
 	case class Match(matchTo: Widget) extends PositionExpression {
-		override def dependsOn: List[Widget] = List(matchTo)
+		override def dependsOn(widget : Widget, axis : Axis) = List(matchTo -> axis)
 	}
 	case object Flow extends PositionExpression
 
@@ -98,21 +111,29 @@ object PositionExpression {
 
 
 sealed trait DimensionExpression {
-	def dependsOn(w : Widget) : List[Widget] = Nil
+	def dependsOn(w : Widget, axis : Axis, renderers : List[WindowingRenderer]) : List[(Widget, Axis)] = Nil
 }
 
 object DimensionExpression {
 	case class Constant(value : Int) extends DimensionExpression
-	case class Proportional(proportion : Float) extends DimensionExpression
-	case class Relative(delta : Int) extends DimensionExpression
-	case object ExpandToParent extends DimensionExpression
-	case object Intrinsic extends DimensionExpression
+	case class Proportional(proportion : Float) extends DimensionExpression {
+		override def dependsOn(w: Widget, axis: Axis, renderers : List[WindowingRenderer]): List[(Widget, Axis)] = List(w.parent -> axis)
+	}
+	case class Relative(delta : Int) extends DimensionExpression {
+		override def dependsOn(w: Widget, axis: Axis, renderers : List[WindowingRenderer]): List[(Widget, Axis)] = List(w.parent -> axis)
+	}
+	case object ExpandToParent extends DimensionExpression {
+		override def dependsOn(w: Widget, axis: Axis, renderers : List[WindowingRenderer]): List[(Widget, Axis)] = List(w.parent -> axis)
+	}
+	case object Intrinsic extends DimensionExpression {
+		override def dependsOn(w: Widget, axis: Axis, renderers : List[WindowingRenderer]): List[(Widget, Axis)] = renderers.flatMap(r => r.intrinsicDependencies(w, axis))
+	}
 	case object WrapContent extends DimensionExpression {
-		override def dependsOn(w : Widget) = Nil //w.widgetData.children
+		override def dependsOn(w : Widget, axis : Axis, renderers : List[WindowingRenderer]) = w.widgetData.children.map(c => c -> axis)
 	}
 	def MatchParent = Proportional(1.0f)
 	case class ExpandTo(sibling : Widget) extends DimensionExpression {
-		override def dependsOn(w: Widget): List[Widget] = List(sibling)
+		override def dependsOn(w: Widget, axis : Axis, renderers : List[WindowingRenderer]) = List(sibling -> axis)
 	}
 
 	private val proportionPattern = "([0-9]+)%".r

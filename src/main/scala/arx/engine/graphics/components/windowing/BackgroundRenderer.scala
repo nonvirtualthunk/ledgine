@@ -6,14 +6,14 @@ package arx.engine.graphics.components.windowing
 
 import arx.Prelude._
 import arx.application.Noto
-import arx.core.math.{Rectf, Recti}
+import arx.core.math.{Rectf, Recti, RectiAxis}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2T, Vec2i, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.windowing.ImageDisplay
 import arx.engine.graphics.data.windowing.ImageDisplay.{Center, Scale, ScaleToFit, TopLeft}
-import arx.graphics.{AVBO, TextureBlock}
+import arx.graphics.{AVBO, Axis, TextureBlock}
 import arx.graphics.helpers.Color
 //import arx.engine.control.components.windowing.widgets.ImageDisplayWidget
 //import arx.engine.control.components.windowing.widgets.ImageDisplayWidget.{ActualSize, Center, ScaleToFit, TopLeft}
@@ -164,7 +164,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 		}
 	}
 
-	override def modifyBounds(widget: Widget, fixedOnAxis: Vec2T[Boolean], clientArea: Recti, selfDims: Vec2i) : Unit = {
+	override def modifyBounds(widget: Widget, axis: Axis, fixedOnAxis: Boolean, clientArea: Recti, selfDims: Vec2i): Unit = {
 		val DD = widget.drawing
 		if (DD.drawBackground) {
 			val img = DD.backgroundImage.map(_.image).getOrElse(WD.defaultBackgroundImage)
@@ -172,18 +172,22 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 			val metrics = imageMetrics(img,true)
 
 			val pixelWidth = metrics.borderPixelWidth * pixelScale
-			clientArea.x += pixelWidth
-			clientArea.y += pixelWidth
-
-			if (fixedOnAxis.x) {
-				clientArea.width -= pixelWidth * 2
-			} else {
-				selfDims.x += pixelWidth * 2
-			}
-			if (fixedOnAxis.y) {
-				clientArea.height -= pixelWidth * 2
-			} else {
-				selfDims.y += pixelWidth * 2
+			axis match {
+				case Axis.X =>
+					clientArea.x += pixelWidth
+					if (fixedOnAxis) {
+						clientArea.width -= pixelWidth * 2
+					} else {
+						selfDims.x += pixelWidth * 2
+					}
+				case Axis.Y =>
+					clientArea.y += pixelWidth
+					if (fixedOnAxis) {
+						clientArea.height -= pixelWidth * 2
+					} else {
+						selfDims.y += pixelWidth * 2
+					}
+				case _ => // do nothing
 			}
 		}
 	}

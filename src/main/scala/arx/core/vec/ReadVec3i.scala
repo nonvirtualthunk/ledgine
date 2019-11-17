@@ -1,6 +1,7 @@
 package arx.core.vec
 
 import arx.engine.data.Moddable
+import arx.graphics.Axis
 
 @SerialVersionUID(9223372036854770000L)
 class ReadVec3i extends InternVec3i {
@@ -89,6 +90,14 @@ class ReadVec3i extends InternVec3i {
 		case _ => 0
 	}
 
+	def withAxisSetTo(axis : Axis, v : Int) : ReadVec3i = {
+		axis match {
+			case Axis.X => Vec3i(v,y,z)
+			case Axis.Y => Vec3i(x,v,z)
+			case Axis.Z => Vec3i(x,y,v)
+			case _ => this
+		}
+	}
 }
 object ReadVec3i{
 	def apply (xa : Int,ya : Int,za : Int) = new ReadVec3i(xa : Int,ya : Int,za : Int)

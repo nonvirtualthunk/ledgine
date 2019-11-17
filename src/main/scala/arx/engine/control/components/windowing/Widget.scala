@@ -205,7 +205,7 @@ trait WidgetConstructor[T <: WidgetInstance] {
 object Widget {
 	implicit def toWidgetData(w : Widget) : WidgetData = w.widgetData
 
-	val bindingParser = "%\\(+([a-zA-Z0-9.]*)\\)+".r
+	val bindingParser = "%\\(([a-zA-Z0-9.]*)\\)".r
 }
 
 class SimpleWidget(w : Widget) extends WidgetInstance {

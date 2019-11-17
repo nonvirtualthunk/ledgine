@@ -9,7 +9,9 @@ package arx.core.math
  */
 
 import arx.Prelude._
+import arx.application.Noto
 import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2f, Vec2i}
+import arx.graphics.Axis
 import javax.print.attribute.standard.MediaSize.Other
 
 
@@ -86,4 +88,33 @@ case class Recti (var x : Int, var y : Int, var width : Int, var height : Int) {
 
 	def xy = Vec2i(x,y)
 
+	def axis(a : Axis) = a match {
+		case Axis.X => RectiAxis(x,width)
+		case Axis.Y => RectiAxis(y,height)
+		case _ =>
+			Noto.error(s"Cannot get non-xy axis from a rect, axis was $a")
+			RectiAxis(0,0)
+	}
+
+	def setAxisTo(axis : Axis, values : RectiAxis) : Unit = {
+		axis match {
+			case Axis.X =>
+				x = values.position
+				width = values.length
+			case Axis.Y =>
+				y = values.position
+				height = values.length
+			case _ => // do nothing
+		}
+	}
+
+	def withAxisSetTo(axis : Axis, values : RectiAxis) : Recti = {
+		val r = Recti(x,y,width,height)
+		r.setAxisTo(axis, values)
+		r
+	}
+}
+
+
+case class RectiAxis(var position : Int, var length : Int) {
 }

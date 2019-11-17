@@ -21,7 +21,7 @@ import arx.engine.graphics.components.{DrawPriority, GraphicsComponent}
 import arx.engine.graphics.components.windowing.WindowingGraphicsComponent.WidgetWatchers
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics.helpers.Color
-import arx.graphics.{AVBO, GL, VBO}
+import arx.graphics.{AVBO, Axis, GL, VBO}
 import arx.engine.graphics.data.WindowingSystemAttributeProfile._
 import arx.engine.world.World
 import arx.resource.ResourceManager
@@ -117,7 +117,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					Noto.info(s"Could not change to dirty on update, currently is : ${vbo.state.get()}")
 				}
 
-				updateResolvedWidgetVariables(WD.desktop, new mutable.HashSet[Widget]())
+				for (axis <- Axis.XY) {
+					updateResolvedWidgetVariablesForAxis(WD.desktop, axis, Set(), new mutable.HashSet())
+				}
 				unmarkAllModified(WD.desktop)
 
 				if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
@@ -221,7 +223,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		renderers.foreach(r => {
 			renderQuads(r.render(w, beforeChildren = true, selfArea))
 			r.renderRaw(vbo, textureBlock, selfArea, bounds.xy + relPos.xy)(w, beforeChildren = true)
-			r.modifyBounds(w, fixedBothAxes, selfArea, w.drawing.effectiveDimensions)
+			for (axis <- Axis.XY) {
+				r.modifyBounds(w, axis, fixedOnAxis = true, selfArea, w.drawing.effectiveDimensions)
+			}
 			r.renderCustomVBO(textureBlock, selfArea, bounds.xy + relPos.xy)(w) match {
 				case Some(vbo) => customVBOs ::= vbo
 				case None =>
@@ -245,7 +249,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		renderers.foreach(r => {
 			renderQuads(r.render(w, beforeChildren = false, selfArea))
 			r.renderRaw(vbo, textureBlock, selfArea, bounds.xy + relPos.xy)(w, beforeChildren = false)
-			r.modifyBounds(w, fixedBothAxes, selfArea, w.drawing.effectiveDimensions)
+			for (axis <- Axis.XY) {
+				r.modifyBounds(w, axis, fixedOnAxis = true, selfArea, w.drawing.effectiveDimensions)
+			}
 		})
 
 		Noto.indentation -= 1
@@ -273,108 +279,44 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			})
 
 		val anyChildModified = widget.children.exists(checkForWidgetChanges)
-		if (ret) {
-			Noto.info("Found ret")
-		} else if (anyChildModified) {
-			Noto.info("Found child")
-		}
 		ret || anyChildModified
 	}
 
-//	def resolveEffectiveDimensionsForAxis(widget: Widget, axis : Int) = {
-//		var fixedOnAxis = false
-//		var ret = 0
-//
-//		for (v <- resolveFixedDimensionFor(widget, axis)) {
-//			ret = v
-//			fixedOnAxis = true
-//		}
-//
-//
-//		widget.dimensions(axis) match {
-//			case DimensionExpression.Intrinsic =>
-//				ret = calculateIntrinsicDimFor(widget, if (fixedOnAxis) {
-//					Some(ret(0))
-//				} else {
-//					None
-//				}, if (fixedOnAxis.y) {
-//					Some(ret(1))
-//				} else {
-//					None
-//				})(axis)
-//			case DimensionExpression.WrapContent =>
-//				val inPad = widget.drawing.interiorPadding
-//				val minV = Vec2i(0, 0)
-//				val maxV = Vec2i(0, 0)
-//				widget.children.foreach(w => {
-//					val rpos = w.drawing.relativePosition
-//					val edim = w.drawing.effectiveDimensions
-//					minV.x = minV.x.min(rpos.x)
-//					minV.y = minV.y.min(rpos.y)
-//					maxV.x = maxV.x.max(rpos.x + edim.x)
-//					maxV.y = maxV.y.max(rpos.y + edim.y)
-//				})
-//				ret(axis) = maxV(axis) - minV(axis) + inPad(axis) * 2
-//			//					Some(maxV(axis) - minV(axis) + inPad(axis) * 2)
-//			case _ => // do nothing further
-//		}
-//
-//		val clientArea = Recti(0,0,ret(0),ret(1))
-//		for (render <- renderers) {
-//			render.modifyBounds(widget, fixedOnAxis, clientArea, ret)
-//		}
-//
-//		(ret, clientArea)
-//	}
 
-	def resolveEffectiveDimensions(widget: Widget) = {
-		val fixedOnAxis = Vec2T(false, false)
-		val ret = Vec2i(0, 0)
-		for (axis <- 0 until 2) {
-			resolveFixedDimensionFor(widget, axis) match {
-				case Some(v) =>
-					ret(axis) = v
-					fixedOnAxis(axis) = true
-				case None => // do nothing
-			}
+	def resolveEffectiveDimensions(widget: Widget, axis : Axis) = {
+		var ret = 0
+		var fixedOnAxis = false
+		for (dim <- resolveFixedDimensionFor(widget, axis)) {
+			ret = dim
+			fixedOnAxis = true
 		}
 
-		for (axis <- 0 until 2) {
-			widget.dimensions(axis) match {
-				case DimensionExpression.Intrinsic =>
-					ret(axis) = calculateIntrinsicDimFor(widget, if (fixedOnAxis.x) {
-						Some(ret(0))
-					} else {
-						None
-					}, if (fixedOnAxis.y) {
-						Some(ret(1))
-					} else {
-						None
-					})(axis)
-				case DimensionExpression.WrapContent =>
-					val inPad = widget.drawing.interiorPadding
-					val minV = Vec2i(0, 0)
-					val maxV = Vec2i(0, 0)
-					widget.children.foreach(w => {
-						val rpos = w.drawing.relativePosition
-						val edim = w.drawing.effectiveDimensions
-						minV.x = minV.x.min(rpos.x)
-						minV.y = minV.y.min(rpos.y)
-						maxV.x = maxV.x.max(rpos.x + edim.x)
-						maxV.y = maxV.y.max(rpos.y + edim.y)
-					})
-					ret(axis) = maxV(axis) - minV(axis) + inPad(axis) * 2
-//					Some(maxV(axis) - minV(axis) + inPad(axis) * 2)
-				case _ => // do nothing further
-			}
+
+		widget.dimensions(axis) match {
+			case DimensionExpression.Intrinsic =>
+				val intr = calculateIntrinsicDimFor(widget, resolveFixedDimensionFor(widget, Axis.X), resolveFixedDimensionFor(widget, Axis.Y))
+				ret = intr(axis)
+			case DimensionExpression.WrapContent =>
+				val inPad = widget.drawing.interiorPadding
+				var min = 0
+				var max = 0
+				widget.children.foreach(w => {
+					val rpos = w.drawing.relativePosition
+					val edim = w.drawing.effectiveDimensions
+					min = min.min(rpos(axis))
+					max = max.max(rpos(axis) + edim(axis))
+				})
+				ret = max - min + inPad(axis) * 2
+			case _ => // do nothing further
 		}
 
-		val clientArea = Recti(0,0,ret(0),ret(1))
+		val dims = Vec2i(if (axis == Axis.X) { ret } else { 0 }, if (axis == Axis.Y) { ret } else { 0 })
+		val clientArea = Recti(0,0,dims.x, dims.y)
 		for (render <- renderers) {
-			render.modifyBounds(widget, fixedOnAxis, clientArea, ret)
+			render.modifyBounds(widget, axis, fixedOnAxis, clientArea, dims)
 		}
 
-		(ret, clientArea)
+		(dims(axis), clientArea.axis(axis))
 	}
 
 	def resolveFixedDimensionFor(widget: Widget, axis: Int): Option[Int] = {
@@ -393,142 +335,92 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		}
 	}
 
-	def resolveRelativePosition(widget: Widget) = {
-		val ret = new Vec3i(0, 0, 0)
-		for (axis <- 0 until 3) {
-			ret(axis) = (widget.position(axis) match {
-				case PositionExpression.Constant(constValue, relativeTo) =>
-					if (relativeTo == TopLeft || (axis == 0 && relativeTo == BottomLeft) || (axis == 1 && relativeTo == TopRight)) {
-						constValue
-					} else {
-						widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - constValue
-					}
-				case PositionExpression.Proportional(p, relativeTo) =>
-					val offsetExpr = widget.parent.drawing.clientDim(axis) * p
-					if (relativeTo == TopLeft || (axis == 0 && relativeTo == BottomLeft) || (axis == 1 && relativeTo == TopRight)) {
-						offsetExpr
-					} else {
-						widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - offsetExpr
-					}
-				case PositionExpression.Centered =>
-					(widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis)) / 2
-				case PositionExpression.Relative(relativeTo, offset, direction) =>
-					val baseRelPos = if (relativeTo.parent == widget.parent) {
-						relativeTo.drawing.relativePosition
-					} else {
-						relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
-					}
+	def resolveRelativePosition(widget: Widget, axis : Axis) = {
+		(widget.position(axis) match {
+			case PositionExpression.Constant(constValue, relativeTo) =>
+				if (relativeTo == TopLeft || (axis == Axis.X && relativeTo == BottomLeft) || (axis == Axis.Y && relativeTo == TopRight)) {
+					constValue
+				} else {
+					widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - constValue
+				}
+			case PositionExpression.Proportional(p, relativeTo) =>
+				val offsetExpr = widget.parent.drawing.clientDim(axis) * p
+				if (relativeTo == TopLeft || (axis == Axis.X && relativeTo == BottomLeft) || (axis == Axis.Y && relativeTo == TopRight)) {
+					offsetExpr
+				} else {
+					widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - offsetExpr
+				}
+			case PositionExpression.Centered =>
+				(widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis)) / 2
+			case PositionExpression.Relative(relativeTo, offset, direction) =>
+				val baseRelPos = if (relativeTo.parent == widget.parent) {
+					relativeTo.drawing.relativePosition
+				} else {
+					relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
+				}
 
-					direction match {
-						case Cardinals.Right if axis == 0 =>
-							baseRelPos.x + relativeTo.drawing.effectiveDimensions.x + offset
-						case Cardinals.Left if axis == 0 =>
-							baseRelPos.x - widget.drawing.effectiveDimensions.x - offset
-						case Cardinals.Down if axis == 1 =>
-							baseRelPos.y + relativeTo.drawing.effectiveDimensions.y + offset
-						case Cardinals.Up if axis == 1 =>
-							baseRelPos.y - widget.drawing.effectiveDimensions.y - offset
-						case Cardinals.Center =>
-							val dimDiff = relativeTo.drawing.effectiveDimensions(axis) - widget.drawing.effectiveDimensions(axis)
-							baseRelPos(axis) + dimDiff / 2
-						case _ =>
-							Noto.error("Unsupported relative widget position direction/axis: " + direction + "/" + axis)
-							0
-					}
-				case PositionExpression.Match(matchTo) =>
-					if (matchTo.parent == widget.parent) {
-						matchTo.drawing.relativePosition(axis)
-					} else {
-						matchTo.drawing.absolutePosition(axis) - (widget.parent.drawing.absolutePosition(axis) + widget.parent.drawing.clientOffset(axis))
-					}
-				case PositionExpression.Flow =>
-					0
-				// do nothing there, this is considered unconstrained, will be filled in
-				// more intelligently by the remaining layout engine...unless we deal with it
-				// here, which we could
-			}).round
-		}
-		ret
+				direction match {
+					case Cardinals.Right if axis == Axis.X =>
+						baseRelPos.x + relativeTo.drawing.effectiveDimensions.x + offset
+					case Cardinals.Left if axis == Axis.X =>
+						baseRelPos.x - widget.drawing.effectiveDimensions.x - offset
+					case Cardinals.Down if axis == Axis.Y =>
+						baseRelPos.y + relativeTo.drawing.effectiveDimensions.y + offset
+					case Cardinals.Up if axis == Axis.Y =>
+						baseRelPos.y - widget.drawing.effectiveDimensions.y - offset
+					case Cardinals.Center =>
+						val dimDiff = relativeTo.drawing.effectiveDimensions(axis) - widget.drawing.effectiveDimensions(axis)
+						baseRelPos(axis) + dimDiff / 2
+					case _ =>
+						Noto.error("Unsupported relative widget position direction/axis: " + direction + "/" + axis)
+						0
+				}
+			case PositionExpression.Match(matchTo) =>
+				if (matchTo.parent == widget.parent) {
+					matchTo.drawing.relativePosition(axis)
+				} else {
+					matchTo.drawing.absolutePosition(axis) - (widget.parent.drawing.absolutePosition(axis) + widget.parent.drawing.clientOffset(axis))
+				}
+			case PositionExpression.Flow =>
+				0
+			// do nothing there, this is considered unconstrained, will be filled in
+			// more intelligently by the remaining layout engine...unless we deal with it
+			// here, which we could
+		}).round
 	}
 
-	def updateResolvedWidgetVariablesForAxis(w: Widget, axis : Int, resolved: mutable.Set[Widget]): Unit = {
+	def updateResolvedWidgetVariablesForAxis(w: Widget, axis : Axis, activeSet : Set[(Widget, Axis)],  resolved: mutable.Set[(Widget, Axis)]): Unit = {
 		if (w.showing) {
+			if (resolved.contains(w -> axis)) { // if it's already resolved nothing else to do
+				return
+			}
+			val dependsOn = w.position(axis).dependsOn(w, axis) ::: w.dimensions(axis).dependsOn(w, axis, renderers)
+			val remainingDepends = dependsOn.filterNot(resolved)
+			if (remainingDepends.exists(d => activeSet.contains(d))) {
+				// if this is dependent on something that is actively being resolved then we have a recursive dependency. Break it here
+				return
+			}
+
+			remainingDepends.foreach(d => updateResolvedWidgetVariablesForAxis(d._1, d._2, activeSet + (w -> axis), resolved))
+
 			val DD = w[DrawingData]
-			val (effDim, effClientArea) = resolveEffectiveDimensions(w)
-			DD.effectiveDimensions = effDim
-			DD.effectiveClientArea = effClientArea
+			val (effDim, effClientArea) = resolveEffectiveDimensions(w, axis)
 
-			if (w.parent.notSentinel) {
-				DD.relativePosition = resolveRelativePosition(w)
-				DD.absolutePosition = w.parent.drawing.absolutePosition + Vec3i(w.parent.drawing.clientOffset, 0) + DD.relativePosition
+			DD.effectiveDimensions = Vec2i(if (axis == Axis.X) { effDim } else { DD.effectiveDimensions.x }, if (axis == Axis.Y) { effDim } else { DD.effectiveDimensions.y })
+			DD.effectiveClientArea = DD.effectiveClientArea.withAxisSetTo(axis, effClientArea)
+
+			if (w.parent != null && w.parent.notSentinel) {
+				DD.relativePosition = DD.relativePosition.withAxisSetTo(axis, resolveRelativePosition(w, axis))
+				DD.absolutePosition = DD.absolutePosition.withAxisSetTo(axis, w.parent.drawing.absolutePosition(axis) + w.parent.drawing.clientOffset(axis) + DD.relativePosition(axis))
 			}
 
-			resolved += w
+			resolved += (w -> axis)
 
-			var toResolve = w.children
-			while (toResolve.nonEmpty) {
-				val picked = toResolve.head
-				if (resolved(picked)) {
-					toResolve = toResolve.tail
-				} else {
-					val requires = picked.x.dependsOn ::: picked.y.dependsOn ::: picked.width.dependsOn(picked) ::: picked.height.dependsOn(picked)
-					val unfulfilled = requires.filterNot(resolved)
-					unfulfilled match {
-						case Nil =>
-							updateResolvedWidgetVariables(picked, resolved)
-							toResolve = toResolve.tail
-						case _ =>
-							toResolve = unfulfilled ::: toResolve
-					}
-				}
+			for (child <- w.children) {
+				updateResolvedWidgetVariablesForAxis(child, axis, activeSet + (child -> axis), resolved)
 			}
-
-			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
-			DD.effectiveDimensions = afterEffDim
-			DD.effectiveClientArea = afterEffClientArea
 		} else {
-			resolved += w
-		}
-	}
-
-	def updateResolvedWidgetVariables(w: Widget, resolved: mutable.Set[Widget]): Unit = {
-		if (w.showing) {
-//			w.unmarkModified()
-			val DD = w[DrawingData]
-			val (effDim, effClientArea) = resolveEffectiveDimensions(w)
-			DD.effectiveDimensions = effDim
-			DD.effectiveClientArea = effClientArea
-
-			if (w.parent.notSentinel) {
-				DD.relativePosition = resolveRelativePosition(w)
-				DD.absolutePosition = w.parent.drawing.absolutePosition + Vec3i(w.parent.drawing.clientOffset, 0) + DD.relativePosition
-			}
-
-			resolved += w
-
-			var toResolve = w.children
-			while (toResolve.nonEmpty) {
-				val picked = toResolve.head
-				if (resolved(picked)) {
-					toResolve = toResolve.tail
-				} else {
-					val requires = picked.x.dependsOn ::: picked.y.dependsOn ::: picked.width.dependsOn(picked) ::: picked.height.dependsOn(picked)
-					val unfulfilled = requires.filterNot(resolved)
-					unfulfilled match {
-						case Nil =>
-							updateResolvedWidgetVariables(picked, resolved)
-							toResolve = toResolve.tail
-						case _ =>
-							toResolve = unfulfilled ::: toResolve
-					}
-				}
-			}
-
-			val (afterEffDim, afterEffClientArea) = resolveEffectiveDimensions(w)
-			DD.effectiveDimensions = afterEffDim
-			DD.effectiveClientArea = afterEffClientArea
-		} else {
-			resolved += w
+			resolved += (w -> axis)
 		}
 	}
 }

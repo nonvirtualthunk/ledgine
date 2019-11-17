@@ -14,7 +14,7 @@ import arx.engine.control.components.windowing.widgets.{TextDisplay, TextDisplay
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics
-import arx.graphics.Image
+import arx.graphics.{Axis, Image}
 import arx.graphics.helpers.{ImageSectionLayer, RichText}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, TextLayoutResult, TextLayouter, VerticalTextAlignment}
 
@@ -79,6 +79,14 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 				val layoutResult = layout(widget, textDisplay, Rectf(0.0f,0.0f,fixedX.map(_.toFloat).getOrElse(100000.0f),fixedY.map(_.toFloat).getOrElse(1000000.0f)))
 				Some(Vec2i((layoutResult.dimensions.x).toInt+4, layoutResult.dimensions.y.toInt))
 			case _ => None
+		}
+	}
+
+	override def intrinsicDependencies(widget: Widget, axis: Axis): List[(Widget, Axis)] = {
+		if (axis == Axis.Y) { // the intrinsic height is dependent on the effective width, since that determines the available space before a line break
+			List(widget -> Axis.X)
+		} else { // the intrinsic width is not dependent on anything, however
+			Nil
 		}
 	}
 

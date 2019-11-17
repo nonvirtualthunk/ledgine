@@ -35,7 +35,7 @@ object Keymap {
 	def unregister(namespace : String, identifier : String): Unit = synchronized {
 		mapping.intern.foreach {
 			case (_, identifiers) =>
-				identifiers.indexOf(identifier) match {
+				identifiers.indexOf(Keymap.Identifier(namespace, identifier)) match {
 					case -1 => // do nothing
 					case i => identifiers.remove(i)
 				}
