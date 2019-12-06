@@ -60,6 +60,7 @@ object PositionExpression {
 		override def dependsOn(widget : Widget, axis : Axis) = List(matchTo -> axis)
 	}
 	case object Flow extends PositionExpression
+	case class Absolute(value : Int, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression
 
 
 	private val matchPattern = "match\\((.*)\\)".r
@@ -68,6 +69,7 @@ object PositionExpression {
 	private val simpleConstantPattern = "([0-9]+)$".r
 	private val pxConstantPattern = "([0-9]+)px$".r
 	private val belowPattern = "([0-9]+) below ([a-zA-Z0-9]+)".r
+	private val abovePattern = "([0-9]+) above ([a-zA-Z0-9]+)".r
 	private val rightLeftPattern = "(?i)([0-9]+) (right|left) of ([a-zA-Z0-9]+)".r
 	def parse(s : String, siblings : List[Widget]) : Option[PositionExpression] = {
 		Option(s.toLowerCase() match {
@@ -86,6 +88,13 @@ object PositionExpression {
 			case belowPattern(amount, target) =>
 				siblings.find(w => w.identifier.map(_.toLowerCase()).contains(target.toLowerCase()) || w.configIdentifier.map(_.toLowerCase()).contains(target.toLowerCase)) match {
 					case Some(w) => Relative(w, amount.toFloat.toInt, Cardinals.Bottom)
+					case None =>
+						Noto.error(s"Relative position with no matching reference point $target")
+						null
+				}
+			case abovePattern(amount, target) =>
+				siblings.find(w => w.identifier.map(_.toLowerCase()).contains(target.toLowerCase()) || w.configIdentifier.map(_.toLowerCase()).contains(target.toLowerCase)) match {
+					case Some(w) => Relative(w, amount.toFloat.toInt, Cardinals.Top)
 					case None =>
 						Noto.error(s"Relative position with no matching reference point $target")
 						null

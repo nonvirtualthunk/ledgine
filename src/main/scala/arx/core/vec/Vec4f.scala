@@ -44,6 +44,7 @@ object Vec4f{
 	implicit def toWriteable (v : ReadVec4f) = new Vec4f(v.r,v.g,v.b,v.a)
 	def apply (s : Float) = new Vec4f(s,s,s,s)
 	def apply (rgb : Float, a : Float) = new Vec4f(rgb,rgb,rgb,a)
+	def apply (v : ReadVec3f, a : Float) = new Vec4f(v.x, v.y, v.z,a)
 	val UnitR = new ReadVec4f(1,0,0,0)
 	val UnitG = new ReadVec4f(0,1,0,0)
 	val UnitB = new ReadVec4f(0,0,1,0)

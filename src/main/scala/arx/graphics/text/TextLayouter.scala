@@ -7,11 +7,10 @@ import java.awt.geom.AffineTransform
 import arx.application.Noto
 import arx.core.math.Rectf
 import arx.core.vec.{ReadVec2f, Vec2f}
-import arx.graphics.helpers.{ImageSection, RichText, TextSection}
+import arx.graphics.helpers.{HorizontalPaddingSection, ImageSection, RichText, TextSection}
 import arx.Prelude._
 import arx.engine.EngineCore
 import arx.graphics.text.VerticalTextAlignment.{Bottom, Top}
-
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -93,7 +92,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		for (section <- text.sections) {
 			val pre = rects.size
 			section match {
-				case TextSection(text,_, _) =>
+				case TextSection(text, _, _) =>
 					val words = text.split(TextLayouter.whitespaceArray)
 					var i = 0
 
@@ -138,6 +137,10 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 
 					x += width + minSpacing
 					maxX = math.max(maxX,x)
+				case HorizontalPaddingSection(width) =>
+					x += width
+					maxX = math.max(maxX,x)
+
 			}
 			if (pre + section.symbolCount != rects.size) {
 				println("wrong")

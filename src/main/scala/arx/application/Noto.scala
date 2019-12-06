@@ -5,6 +5,7 @@ import java.io.{File, FileOutputStream, FileWriter}
 import annotation.elidable
 import java.lang.String
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 import arx.core.async.OnExitRegistry
 
@@ -22,7 +23,13 @@ object Noto {
 	val Fine = 2
 	val Finest = 4
 
-	var indentation = 0
+	private var indentation = 0
+	def increaseIndent(): Unit = {
+		executor.execute(() => indentation += 1)
+	}
+	def decreaseIndent(): Unit = {
+		executor.execute(() => indentation -= 1)
+	}
 
 	var debugOn = "true".equals(System.getProperty("logDebug"))
 	def finestOn = globalLoggingLevel >= Finest

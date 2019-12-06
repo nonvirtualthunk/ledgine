@@ -76,8 +76,12 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 	override def intrinsicSize(widget: Widget, fixedX: Option[Int], fixedY: Option[Int]): Option[ReadVec2i] = {
 		widget.dataOpt[TextDisplay] match {
 			case Some(textDisplay) =>
-				val layoutResult = layout(widget, textDisplay, Rectf(0.0f,0.0f,fixedX.map(_.toFloat).getOrElse(100000.0f),fixedY.map(_.toFloat).getOrElse(1000000.0f)))
-				Some(Vec2i((layoutResult.dimensions.x).toInt+4, layoutResult.dimensions.y.toInt))
+				if (textDisplay.text.resolve().isEmpty) {
+					Some(Vec2i.Zero)
+				} else {
+					val layoutResult = layout(widget, textDisplay, Rectf(0.0f, 0.0f, fixedX.map(_.toFloat).getOrElse(100000.0f), fixedY.map(_.toFloat).getOrElse(1000000.0f)))
+					Some(Vec2i((layoutResult.dimensions.x).toInt + 4, layoutResult.dimensions.y.toInt))
+				}
 			case _ => None
 		}
 	}
@@ -108,6 +112,7 @@ object TextRenderer {
 		var ret = Vector[WQuad]()
 		var sections = richText.sections
 		while (sections.nonEmpty) {
+
 			if (si >= sections.head.symbolCount) {
 				sections = sections.tail
 				si = 0

@@ -6,6 +6,7 @@ import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.vec.ReadVec4f
 import arx.engine.control.components.windowing.Widget
+import arx.engine.control.components.windowing.helpers.ConfigLoadingHelper
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.data.Moddable
 import arx.engine.graphics.data.windowing.ImageDisplay.{PositionStyle, ScalingStyle}
@@ -48,21 +49,8 @@ class ImageDisplay extends TWidgetAuxData {
 		for (ps <- configValue.fieldOpt("positionStyle")) {
 			positionStyle = PositionStyle.parse(ps.str, positionStyle)
 		}
-		for (cv <- configValue.fieldOpt("color") if cv.isStr) {
-			cv.str match {
-				case Widget.bindingParser(binding) =>
-					color = Moddable(() => widget.resolveBinding(binding) match {
-						case Some(boundValue) => boundValue match {
-							case color : Color => color
-							case v : ReadVec4f => RGBA(v)
-							case other =>
-								Noto.warn(s"invalid bound value for an image display color : $other")
-								Color.White
-						}
-						case None => Color.White
-					})
-				case _ => // do nothing
-			}
+		for (fc <- ConfigLoadingHelper.loadColorFromConfig(configValue.color, widget)) {
+			color = fc
 		}
 	}
 

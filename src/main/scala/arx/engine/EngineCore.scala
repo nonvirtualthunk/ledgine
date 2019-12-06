@@ -227,6 +227,13 @@ abstract class EngineCore {
 //		// Make the window visible
 		glfwShowWindow(window)
 
+		GL.createCapabilities()
+
+		Application.openGLThread.set(true)
+
+		arx.graphics.GL.maximumViewport = Recti(0, 0, desiredViewportSize.x, desiredViewportSize.y)
+		arx.graphics.GL.setViewport(Recti(0, 0, desiredViewportSize.x, desiredViewportSize.y))
+
 		onInit()
 	}
 
@@ -272,16 +279,9 @@ abstract class EngineCore {
 	}
 
 	def loop(): Unit = {
-		GL.createCapabilities()
-
-		Application.openGLThread.set(true)
-
 		// Set the clear color
 		glClearColor(clearColor.r,clearColor.g,clearColor.b,clearColor.a)
 		if (multisample) { glEnable(GL13.GL_MULTISAMPLE) }
-
-		arx.graphics.GL.maximumViewport = Recti(0, 0, desiredViewportSize.x, desiredViewportSize.y)
-		arx.graphics.GL.setViewport(Recti(0, 0, desiredViewportSize.x, desiredViewportSize.y))
 
 		arx.graphics.GL.glSetState(GL_BLEND,enable = true)
 		glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)

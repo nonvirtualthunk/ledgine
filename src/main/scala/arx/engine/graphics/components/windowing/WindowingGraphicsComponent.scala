@@ -20,7 +20,7 @@ import arx.engine.control.components.windowing.widgets.data.{DrawingData, TWidge
 import arx.engine.graphics.components.{DrawPriority, GraphicsComponent}
 import arx.engine.graphics.components.windowing.WindowingGraphicsComponent.WidgetWatchers
 import arx.engine.graphics.data.WindowingGraphicsData
-import arx.graphics.helpers.Color
+import arx.graphics.helpers.{Color, RGBA}
 import arx.graphics.{AVBO, Axis, GL, VBO}
 import arx.engine.graphics.data.WindowingSystemAttributeProfile._
 import arx.engine.world.World
@@ -120,19 +120,20 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				for (axis <- Axis.XY) {
 					updateResolvedWidgetVariablesForAxis(WD.desktop, axis, Set(), new mutable.HashSet())
 				}
+				precomputeAbsolutePosition(WD.desktop)
 				unmarkAllModified(WD.desktop)
+			}
 
-				if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
-					vbo.softClear()
-					// could if(anyChanged) here
-					customVBOs = Nil
-					updateWindowingDrawData(WD, WD.desktop, Recti(0, 0, GL.viewport.w, GL.viewport.h))
-					vbo.state.set(VBO.Updated)
-					needsRedraw = true
-				}
+			if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
+				vbo.softClear()
 
+				customVBOs = Nil
+				updateWindowingDrawData(WD, WD.desktop, Recti(0, 0, GL.viewport.w, GL.viewport.h))
+				vbo.state.set(VBO.Updated)
+				needsRedraw = true
 			}
 		}
+
 	}
 
 	def unmarkAllModified(w : Widget): Unit = {
@@ -140,8 +141,11 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		w.children.foreach(unmarkAllModified)
 	}
 
-	val colors = Color(255, 255, 255, 255) :: Color(255, 0, 0, 255) :: Color(0, 255, 0, 255) :: Color(255, 255, 0, 255) :: Nil
+//	val colors = Color(255, 255, 255, 255) :: Color(255, 0, 0, 255) :: Color(0, 255, 0, 255) :: Color(255, 255, 0, 255) :: Nil
 	val fixedBothAxes = Vec2T(true,true)
+
+	var windowDrawRecurseDepth = 0
+	var colors = List(Color.Red, Color.Green, Color.Blue, Color(128,255,128,255), Color(255,128,255,255), Color(255,255,128,255), Color(128,128,128,255), Color(128, 128, 255, 255), Color(255, 128, 128), Color(255,0,255,255))
 
 	def updateWindowingDrawData(WD : WindowingGraphicsData, w: Widget, bounds: Recti): Unit = {
 		val vbo = WD.vbo
@@ -150,10 +154,11 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		if (!w.showing) {
 			return
 		}
+		windowDrawRecurseDepth += 1
 
 		val relPos = w.drawing.relativePosition
-		//		Noto.info(s"Widget ${w.identifier} of class ${w.getClass.getSimpleName} bounds $bounds and relPos $relPos")
-		Noto.indentation += 1
+//		Noto.info(s"Widget ${w.effectiveIdentifier} bounds $bounds and relPos $relPos, effDim ${w.drawing.effectiveDimensions} {")
+		Noto.increaseIndent()
 
 		def renderQuads(quads: Traversable[WQuad]): Unit = {
 			for (quad <- quads) {
@@ -232,11 +237,15 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			}
 		})
 
-		//		renderQuad(WQuad(Rectf(-relPos.x,-relPos.y,bounds.width,bounds.height), "default/blank_bordered.png", colors(Noto.indentation)))
-
 		val pos = w.drawing.absolutePosition + Vec3i(w.drawing.clientOffset, 0)
 		val size = w.drawing.clientDim
 		val newBounds = bounds.intersect(Recti(pos.x, pos.y, size.x, size.y))
+
+//		renderQuads(WQuad(Rectf(bounds), ResourceManager.blankImage, colors(windowDrawRecurseDepth % colors.size).asRGBA * RGBA(1.0f,1.0f,1.0f,0.5f)) :: Nil)
+
+//		if (w.effectiveIdentifier == "AttackList") {
+//			println("attack list")
+//		}
 
 		for (child <- w.children.sortBy(_.drawing.absolutePosition.z)) {
 			updateWindowingDrawData(WD, child, newBounds)
@@ -254,7 +263,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			}
 		})
 
-		Noto.indentation -= 1
+		Noto.decreaseIndent()
+//		Noto.info(s"} end ${w.effectiveIdentifier}")
+
+		windowDrawRecurseDepth -= 1
 	}
 
 	val standardSize = Vec2i(10, 10)
@@ -278,6 +290,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				false
 			})
 
+		// have to check all children to ensure that their watchers get updated
 		val anyChildModified = widget.children.exists(checkForWidgetChanges)
 		ret || anyChildModified
 	}
@@ -356,7 +369,9 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				val baseRelPos = if (relativeTo.parent == widget.parent) {
 					relativeTo.drawing.relativePosition
 				} else {
-					relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
+					Noto.error("Temporarily disabled positioning relative to widget that does not share parent")
+					???
+//					relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
 				}
 
 				direction match {
@@ -379,7 +394,21 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				if (matchTo.parent == widget.parent) {
 					matchTo.drawing.relativePosition(axis)
 				} else {
-					matchTo.drawing.absolutePosition(axis) - (widget.parent.drawing.absolutePosition(axis) + widget.parent.drawing.clientOffset(axis))
+					Noto.error("Temporarily disabled match positioning relative to widget that does not share parent")
+					???
+//					matchTo.drawing.absolutePosition(axis) - (widget.parent.drawing.absolutePosition(axis) + widget.parent.drawing.clientOffset(axis))
+				}
+			case PositionExpression.Absolute(value, relativeTo) =>
+				val raw = if (widget.parent.isSentinel) {
+					value
+				} else {
+					value - widget.parent.drawing.absolutePosition(axis)
+				}
+
+				if ((axis == Axis.Y && (relativeTo == BottomLeft || relativeTo == BottomRight)) || (axis == Axis.X && (relativeTo == TopRight || relativeTo == BottomRight))) {
+					raw - widget.drawing.effectiveDimensions(axis)
+				} else {
+					raw
 				}
 			case PositionExpression.Flow =>
 				0
@@ -397,6 +426,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			val dependsOn = w.position(axis).dependsOn(w, axis) ::: w.dimensions(axis).dependsOn(w, axis, renderers)
 			val remainingDepends = dependsOn.filterNot(resolved)
 			if (remainingDepends.exists(d => activeSet.contains(d))) {
+//				Noto.info(s"${w.effectiveIdentifier} saw a recursive dependency, breaking")
 				// if this is dependent on something that is actively being resolved then we have a recursive dependency. Break it here
 				return
 			}
@@ -411,7 +441,6 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 			if (w.parent != null && w.parent.notSentinel) {
 				DD.relativePosition = DD.relativePosition.withAxisSetTo(axis, resolveRelativePosition(w, axis))
-				DD.absolutePosition = DD.absolutePosition.withAxisSetTo(axis, w.parent.drawing.absolutePosition(axis) + w.parent.drawing.clientOffset(axis) + DD.relativePosition(axis))
 			}
 
 			resolved += (w -> axis)
@@ -422,6 +451,14 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		} else {
 			resolved += (w -> axis)
 		}
+	}
+
+	def precomputeAbsolutePosition(w : Widget): Unit = {
+		val DD = w.drawing
+		if (w.parent != null && w.parent.notSentinel) {
+			DD.absolutePosition = w.parent.drawing.absolutePosition + Vec3i(w.parent.drawing.clientOffset, 0) + DD.relativePosition
+		}
+		w.children.foreach(c => precomputeAbsolutePosition(c))
 	}
 }
 

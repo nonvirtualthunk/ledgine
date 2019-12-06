@@ -300,6 +300,7 @@ class QuadBuilder(blankTC: Array[ReadVec2f]) extends TQuadBuilder {
 	}
 
 	def draw(): Unit = {
+		import Cardinals._
 		val vi = vbo.incrementVertexOffset(4)
 		val ii = vbo.incrementIndexOffset(6)
 

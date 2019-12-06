@@ -95,7 +95,7 @@ DemoTabWidget : {
 
   children : {
     HammerDisplay : {
-      type : Div
+      type : Window
 
       backgroundPixelScale : 1
       background.image : "ui/greenWoodBorder.png"

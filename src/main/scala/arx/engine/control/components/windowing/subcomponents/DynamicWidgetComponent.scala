@@ -18,6 +18,7 @@ object DynamicWidgetComponent extends WindowingSystemComponent {
 				val newChildren = newChildrenData.map(d => dyn.dynWidgetFunctions.createChildFromData(widget, d))
 				dyn.dynWidgetFunctions.arrangeChildren(widget, newChildren)
 				dyn.lastChildren = newChildren
+				widget.markModified()
 			}
 		}
 	}

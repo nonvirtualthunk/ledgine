@@ -4,10 +4,12 @@ package arx.engine.control.components.windowing.widgets.data
   * TODO: Add javadoc
   */
 
+import arx.core.NoAutoLoad
 import arx.core.math.Recti
 import arx.core.representation.ConfigValue
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
+import arx.engine.control.components.windowing.helpers.ConfigLoadingHelper
 import arx.engine.data.{Moddable, TMutableAuxData}
 import arx.graphics.TToImage
 import arx.graphics.helpers.Color
@@ -39,8 +41,10 @@ class DrawingData extends TWidgetAuxData {
 	var drawAsForegroundBorder = false
 	var backgroundImage : Option[TToImage] = None
 	var backgroundPixelScale = 1
+	@NoAutoLoad
 	var backgroundColor = Moddable(Color.White)
-	var edgeColor = Color.White
+	@NoAutoLoad
+	var edgeColor = Moddable(Color.White)
 	var drawCenterBackground = true
 	// note, these won't necessarily take effect if changed
 	var interiorPadding : ReadVec2i = Vec2i.Zero
@@ -67,6 +71,13 @@ class DrawingData extends TWidgetAuxData {
 
 		for (edges <- configValue.fieldOpt("backgroundEdges").map(e => e.arr.map(_.int).toSet)) {
 			backgroundEdges = edges
+		}
+
+		for (fc <- ConfigLoadingHelper.loadColorFromConfig(configValue.backgroundColor, widget)) {
+			backgroundColor = fc
+		}
+		for (ec <- ConfigLoadingHelper.loadColorFromConfig(configValue.edgeColor, widget)) {
+			edgeColor = ec
 		}
 	}
 }

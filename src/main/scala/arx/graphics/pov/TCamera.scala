@@ -14,9 +14,7 @@ import arx.core.math.Recti
 import arx.core.traits.TSentinel
 import arx.core.traits.TSentinelable
 import arx.core.units.UnitOfTime
-import arx.core.vec.ReadVec2f
-import arx.core.vec.ReadVec3f
-import arx.core.vec.Vec3f
+import arx.core.vec.{ReadVec2f, ReadVec3f, Vec3f, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.event.Keymap
 import arx.engine.event.TEventUser
@@ -78,6 +76,12 @@ trait TCamera extends TEventUser with TSentinelable {
 		} else {
 			None
 		}
+	}
+
+	def project(worldCoord : ReadVec3f, viewport : Recti) = {
+//		val xyzw = modelviewMatrix(viewport) * projectionMatrix(viewport) * Vec4f(worldCoord, 1.0f)
+//		xyzw.rgb / xyzw.a
+		(Vec4f(worldCoord, 1.0f) * modelviewMatrix(viewport) * projectionMatrix(viewport)).rg * viewport.dimensions * 0.5f
 	}
 
 	def keymapNamespace : String

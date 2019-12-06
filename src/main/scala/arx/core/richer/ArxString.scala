@@ -59,15 +59,15 @@ class ArxString(val intern: String) extends AnyVal {
 	}
 
 	def fromCamelCase : String = {
-		var previousWasSpace = false
+		var previousWasSpaceOrPunct = false
 		val sb = new StringBuilder
 		for ( i <- 0 until intern.size ) {
-			if ( ! previousWasSpace && i != 0 && intern(i).isUpper ) {
+			if ( ! previousWasSpaceOrPunct && i != 0 && intern(i).isUpper ) {
 				sb.append(" ")
 			}
 			sb.append(intern(i))
-			if ( intern(i) == ' ' ) { previousWasSpace = true }
-			else { previousWasSpace = false }
+			if ( intern(i) == ' ' || intern(i) == '.') { previousWasSpaceOrPunct = true }
+			else { previousWasSpaceOrPunct = false }
 		}
 		sb.toString()
 	}

@@ -180,6 +180,26 @@ object FieldOperations {
 		override def impact = Impact.Positive
 	}
 
+	class PopBackVector[U] extends Transformation[Vector[U]] {
+		override def transform(oldValue: Vector[U]): Vector[U] = {
+			oldValue.dropRight(1)
+		}
+
+		override def asSimpleString: String = s"pop back"
+
+		override def impact = Impact.Neutral
+	}
+
+	class PopFrontVector[U] extends Transformation[Vector[U]] {
+		override def transform(oldValue: Vector[U]): Vector[U] = {
+			oldValue.drop(1)
+		}
+
+		override def asSimpleString: String = s"pop front"
+
+		override def impact = Impact.Neutral
+	}
+
 	case class SetKey[K,V](entry : (K,V)) extends Transformation[Map[K,V]] {
 		/** Immutable operation returning a new value based on the old. Must not mutate given value */
 		override def transform(oldValue: Map[K, V]): Map[K, V] = {
@@ -260,6 +280,9 @@ object FieldOperations {
 
 	implicit class VectorField[C,U](field : Field[C,Vector[U]]) {
 		def append(elem : U) = FieldOperationModifier(field, AppendVector(elem))
+
+		def popBack() = FieldOperationModifier(field, new PopBackVector)
+		def popFront() = FieldOperationModifier(field, new PopFrontVector)
 	}
 
 	implicit class MapField[C,K,V](field : Field[C,Map[K,V]]) {

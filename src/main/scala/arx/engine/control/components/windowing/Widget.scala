@@ -12,7 +12,7 @@ import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.traits.TSentinelable
 import arx.core.vec.{Vec2T, Vec3T}
-import arx.engine.control.components.windowing.widgets.DimensionExpression.Intrinsic
+import arx.engine.control.components.windowing.widgets.DimensionExpression.{Intrinsic, WrapContent}
 import arx.engine.control.components.windowing.widgets.PositionExpression.Flow
 import arx.engine.control.components.windowing.widgets.data.{DragAndDropData, DrawingData, TWidgetAuxData}
 import arx.engine.control.components.windowing.widgets.{DimensionExpression, ImageDisplayWidget, PositionExpression}
@@ -104,25 +104,28 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 	private def subResolve(thing : Any, subKeys : Seq[String]) : Option[_] = {
 		subKeys.headOption match {
 			case Some(nextKey) =>
-				val subRes = thing match {
+				thing match {
 					case Some(x) => subResolve(x, subKeys)
-					case m : Map[String, Any] => m.get(nextKey)
-					case other =>
-						if (ReflectionAssistant.hasField(other, nextKey)) {
-							Some(ReflectionAssistant.getFieldValue(other, nextKey))
-						} else {
-							Noto.debug(s"unsupported sub resolution type in widget binding: $thing")
-							None
+					case _ =>
+						val subRes = thing match {
+							case m : Map[String, Any] => m.get(nextKey)
+							case other =>
+								if (ReflectionAssistant.hasField(other, nextKey)) {
+									Some(ReflectionAssistant.getFieldValue(other, nextKey))
+								} else {
+									Noto.debug(s"unsupported sub resolution type in widget binding: $thing")
+									None
+								}
 						}
-				}
-				subRes.map {
-					case m : Moddable[_] => m.resolve()
-					case supplier : (() => Any) => supplier()
-					case Some(x) => x
-					case other => other
-				} match {
-					case Some(res) => subResolve(res, subKeys.tail)
-					case None => None
+						subRes.map {
+							case m : Moddable[_] => m.resolve()
+							case supplier : (() => Any) => supplier()
+							case Some(x) => x
+							case other => other
+						} match {
+							case Some(res) => subResolve(res, subKeys.tail)
+							case None => None
+						}
 				}
 			case None =>
 				thing match {
@@ -219,7 +222,20 @@ class Div(w : Widget) extends WidgetInstance {
 	override def widget: Widget = w
 }
 object Div extends WidgetType[Div, WidgetData] {
-	override def initializeWidget(widget: Widget): Div = new Div(widget)
+	override def initializeWidget(widget: Widget): Div = {
+		widget.dimensions = Vec2T(WrapContent, WrapContent)
+		widget.drawing.drawBackground = false
+		new Div(widget)
+	}
+}
+
+class Window(w : Widget) extends WidgetInstance {
+	override def widget: Widget = w
+}
+object Window extends WidgetType[Window, WidgetData] {
+	override def initializeWidget(widget: Widget): Window = {
+		new Window(widget)
+	}
 }
 
 @GenerateCompanion

@@ -375,6 +375,11 @@ class World {
 		time
 	}
 
+	final def eventStmt(event : GameEvent)(stmt : => Unit): Unit = {
+		startEvent(event)
+		stmt
+		endEvent(event)
+	}
 	final def startEvent(event : GameEvent): GameEventClock = { this.pushEvent(event, EventState.Started) }
 	final def continueEvent(event : GameEvent) : GameEventClock = { this.pushEvent(event, EventState.Continues) }
 	final def endEvent(event : GameEvent) : GameEventClock = { this.pushEvent(event, EventState.Ended) }

@@ -7,11 +7,14 @@ package arx.engine.entity
   * Time: 8:26 AM
   */
 
-import arx.Prelude._
+import java.util.Objects
 
+import arx.Prelude._
 import arx.core.vec._
 
-class Taxon(val name : String, val parents : List[Taxon]) {
+class Taxon(val name : String, val namespace : String, protected var _parents : List[Taxon]) {
+	def parents = _parents
+	protected[entity] def parents_=(p : List[Taxon]) { _parents = p }
 
 	def isA(other : Taxon) : Boolean = {
 		if (other == this) {
@@ -23,7 +26,7 @@ class Taxon(val name : String, val parents : List[Taxon]) {
 
 	override def equals(other : Any) : Boolean = {
 		other match {
-			case t : Taxon => t.name == this.name
+			case t : Taxon => t.name == this.name && t.namespace == this.namespace
 			case _ => false
 		}
 	}
@@ -33,17 +36,17 @@ class Taxon(val name : String, val parents : List[Taxon]) {
 	 */
 	def selfAndAncestorsUpTo(limit : Taxon) : List[Taxon] = this :: parents.filter(_ != limit).flatMap(_.selfAndAncestorsUpTo(limit))
 
-	override def hashCode(): Int = name.hashCode
+	override val hashCode = (namespace, name).hashCode()
 
 	override def toString: String = name
 }
 object Taxon {
-	def apply(name : String, parents : Taxon*) : Taxon = {
-		new Taxon(name, parents.toList)
+	def apply(name : String, namespace : String, parents : Taxon*) : Taxon = {
+		new Taxon(name, namespace, parents.toList)
 	}
 
-	def apply(name : String, parents : List[Taxon]) : Taxon = {
-		new Taxon(name, parents)
+	def apply(name : String, namespace : String, parents : List[Taxon]) : Taxon = {
+		new Taxon(name, namespace, parents)
 	}
 
 }

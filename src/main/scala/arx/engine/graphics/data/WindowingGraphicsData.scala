@@ -15,7 +15,7 @@ import arx.core.units.UnitOfTime
 import arx.core.vec.{ReadVec3f, Vec2T, Vec3f}
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets.PositionExpression
-import arx.engine.data.TMutableAuxData
+import arx.engine.data.{TMutableAuxData, TWorldAuxData}
 import arx.engine.graphics.components.windowing.WQuad
 import arx.graphics.AVBO
 import arx.graphics.GL
@@ -27,7 +27,7 @@ import arx.resource.ResourceManager
 import org.lwjgl.opengl.GL11
 
 
-class WindowingGraphicsData extends TGraphicsData with TMutableAuxData {
+class WindowingGraphicsData extends TGraphicsData with TMutableAuxData with TWorldAuxData {
 	var desktop : Widget = _
 
 	var widgetQuads = new MultiMap[Widget, WQuad]
