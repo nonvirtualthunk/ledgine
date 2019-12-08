@@ -43,8 +43,9 @@ class Widget(val entity : Entity, val windowingSystem : WindowingSystem) extends
 		destroy()
 	}
 
-	def isUnderPress = windowingSystem.displayWorld[WindowingControlData].lastWidgetUnderMouse
-		.exists(w => w.selfAndAncestors.contains(this)) && Mouse.buttonDown(MouseButton.Left)
+	def isUnderPress = isUnderCursor && Mouse.buttonDown(MouseButton.Left)
+	def isUnderCursor = windowingSystem.displayWorld[WindowingControlData].lastWidgetUnderMouse
+		.exists(w => w.selfAndAncestors.contains(this))
 
 	def attachData[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
 	def apply[T <: TWidgetAuxData](implicit tag : ClassTag[T]) = windowingSystem.displayWorld.data[T](entity)
@@ -263,7 +264,8 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	var bindings : Map[String, Moddable[_]] = Map()
 	var dataBinding : Option[String] = None
 
-	var position = Vec3T[PositionExpression](Flow, Flow, Flow)
+	var position = Vec2T[PositionExpression](Flow, Flow)
+	var z : Int = 0
 	var dimensions = Vec2T[DimensionExpression](Intrinsic, Intrinsic)
 	var showing = Moddable(true)
 
@@ -287,8 +289,6 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	def x_= (t : PositionExpression) = position.x = t
 	def y = position.y
 	def y_= (t : PositionExpression) = position.y = t
-	def z = position.z
-	def z_= (t : PositionExpression) = position.z = t
 
 	def width = dimensions.x
 	def width_= (t : DimensionExpression) = dimensions.x = t
@@ -319,7 +319,6 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 		}
 		configValue.fieldOpt("x").flatMap(xv => PositionExpression.parse(xv.str, widget.parent.children)).ifPresent(xv => x = xv)
 		configValue.fieldOpt("y").flatMap(yv => PositionExpression.parse(yv.str, widget.parent.children)).ifPresent(yv => y = yv)
-		configValue.fieldOpt("z").flatMap(zv => PositionExpression.parse(zv.str, widget.parent.children)).ifPresent(zv => z = zv)
 
 		for (dim <- configValue.fieldOpt("dimensions").orElse(configValue.fieldOpt("dim"))) {
 			for (dimArr <- dim.arrOpt) {

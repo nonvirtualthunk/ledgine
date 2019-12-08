@@ -84,9 +84,12 @@ object WindowingSystemEngine extends Engine {
 			override def registerControlComponents(controlEngine: ControlEngine, universe: Universe): Unit = {
 				controlEngine.register[WindowingControlComponent]
 				controlEngine.register[WindowingSystemDemoComponent]
-
-
 			}
+
+			/**
+			 * Called after all other setup has completed
+			 */
+			override def start(world: World): Unit = {}
 		}, new Universe)
 	}
 }

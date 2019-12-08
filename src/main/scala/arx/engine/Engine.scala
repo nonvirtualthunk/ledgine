@@ -35,6 +35,11 @@ trait Scenario {
 	def serialGraphicsEngine(universe : Universe) : Boolean = false
 	def serialControlEngine(universe : Universe) : Boolean = false
 
+
+	/**
+	 * Called after all other setup has completed
+	 */
+	def start(world : World)
 }
 
 class Engine extends EngineCore with TEventUser {
@@ -117,6 +122,8 @@ class Engine extends EngineCore with TEventUser {
 		this.gameEngine = Some(gameEngine)
 		this.graphicsEngine = Some(graphicsEngine)
 		this.controlEngine = Some(controlEngine)
+
+		scenario.start(gameWorld)
 
 		Metrics.checkpoint(s"scenario $scenarioName load finished")
 	}

@@ -62,10 +62,10 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 			widget.dataOpt[TextDisplay] match {
 				case Some(td) =>
 					val renderedData = widget[TextDisplayRenderedGlyphData]
-					renderedData.absoluteOffset = bounds.xy
+					renderedData.absoluteOffset = widget.drawing.absolutePosition.xy
 
 					val text = td.text
-					val renderResult = TextRenderer.render(layout(widget, td, Rectf(bounds.x+2, bounds.y, bounds.w, bounds.h)), text)
+					val renderResult = TextRenderer.render(layout(widget, td, widget.drawing.effectiveClientArea.toRectf), text)
 
 					renderResult
 				case _ => Nil

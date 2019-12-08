@@ -153,6 +153,7 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 	def update() : Unit = {
 		desktop.synchronized {
 			updateWidget(desktop)
+			lastWidgetUnderMouse = widgetAtMousePosition(Mouse.currentPosition)
 		}
 	}
 
@@ -171,12 +172,21 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 		}
 	}
 
+	def currentWindowingMousePosition : ReadVec2i = {
+		WGD.pov.unprojectAtZ(Mouse.currentPosition,0.0f,GL.maximumViewport) match {
+			case Some(mousePos) => mousePos.round.xy
+			case None =>
+				Noto.error("could not unproject currentWindowingMousePosition")
+				Vec2i.Zero
+		}
+	}
+
 	def deepestIntersectingWidget(w : Widget, clickedPos : ReadVec3f) : Option[Widget] = {
 		if (w.showing.resolve()) {
 			val apos = w.drawing.absolutePosition
 			val adim = w.drawing.effectiveDimensions
 
-			for (c <- w.children) {
+			for (c <- w.children.reverse) {
 				deepestIntersectingWidget(c, clickedPos) match {
 					case Some(deeperWidget) => return Some(deeperWidget)
 					case None => // do nothing

@@ -17,6 +17,7 @@ import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets.DimensionExpression.ExpandTo
 import arx.engine.control.components.windowing.widgets._
 import arx.engine.control.components.windowing.widgets.data.{DrawingData, TWidgetAuxData}
+import arx.engine.control.data.WindowingControlData
 import arx.engine.graphics.components.{DrawPriority, GraphicsComponent}
 import arx.engine.graphics.components.windowing.WindowingGraphicsComponent.WidgetWatchers
 import arx.engine.graphics.data.WindowingGraphicsData
@@ -55,7 +56,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 	override def drawPriority: DrawPriority = DrawPriority.Final
 
-	def createWatchers(widget: Widget) = WidgetWatchers(Watcher(widget.position), Watcher(widget.dimensions), Watcher(widget.showing.resolve()))
+	def createWatchers(widget: Widget) = WidgetWatchers(Watcher(widget.position), Watcher(widget.z), Watcher(widget.dimensions), Watcher(widget.showing.resolve()))
 
 
 	override protected def onInitialize(game: World, display: World): Unit = {
@@ -117,9 +118,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					Noto.info(s"Could not change to dirty on update, currently is : ${vbo.state.get()}")
 				}
 
-				for (axis <- Axis.XY) {
+				for (axis <- Axis.XYZ) {
 					updateResolvedWidgetVariablesForAxis(WD.desktop, axis, Set(), new mutable.HashSet())
 				}
+
 				precomputeAbsolutePosition(WD.desktop)
 				unmarkAllModified(WD.desktop)
 			}
@@ -156,6 +158,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		}
 		windowDrawRecurseDepth += 1
 
+		val absPos = w.drawing.absolutePosition
 		val relPos = w.drawing.relativePosition
 //		Noto.info(s"Widget ${w.effectiveIdentifier} bounds $bounds and relPos $relPos, effDim ${w.drawing.effectiveDimensions} {")
 		Noto.increaseIndent()
@@ -164,10 +167,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			for (quad <- quads) {
 				val ii = vbo.incrementIndexOffset(6)
 				val vi = vbo.incrementVertexOffset(4)
-				vbo.setA(V, vi + 0, bounds.x + relPos.x + quad.rect.minX, bounds.y + relPos.y + quad.rect.minY)
-				vbo.setA(V, vi + 1, bounds.x + relPos.x + quad.rect.minX, bounds.y + relPos.y + quad.rect.maxY)
-				vbo.setA(V, vi + 2, bounds.x + relPos.x + quad.rect.maxX, bounds.y + relPos.y + quad.rect.maxY)
-				vbo.setA(V, vi + 3, bounds.x + relPos.x + quad.rect.maxX, bounds.y + relPos.y + quad.rect.minY)
+				vbo.setA(V, vi + 0, absPos.x + quad.rect.minX, absPos.y + quad.rect.minY)
+				vbo.setA(V, vi + 1, absPos.x + quad.rect.minX, absPos.y + quad.rect.maxY)
+				vbo.setA(V, vi + 2, absPos.x + quad.rect.maxX, absPos.y + quad.rect.maxY)
+				vbo.setA(V, vi + 3, absPos.x + quad.rect.maxX, absPos.y + quad.rect.minY)
 
 				val imgRect = textureBlock.getOrElseUpdateRectFor(quad.image)
 				val tpos = imgRect.xy + quad.subRect.xy * imgRect.dimensions
@@ -420,30 +423,43 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 	def updateResolvedWidgetVariablesForAxis(w: Widget, axis : Axis, activeSet : Set[(Widget, Axis)],  resolved: mutable.Set[(Widget, Axis)]): Unit = {
 		if (w.showing) {
-			if (resolved.contains(w -> axis)) { // if it's already resolved nothing else to do
-				return
-			}
-			val dependsOn = w.position(axis).dependsOn(w, axis) ::: w.dimensions(axis).dependsOn(w, axis, renderers)
-			val remainingDepends = dependsOn.filterNot(resolved)
-			if (remainingDepends.exists(d => activeSet.contains(d))) {
-//				Noto.info(s"${w.effectiveIdentifier} saw a recursive dependency, breaking")
-				// if this is dependent on something that is actively being resolved then we have a recursive dependency. Break it here
-				return
-			}
-
-			remainingDepends.foreach(d => updateResolvedWidgetVariablesForAxis(d._1, d._2, activeSet + (w -> axis), resolved))
-
 			val DD = w[DrawingData]
-			val (effDim, effClientArea) = resolveEffectiveDimensions(w, axis)
+			if (axis == Axis.Z) {
+				DD.relativePosition = DD.relativePosition.withAxisSetTo(Axis.Z,w.z)
+				DD.absolutePosition = DD.absolutePosition.withAxisSetTo(Axis.Z,w.z)
+			} else {
+				if (resolved.contains(w -> axis)) { // if it's already resolved nothing else to do
+					return
+				}
+				val dependsOn = w.position(axis).dependsOn(w, axis) ::: w.dimensions(axis).dependsOn(w, axis, renderers)
+				val remainingDepends = dependsOn.filterNot(resolved)
+				if (remainingDepends.exists(d => activeSet.contains(d))) {
+					//				Noto.info(s"${w.effectiveIdentifier} saw a recursive dependency, breaking")
+					// if this is dependent on something that is actively being resolved then we have a recursive dependency. Break it here
+					return
+				}
 
-			DD.effectiveDimensions = Vec2i(if (axis == Axis.X) { effDim } else { DD.effectiveDimensions.x }, if (axis == Axis.Y) { effDim } else { DD.effectiveDimensions.y })
-			DD.effectiveClientArea = DD.effectiveClientArea.withAxisSetTo(axis, effClientArea)
+				remainingDepends.foreach(d => updateResolvedWidgetVariablesForAxis(d._1, d._2, activeSet + (w -> axis), resolved))
 
-			if (w.parent != null && w.parent.notSentinel) {
-				DD.relativePosition = DD.relativePosition.withAxisSetTo(axis, resolveRelativePosition(w, axis))
+				val (effDim, effClientArea) = resolveEffectiveDimensions(w, axis)
+
+				DD.effectiveDimensions = Vec2i(if (axis == Axis.X) {
+					effDim
+				} else {
+					DD.effectiveDimensions.x
+				}, if (axis == Axis.Y) {
+					effDim
+				} else {
+					DD.effectiveDimensions.y
+				})
+				DD.effectiveClientArea = DD.effectiveClientArea.withAxisSetTo(axis, effClientArea)
+
+				if (w.parent != null && w.parent.notSentinel) {
+					DD.relativePosition = DD.relativePosition.withAxisSetTo(axis, resolveRelativePosition(w, axis))
+				}
+
+				resolved += (w -> axis)
 			}
-
-			resolved += (w -> axis)
 
 			for (child <- w.children) {
 				updateResolvedWidgetVariablesForAxis(child, axis, activeSet + (child -> axis), resolved)
@@ -464,7 +480,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 
 object WindowingGraphicsComponent {
 
-	case class WidgetWatchers(posWatcher: Watcher3[PositionExpression],
+	case class WidgetWatchers(posWatcher: Watcher2[PositionExpression],
+									  zWatcher : Watcher[Int],
 									  dimWatcher: Watcher2[DimensionExpression],
 									  showingWatcher: Watcher[Boolean]) {
 		var first = true

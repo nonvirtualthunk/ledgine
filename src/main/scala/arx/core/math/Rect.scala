@@ -63,6 +63,8 @@ object Rectf {
 }
 
 case class Recti (var x : Int, var y : Int, var width : Int, var height : Int) {
+	def toRectf: Rectf = Rectf(x,y,width,height)
+
 	def intersect(r2: Recti) = {
 		val r1 = this
 		val lx = math.max(r1.x,r2.x)

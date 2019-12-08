@@ -41,7 +41,6 @@ class WindowingControlComponent extends ControlComponent {
 		val WD = display.worldData[WindowingGraphicsData]
 		WD.desktop.x = PositionExpression.Constant(0)
 		WD.desktop.y = PositionExpression.Constant(0)
-		WD.desktop.z = PositionExpression.Constant(0)
 
 		WD.desktop.width = DimensionExpression.Constant(GL.viewport.width)
 		WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)

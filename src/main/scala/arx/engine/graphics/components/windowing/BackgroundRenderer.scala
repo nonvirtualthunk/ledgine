@@ -22,17 +22,19 @@ import arx.graphics.{Image, TToImage}
 import arx.resource.ResourceManager
 
 class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
-	case class ImageMetric ( borderPixelWidth : Int , centerColor : Color )
+	case class ImageMetric ( borderPixelWidth : Int , centerColor : Color, outerOffset : Int )
 	val imageMetrics = memoize( (image:Image,seg:Boolean) => {
 		if ( image.sentinel ) {
-			ImageMetric(0,Color.White)
+			ImageMetric(0,Color.White,0)
 		} else {
-			var borderWidth = 0
+			var outerWidth = 0
+			while ( outerWidth < image.width && image(outerWidth,image.height/2,3) == 0) { outerWidth += 1 }
+			var borderWidth = outerWidth
 			while ( borderWidth < image.width && image(borderWidth,image.height / 2,3) > 0 ) { borderWidth += 1}
 			val centerColor = image.colorAtV4( image.width - 1 , 0 )
 
 			if (seg && borderWidth >= image.width - 1) { Noto.warn("Old style segmented image detected, " + image.resourcePath) }
-			ImageMetric(borderWidth, centerColor)
+			ImageMetric(borderWidth, centerColor, outerWidth)
 		}
 	} )
 	val BlankImage : TToImage = ResourceManager.image("default/blank.png")

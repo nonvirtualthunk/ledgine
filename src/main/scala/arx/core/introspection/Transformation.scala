@@ -200,6 +200,15 @@ object FieldOperations {
 		override def impact = Impact.Neutral
 	}
 
+	case class RemoveElementVector[U](value : U) extends Transformation[Vector[U]] {
+		/** Immutable operation returning a new value based on the old. Must not mutate given value */
+		override def transform(oldValue: Vector[U]): Vector[U] = oldValue.without(value)
+
+		override def asSimpleString: String = s"remove $value"
+
+		override def impact: Impact = Impact.Neutral
+	}
+
 	case class SetKey[K,V](entry : (K,V)) extends Transformation[Map[K,V]] {
 		/** Immutable operation returning a new value based on the old. Must not mutate given value */
 		override def transform(oldValue: Map[K, V]): Map[K, V] = {
@@ -280,9 +289,11 @@ object FieldOperations {
 
 	implicit class VectorField[C,U](field : Field[C,Vector[U]]) {
 		def append(elem : U) = FieldOperationModifier(field, AppendVector(elem))
+		def remove(elem : U) = FieldOperationModifier(field, RemoveElementVector(elem))
 
-		def popBack() = FieldOperationModifier(field, new PopBackVector)
-		def popFront() = FieldOperationModifier(field, new PopFrontVector)
+		def popBack() = FieldOperationModifier(field, new PopBackVector[U])
+		def popFront() = FieldOperationModifier(field, new PopFrontVector[U])
+
 	}
 
 	implicit class MapField[C,K,V](field : Field[C,Map[K,V]]) {
