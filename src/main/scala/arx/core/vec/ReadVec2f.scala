@@ -36,6 +36,7 @@ class ReadVec2f extends InternVec2f  {
 		val e = xi*xi + yi*yi
 		if ( e != 0 ) { math.sqrt(e).toFloat } else { 0 }
 	}
+	def length2 = xi * xi + yi * yi
 	def abs : ReadVec2f = new Vec2f(math.abs(x),math.abs(y))
 	def min(v:ReadVec2f) : ReadVec2f = new Vec2f(math.min(x, v.x),math.min(y, v.y))
 	def max(v:ReadVec2f) : ReadVec2f = new Vec2f(math.max(x, v.x),math.max(y, v.y))

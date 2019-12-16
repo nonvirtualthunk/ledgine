@@ -30,7 +30,7 @@ class Randomizer(private val random : Random, val style : RandomizationStyle) {
 
 	def nextInt(maxExclusive : Int) = {
 		style match {
-			case RandomizationStyle.Random => random.nextInt(maxExclusive)
+			case RandomizationStyle.Random => if (maxExclusive == 0) { 0 } else { random.nextInt(maxExclusive) }
 			case RandomizationStyle.Median => maxExclusive / 2
 		}
 	}

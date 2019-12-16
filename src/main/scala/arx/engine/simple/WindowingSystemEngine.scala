@@ -89,7 +89,7 @@ object WindowingSystemEngine extends Engine {
 			/**
 			 * Called after all other setup has completed
 			 */
-			override def start(world: World): Unit = {}
+			override def setupInitialGameState(world: World): Unit = {}
 		}, new Universe)
 	}
 }

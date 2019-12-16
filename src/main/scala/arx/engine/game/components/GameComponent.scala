@@ -21,6 +21,12 @@ abstract class GameComponent extends EngineComponent[GameEngine] {
 		}
 	}
 
+	def onGameEventEndWithPrecedence(precedence : Int)(listener: PartialFunction[GameEvent,_]): Unit = {
+		gameEvents.onEvent(precedence) {
+			case ge : GameEvent if ge.state == Ended && listener.isDefinedAt(ge) => listener(ge)
+		}
+	}
+
 	override protected final def onUpdate(engine: GameEngine, dt: UnitOfTime): Unit = {
 		onUpdate(engine.world, dt)
 	}

@@ -7,7 +7,7 @@ import java.awt.geom.AffineTransform
 import arx.application.Noto
 import arx.core.math.Rectf
 import arx.core.vec.{ReadVec2f, Vec2f}
-import arx.graphics.helpers.{HorizontalPaddingSection, ImageSection, RichText, TextSection}
+import arx.graphics.helpers.{HorizontalPaddingSection, ImageSection, LineBreakSection, RichText, TextSection}
 import arx.Prelude._
 import arx.engine.EngineCore
 import arx.graphics.text.VerticalTextAlignment.{Bottom, Top}
@@ -140,6 +140,10 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 				case HorizontalPaddingSection(width) =>
 					x += width
 					maxX = math.max(maxX,x)
+				case LineBreakSection(gap) =>
+					jumpToNextLine()
+					y += gap
+
 
 			}
 			if (pre + section.symbolCount != rects.size) {
@@ -160,18 +164,22 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 					rects.size
 				}
 
-				val minX = rects(lineStart).minX
-				val maxX = rects(lineEnd-1).maxX
-				val lineWidth = maxX - minX
-				val adjustedStartX = area.x + (if (horizontalAlignment == HorizontalTextAlignment.Centered) {
-					(area.w - lineWidth) / 2.0f
-				} else if (horizontalAlignment == HorizontalTextAlignment.Right) {
-					area.w - lineWidth
-				} else { Noto.warn(s"invalid horizontal text alignment $horizontalAlignment"); minX })
+				if (lineEnd > lineStart) {
+					val minX = rects(lineStart).minX
+					val maxX = rects(lineEnd - 1).maxX
+					val lineWidth = maxX - minX
+					val adjustedStartX = area.x + (if (horizontalAlignment == HorizontalTextAlignment.Centered) {
+						(area.w - lineWidth) / 2.0f
+					} else if (horizontalAlignment == HorizontalTextAlignment.Right) {
+						area.w - lineWidth
+					} else {
+						Noto.warn(s"invalid horizontal text alignment $horizontalAlignment"); minX
+					})
 
-				val delta = adjustedStartX - minX
-				for (i <- lineStart until lineEnd) {
-					rects(i).x += delta
+					val delta = adjustedStartX - minX
+					for (i <- lineStart until lineEnd) {
+						rects(i).x += delta
+					}
 				}
 			}
 		}

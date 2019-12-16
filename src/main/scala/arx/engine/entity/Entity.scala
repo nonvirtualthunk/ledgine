@@ -15,6 +15,7 @@ class Entity(val id : Long) /* extends AnyVal */ {
 	def apply[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : T = view.data[T](this)
 	def apply[T <: TAuxData](clazz : Clazz[T])(implicit view : WorldView) : T = view.data[T](clazz)(this)
 	def hasData[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Boolean = view.hasData[T](this)
+	def hasData[T <: TAuxData](clazz : Clazz[T])(implicit view : WorldView) : Boolean = view.hasDataByClass(this, clazz.runtimeClass)
 	def has[T <: TAuxData](implicit view : WorldView, tag : ClassTag[T]) : Boolean = view.hasData[T](this)
 
 	def attach[T <: TAuxData](data : T)(implicit classTag : ClassTag[T]) : Entity.EntityAttachBuilder[T] = new EntityAttachBuilder[T](this, data)

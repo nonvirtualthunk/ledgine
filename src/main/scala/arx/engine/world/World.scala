@@ -375,7 +375,7 @@ class World {
 		time
 	}
 
-	final def eventStmt(event : GameEvent)(stmt : => Unit): Unit = {
+	final def eventStmt(event : => GameEvent)(stmt : => Unit): Unit = {
 		startEvent(event)
 		stmt
 		endEvent(event)

@@ -36,9 +36,9 @@ class ImageDisplay extends TWidgetAuxData {
 						case timg: TToImage => timg.image
 						case other =>
 							Noto.warn(s"invalid bound value for an image display : $other")
-							ResourceManager.defaultImage
+							ResourceManager.blankImage
 					}
-					case None => ResourceManager.defaultImage
+					case None => ResourceManager.blankImage
 				})
 				case None => Moddable(str : TToImage)
 			}

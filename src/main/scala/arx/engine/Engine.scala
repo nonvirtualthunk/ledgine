@@ -15,7 +15,7 @@ import arx.engine.graphics.components.GraphicsComponent
 import arx.engine.world.{Universe, World}
 import arx.graphics.GL
 import arx.resource.ResourceManager
-import org.lwjgl.glfw.GLFW
+import org.lwjgl.glfw.{GLFW, GLFWVidMode}
 import org.lwjgl.opengl.{EXTFramebufferSRGB, GL30}
 
 trait Scenario {
@@ -35,11 +35,10 @@ trait Scenario {
 	def serialGraphicsEngine(universe : Universe) : Boolean = false
 	def serialControlEngine(universe : Universe) : Boolean = false
 
-
 	/**
-	 * Called after all other setup has completed
+	 * Called after game engine initialized
 	 */
-	def start(world : World)
+	def setupInitialGameState(world : World)
 }
 
 class Engine extends EngineCore with TEventUser {
@@ -106,6 +105,7 @@ class Engine extends EngineCore with TEventUser {
 
 		var context : List[Any] = Nil
 		context = gameEngine.resolveComponents(context, componentInitializer)
+		scenario.setupInitialGameState(gameWorld)
 		context = graphicsEngine.resolveComponents(context, componentInitializer)
 		context = controlEngine.resolveComponents(context, componentInitializer)
 
@@ -122,8 +122,6 @@ class Engine extends EngineCore with TEventUser {
 		this.gameEngine = Some(gameEngine)
 		this.graphicsEngine = Some(graphicsEngine)
 		this.controlEngine = Some(controlEngine)
-
-		scenario.start(gameWorld)
 
 		Metrics.checkpoint(s"scenario $scenarioName load finished")
 	}
@@ -197,6 +195,11 @@ class Engine extends EngineCore with TEventUser {
 		this.handleEvent(event)
 	}
 
+
+	override def initialWindowPos(vidmode: GLFWVidMode): ReadVec2i = {
+		val default = super.initialWindowPos(vidmode)
+		Vec2i(default.x, 0)
+	}
 
 	/* Make sure every event has its worlds assigned, if relevant, before handling */
 	override def handleEvent(event: Event): Boolean = super.handleEvent(assignWorlds(event))

@@ -186,7 +186,7 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 			val apos = w.drawing.absolutePosition
 			val adim = w.drawing.effectiveDimensions
 
-			for (c <- w.children.reverse) {
+			for (c <- w.children.reverse.sortBy(-_.z)) {
 				deepestIntersectingWidget(c, clickedPos) match {
 					case Some(deeperWidget) => return Some(deeperWidget)
 					case None => // do nothing

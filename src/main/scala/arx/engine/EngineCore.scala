@@ -18,8 +18,7 @@ import arx.core.async.{Executor, KillableThread, OnExitRegistry}
 import arx.core.introspection.{NativeLibraryHandler, ReflectionAssistant}
 import arx.core.math.Recti
 import arx.core.metrics.Metrics
-import arx.core.vec.Vec4f
-import arx.core.vec.{Vec2f, Vec2i}
+import arx.core.vec.{ReadVec2i, Vec2f, Vec2i, Vec4f}
 import arx.engine.control.event.KeyboardMirror
 import arx.engine.control.event.Mouse
 import arx.engine.control.event.MouseButton
@@ -78,6 +77,11 @@ abstract class EngineCore {
 	}
 
 	def onShutdown() {}
+
+	def initialWindowPos(vidmode: GLFWVidMode) : ReadVec2i = {
+		Vec2i((vidmode.width() - EngineCore.windowWidth) / 2,
+		(vidmode.height() - EngineCore.windowHeight) / 2)
+	}
 
 	def init(): Unit = {
 		// kick of reflection loading as soon as possible
@@ -211,11 +215,12 @@ abstract class EngineCore {
 			// Get the resolution of the primary monitor
 			val vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor())
 
+			val initialPos = initialWindowPos(vidmode)
 			// Center our window
 			glfwSetWindowPos(
 				window,
-				(vidmode.width() - EngineCore.windowWidth) / 2,
-				(vidmode.height() - EngineCore.windowHeight) / 2
+				initialPos.x,
+				initialPos.y
 			)
 		}
 
@@ -296,6 +301,9 @@ abstract class EngineCore {
 		// Run the rendering loop until the user has attempted to close
 		// the window or has pressed the ESCAPE key.
 		while (!glfwWindowShouldClose(window)) {
+			// cursor changes must be on the main thread, so check them here. We could also move this to a general "on the main thread" task queue
+			Mouse.reconcileCursor(window)
+
 			val doesNeedDraw = needsDraw
 
 			val curTime = GLFW.glfwGetTime()
@@ -363,8 +371,8 @@ abstract class EngineCore {
 	}
 }
 object EngineCore {
-	var windowWidth = 1000
-	var windowHeight = 700
+	var windowWidth = 1600
+	var windowHeight = 800
 	var pixelWidth = windowWidth
 	var pixelHeight = windowHeight
 

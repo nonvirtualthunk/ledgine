@@ -47,6 +47,12 @@ case class HorizontalPaddingSection(width : Int) extends RichTextSection {
 	override def colorAtIndex(i: Int): Color = Color.White
 	override def scaleAtIndex(i: Int): Float = 1.0f
 }
+case class LineBreakSection(gap : Int) extends RichTextSection {
+	override def symbolAtIndex(i: Int): Any = " "
+	override def symbolCount: Int = 0
+	override def colorAtIndex(i: Int): Color = Color.White
+	override def scaleAtIndex(i: Int): Float = 1.0f
+}
 case class ImageSectionLayer(image : TToImage, color : Color = Color.White)
 case class ImageSection(layers : List[ImageSectionLayer], scale : Float) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = i match {
