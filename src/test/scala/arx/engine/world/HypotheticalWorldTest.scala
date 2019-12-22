@@ -155,7 +155,7 @@ object HypotheticalWorldTest {
 	def performTestAttack(world : World, attacker : Entity, target : Entity, attack : Entity): Unit = {
 		implicit val view = world.view
 
-		world.pushEvent(TestAttackEvent(attacker, target, attack, attack[TestAttackData].copy()), Started)
+		world.pushEvent(TestAttackEvent(attacker, target, attack, attack[TestAttackData].copy(world)), Started)
 
 		val attackData = attack[TestAttackData]
 
@@ -169,7 +169,7 @@ object HypotheticalWorldTest {
 			world.addEvent(TestDodgeEvent(target))
 		}
 
-		world.pushEvent(TestAttackEvent(attacker, target, attack, attack[TestAttackData].copy()), Ended)
+		world.pushEvent(TestAttackEvent(attacker, target, attack, attack[TestAttackData].copy(world)), Ended)
 	}
 
 	@GenerateCompanion

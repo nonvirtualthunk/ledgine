@@ -82,7 +82,7 @@ object ImageDisplay {
 	object PositionStyle {
 		def parse(str: String, orElse: PositionStyle): PositionStyle = str.toLowerCase.replace(" ","") match {
 			case "topleft" => TopLeft
-			case "center" => Center
+			case "center" | "centered" => Center
 			case _ =>
 				Noto.warn(s"unsupported position style: $str")
 				orElse

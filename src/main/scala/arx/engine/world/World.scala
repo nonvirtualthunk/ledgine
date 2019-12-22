@@ -394,6 +394,16 @@ class World {
 	}
 
 	def isHypothetical = false
+
+	def copyEntity(base: Entity): Entity = {
+		val ent = createEntity()
+		for (ds <- coreView.dataStores.values) {
+			for (data <- ds.getOpt(base)) {
+				attachData(ent, data.copy(this))
+			}
+		}
+		ent
+	}
 }
 
 class AttachDataBuilder(world : World, entity : Entity) {

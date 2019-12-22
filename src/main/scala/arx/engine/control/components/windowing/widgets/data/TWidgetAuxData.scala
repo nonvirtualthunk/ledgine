@@ -35,6 +35,20 @@ object DragAndDropData {
 
 // +====================+
 
+case class WidgetOverlay(
+									var drawOverlay : Boolean = true,
+									var overlayImage: TToImage = ResourceManager.blankImage,
+									var centerColor: Moddable[Color] = Moddable(Color.White),
+									var overlayEdgeColor: Moddable[Color] = Moddable(Color.White),
+									var pixelScale: Int = 1,
+									var drawCenter: Boolean = false,
+									var pixelSizeDelta: ReadVec2i = Vec2i(0,0)
+						)
+
+class OverlayData extends TWidgetAuxData {
+	var overlays = Map[AnyRef, WidgetOverlay]()
+}
+
 class DrawingData extends TWidgetAuxData {
 
 	var drawBackground = true

@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import arx.Prelude._
 import arx.core.introspection.{CopyAssistant, ReflectionAssistant}
+import arx.engine.world.World
 
 
 
@@ -26,6 +27,14 @@ trait TAuxData extends ConfigLoadable {
 			s"${f.getName} : ${ReflectionAssistant.getFieldValue(this, f)}"
 		}).mkString("\n")
 	}
+
+	final def copy(world : World): this.type = {
+		val copiedData = CopyAssistant.copyShallow(this)
+		copiedData.onCopy(world)
+		copiedData.asInstanceOf[this.type]
+	}
+
+	def onCopy(world : World) {}
 }
 
 trait TMutableAuxData extends TAuxData

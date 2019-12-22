@@ -10,6 +10,7 @@ import arx.core.math.{Rectf, Recti, RectiAxis}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec4f, Vec2T, Vec2i, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
+import arx.engine.control.components.windowing.widgets.data.{DrawingData, OverlayData}
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.windowing.ImageDisplay
 import arx.engine.graphics.data.windowing.ImageDisplay.{Center, Scale, ScaleToFit, TopLeft}
@@ -33,7 +34,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 			while ( borderWidth < image.width && image(borderWidth,image.height / 2,3) > 0 ) { borderWidth += 1}
 			val centerColor = image.colorAtV4( image.width - 1 , 0 )
 
-			if (seg && borderWidth >= image.width - 1) { Noto.warn("Old style segmented image detected, " + image.resourcePath) }
+//			if (seg && borderWidth >= image.width - 1) { Noto.warn("Old style segmented image detected, " + image.resourcePath) }
 			ImageMetric(borderWidth, centerColor, outerWidth)
 		}
 	} )
@@ -46,123 +47,143 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 
 		val seg = true
 
-		if (drawBackground) {
+		val backgroundQuads = if (drawBackground) {
 			val img = backgroundImage.map(_.image).getOrElse(WD.defaultBackgroundImage)
 
-			val ww = bounds.w
-			val wh = bounds.h
 			val pixelScale = backgroundPixelScale * EngineCore.pixelScaleFactor.toInt
 
-			val metrics = imageMetrics(img,true)
-
-			if (beforeChildren) {
-				if (!drawAsForegroundBorder) {
-					if ( seg ) {
-						val coff = metrics.borderPixelWidth*pixelScale-1 //center offset
-
-						val startX = if (backgroundEdges(0)) { coff } else { 0.0f }
-						val startY = if (backgroundEdges(1)) { coff } else { 0.0f }
-						val endX = if (backgroundEdges(2)) { ww - coff } else { ww }
-						val endY = if (backgroundEdges(3)) { wh - coff } else { wh }
-
-						if ( drawCenterBackground ) {
-							List(WQuad(Rectf(bounds.x + startX, bounds.y + startY, endX - startX, endY - startY), BlankImage, metrics.centerColor.asRGBA * backgroundColor.asRGBA))
-						} else {
-							Nil
-						}
-					} else {
-						List(WQuad(Rectf(bounds),img,backgroundColor))
-					}
-				} else {
-					Nil
-				}
-			} else {
-				var cornerWidth = (img.width / 2) * pixelScale
-				var cornerHeight = (img.height / 2) * pixelScale
-
-				val corners = Array.ofDim[Corner](4)
-				var q = 0
-				while (q < 4) {
-					val enabled = backgroundEdges(q) && backgroundEdges((q + 1)%4)
-					corners(q) = Corner(backgroundEdges(q) && backgroundEdges((q + 1)%4), if (enabled) { cornerWidth } else { 0.0f }, if (enabled) { cornerHeight } else { 0.0f })
-					q += 1
-				}
-
-				// todo : partial edges with small dimensions
-				var verticalPercent = 1.0f
-				var horizontalPercent = 1.0f
-				if ( cornerWidth > ww / 2 ) {
-					horizontalPercent = (ww / 2).toFloat / cornerWidth.toFloat
-					cornerWidth = roundf(ww / 2).toInt
-				}
-				if ( cornerHeight > wh / 2 ) {
-					verticalPercent = (wh / 2).toFloat / cornerHeight.toFloat
-					cornerHeight = roundf(wh / 2).toInt
-				}
-
-				//Corner Texture coordinates
-				val ctx = 0.0f
-				val cty = 1.0f - 0.5f * verticalPercent
-				val ctw = 0.5f * horizontalPercent
-				val cth = 0.5f * verticalPercent
-
-				//Horizontal Side Texture coordinates
-				val hstx = 0.5f
-				val hsty = 0.5f + (0.5f * (1.0f - verticalPercent))
-				val hstw = 0
-				val hsth = cth
-
-				//Vertical Side Texture Coordinates
-				val vstx = 0.0f
-				val vsty = 0.0f
-				val vstw = ctw
-				val vsth = 0
-
-				/*
-							1
-						0		2
-							3
-				 */
-
-
-				val cornerTR = Rectf(ctx,cty,ctw,cth)
-				var ret = List[WQuad]()
-				if (backgroundEdges(0) && backgroundEdges(1)) {
-					ret ::= WQuad(Rectf(bounds.x,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR)
-				}
-				if (backgroundEdges(1) && backgroundEdges(2)) {
-					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR)
-				}
-				if (backgroundEdges(2) && backgroundEdges(3)) {
-					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR)
-				}
-				if (backgroundEdges(3) && backgroundEdges(1)) {
-					ret ::= WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
-				}
-
-
-				if ( ww > cornerWidth * 2 ) {
-					if (backgroundEdges(1)) {
-						ret ::= WQuad(Rectf(bounds.x + corners(0).width, bounds.y, ww - corners(0).width - corners(1).width, cornerHeight), img, edgeColor, flipX = false, flipY = false, 0, Rectf(hstx, hsty, hstw, hsth))
-					}
-					if (backgroundEdges(3)) {
-						ret ::= WQuad(Rectf(bounds.x + corners(3).width, bounds.y + wh - cornerHeight, ww - corners(2).width - corners(3).width, cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, Rectf(hstx, hsty, hstw, hsth))
-					}
-				}
-
-				if ( wh > cornerHeight * 2 ) {
-					if (backgroundEdges(0)) {
-						ret ::= WQuad(Rectf(bounds.x, corners(0).height, bounds.y + cornerWidth, wh - corners(0).height - corners(3).height), img, edgeColor, flipX = false, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
-					}
-					if (backgroundEdges(2)) {
-						ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth, bounds.y + corners(1).height, cornerWidth, wh - corners(1).height - corners(2).height), img, edgeColor, flipX = true, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
-					}
-				}
-
-				ret.reverse
-			}
+			renderNineWayImage(widget, bounds, img, backgroundColor.resolve(), edgeColor.resolve(), backgroundEdges, beforeChildren, drawAsForegroundBorder, seg, pixelScale, drawCenterBackground, Vec2i.Zero)
 		} else {
 			Nil
+		}
+
+		var overlayQuads = List[WQuad]()
+		for (overlayData <- widget.dataOpt[OverlayData]; od <- overlayData.overlays.values if od.drawOverlay) {
+			val pixelScale = od.pixelScale * EngineCore.pixelScaleFactor.toInt
+			overlayQuads :::= renderNineWayImage(widget, bounds, od.overlayImage, od.centerColor.resolve(), od.overlayEdgeColor.resolve(), DrawingData.AllEdges, beforeChildren, true, seg, pixelScale, od.drawCenter, od.pixelSizeDelta)
+		}
+
+		backgroundQuads ::: overlayQuads
+	}
+
+	def renderNineWayImage(widget : Widget, rawBounds : Recti, img : Image, mainColor : Color, edgeColor : Color, edgesActive : Set[Int], beforeChildren : Boolean, drawAsForegroundBorder : Boolean, seg : Boolean, pixelScale : Int, drawCenterBackground : Boolean, pixelSizeDelta : ReadVec2i): List[WQuad] = {
+		val bounds = Recti(
+			rawBounds.x - pixelSizeDelta.x * pixelScale,
+			rawBounds.y - pixelSizeDelta.y * pixelScale,
+			rawBounds.width + pixelSizeDelta.x * pixelScale * 2,
+			rawBounds.height + pixelSizeDelta.y * pixelScale * 2
+		)
+
+		val ww = bounds.w
+		val wh = bounds.h
+
+		val metrics = imageMetrics(img,true)
+
+		if (beforeChildren) {
+			if (!drawAsForegroundBorder) {
+				if ( seg ) {
+					val coff = metrics.borderPixelWidth*pixelScale-1 //center offset
+
+					val startX = if (edgesActive(0)) { coff } else { 0.0f }
+					val startY = if (edgesActive(1)) { coff } else { 0.0f }
+					val endX = if (edgesActive(2)) { ww - coff } else { ww }
+					val endY = if (edgesActive(3)) { wh - coff } else { wh }
+
+					if ( drawCenterBackground ) {
+						List(WQuad(Rectf(bounds.x + startX, bounds.y + startY, endX - startX, endY - startY), BlankImage, metrics.centerColor.asRGBA * mainColor.asRGBA))
+					} else {
+						Nil
+					}
+				} else {
+					List(WQuad(Rectf(bounds),img,mainColor))
+				}
+			} else {
+				Nil
+			}
+		} else {
+			var cornerWidth = (img.width / 2) * pixelScale
+			var cornerHeight = (img.height / 2) * pixelScale
+
+			val corners = Array.ofDim[Corner](4)
+			var q = 0
+			while (q < 4) {
+				val enabled = edgesActive(q) && edgesActive((q + 1)%4)
+				corners(q) = Corner(edgesActive(q) && edgesActive((q + 1)%4), if (enabled) { cornerWidth } else { 0.0f }, if (enabled) { cornerHeight } else { 0.0f })
+				q += 1
+			}
+
+			// todo : partial edges with small dimensions
+			var verticalPercent = 1.0f
+			var horizontalPercent = 1.0f
+			if ( cornerWidth > ww / 2 ) {
+				horizontalPercent = (ww / 2).toFloat / cornerWidth.toFloat
+				cornerWidth = roundf(ww / 2).toInt
+			}
+			if ( cornerHeight > wh / 2 ) {
+				verticalPercent = (wh / 2).toFloat / cornerHeight.toFloat
+				cornerHeight = roundf(wh / 2).toInt
+			}
+
+			//Corner Texture coordinates
+			val ctx = 0.0f
+			val cty = 1.0f - 0.5f * verticalPercent
+			val ctw = 0.5f * horizontalPercent
+			val cth = 0.5f * verticalPercent
+
+			//Horizontal Side Texture coordinates
+			val hstx = 0.5f
+			val hsty = 0.5f + (0.5f * (1.0f - verticalPercent))
+			val hstw = 0
+			val hsth = cth
+
+			//Vertical Side Texture Coordinates
+			val vstx = 0.0f
+			val vsty = 0.0f
+			val vstw = ctw
+			val vsth = 0
+
+			/*
+						1
+					0		2
+						3
+			 */
+
+
+			val cornerTR = Rectf(ctx,cty,ctw,cth)
+			var ret = List[WQuad]()
+			if (edgesActive(0) && edgesActive(1)) {
+				ret ::= WQuad(Rectf(bounds.x,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = false, flipY = false, 0, cornerTR)
+			}
+			if (edgesActive(1) && edgesActive(2)) {
+				ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y,cornerWidth,cornerHeight),img, edgeColor, flipX = true, flipY = false, 0, cornerTR)
+			}
+			if (edgesActive(2) && edgesActive(3)) {
+				ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR)
+			}
+			if (edgesActive(3) && edgesActive(1)) {
+				ret ::= WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
+			}
+
+
+			if ( ww > cornerWidth * 2 ) {
+				if (edgesActive(1)) {
+					ret ::= WQuad(Rectf(bounds.x + corners(0).width, bounds.y, ww - corners(0).width - corners(1).width, cornerHeight), img, edgeColor, flipX = false, flipY = false, 0, Rectf(hstx, hsty, hstw, hsth))
+				}
+				if (edgesActive(3)) {
+					ret ::= WQuad(Rectf(bounds.x + corners(3).width, bounds.y + wh - cornerHeight, ww - corners(2).width - corners(3).width, cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, Rectf(hstx, hsty, hstw, hsth))
+				}
+			}
+
+			if ( wh > cornerHeight * 2 ) {
+				if (edgesActive(0)) {
+					ret ::= WQuad(Rectf(bounds.x, bounds.y + corners(0).height, cornerWidth, wh - corners(0).height - corners(3).height), img, edgeColor, flipX = false, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
+				}
+				if (edgesActive(2)) {
+					ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth, bounds.y + corners(1).height, cornerWidth, wh - corners(1).height - corners(2).height), img, edgeColor, flipX = true, flipY = false, 0, Rectf(vstx, vsty, vstw, vsth))
+				}
+			}
+
+			ret.reverse
 		}
 	}
 

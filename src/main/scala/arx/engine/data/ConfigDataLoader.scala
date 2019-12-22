@@ -8,18 +8,29 @@ import arx.core.introspection.ReflectionAssistant
 import arx.core.math.Sext
 import arx.core.representation.{ConfigValue, StringConfigValue}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec3i, ReadVec4f, ReadVec4i}
+import arx.engine.entity.{Taxon, Taxonomy}
 import arx.graphics.helpers.{Color, RGBA}
+import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils.Reflection
 import overlock.atomicmap.AtomicMap
 
 import scala.reflect.runtime.{universe => u}
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 
+trait CustomConfigDataLoader[T] {
+	def loadedType : AnyRef
+	def loadFrom(config : ConfigValue) : T
+}
+
 object ConfigDataLoader {
 
 	var operationsByType = AtomicMap.atomicNBHM[Class[_], List[(_, ConfigValue) => Unit]]
 
 	var supportedSimpleTypes = List(classOf[String], classOf[Integer], classOf[Float], classOf[Double], classOf[Boolean])
+
+	lazy val customConfigLoaders : Map[AnyRef, CustomConfigDataLoader[_]] = {
+		ReflectionAssistant.instancesOfSubtypesOf[CustomConfigDataLoader[_]].map(t => t.loadedType -> t).toMap
+	}
 
 	private def extractConfigValueFunctionForType(t: Type): Option[ConfigValue => Any] = {
 		Option(if (t == typeOf[Int]) {
@@ -48,6 +59,8 @@ object ConfigDataLoader {
 			c => RGBA(c.v4)
 		} else if (t == typeOf[Sext]) {
 			c => Sext.closestTo(c.float)
+		} else if (t == typeOf[Taxon]) {
+			c => Taxonomy(c.str)
 		} else {
 			null
 		})
@@ -148,6 +161,12 @@ object ConfigDataLoader {
 										}: Unit
 									case None => null
 								}
+							} else if (customConfigLoaders.contains(getter.returnType)) {
+								val loader = customConfigLoaders(getter.returnType)
+								(data : AnyRef, config : ConfigValue) => {
+									val value = loader.loadFrom(config)
+									ReflectionAssistant.invoke(data, setter)(value)
+								} : Unit
 							} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
 								(data: AnyRef, config: ConfigValue) => {
 									val subField = config.field(fieldName)
@@ -155,7 +174,7 @@ object ConfigDataLoader {
 										val curValue = ReflectionAssistant.invoke(data, getter)().asInstanceOf[ConfigLoadable]
 										curValue.loadFromConfig(subField)
 									}
-								}: Unit
+								} : Unit
 							} else if (getter.returnType.typeSymbol.isClass && getter.returnType.typeSymbol.asClass.isCaseClass) {
 								val subTypeOperations = computeOperationsForType(getter.returnType.typeSymbol.asClass)
 								(data: AnyRef, config: ConfigValue) => {

@@ -35,6 +35,10 @@ class Entity(val id : Long) /* extends AnyVal */ {
 		case e : Entity => e.id == this.id
 		case _ => false
 	}
+
+	def copy(world : World) : Entity = {
+		EntityCopier.copyEntity(world, this)
+	}
 }
 
 
