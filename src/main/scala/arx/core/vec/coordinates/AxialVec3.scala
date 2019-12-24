@@ -53,3 +53,6 @@ object AxialVec3 {
 		new AxialVec3(v.q,v.r,l)
 	}
 }
+
+
+case class BiasedAxialVec3(vec : AxialVec3, biasDirection : HexDirection)
