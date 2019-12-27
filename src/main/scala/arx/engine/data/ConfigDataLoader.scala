@@ -10,7 +10,6 @@ import arx.core.representation.{ConfigValue, StringConfigValue}
 import arx.core.vec.{ReadVec2f, ReadVec2i, ReadVec3f, ReadVec3i, ReadVec4f, ReadVec4i}
 import arx.engine.entity.{Taxon, Taxonomy}
 import arx.graphics.helpers.{Color, RGBA}
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils.Reflection
 import overlock.atomicmap.AtomicMap
 
 import scala.reflect.runtime.{universe => u}
