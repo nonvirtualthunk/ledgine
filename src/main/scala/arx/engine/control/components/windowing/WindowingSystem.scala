@@ -138,6 +138,9 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 			WD.draggingWidget = WD.draggingWidget.filterNot(_ == widget)
 			WD.lastWidgetUnderMouse = WD.lastWidgetUnderMouse.filterNot(_ == widget)
 			WD.modalWidgetStack = WD.modalWidgetStack.filterNot(_.widget == widget)
+			for (child <- widget.children) {
+				destroyWidget(child)
+			}
 			displayWorld.destroyEntity(widget.entity)
 		}
 	}

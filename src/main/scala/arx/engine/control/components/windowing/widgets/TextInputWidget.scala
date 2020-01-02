@@ -2,11 +2,52 @@ package arx.engine.control.components.windowing.widgets
 
 import arx.engine.data.Moddable
 import arx.core.vec.{ReadVec4f, Vec2T, Vec2i, Vec4f}
-import arx.engine.control.components.windowing.Widget
-import arx.engine.control.event.{CharEnteredEvent, KeyPressEvent, TextInputChanged, TextInputEnter}
+import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetType}
+import arx.engine.control.event.{CharEnteredEvent, KeyPressEvent, KeyReleaseEvent, TextInputChanged, TextInputEnter}
 import arx.graphics.helpers.{Color, RichText, TextSection}
 import arx.Prelude._
+import arx.core.introspection.ReflectionAssistant
+import arx.engine.control.components.windowing.events.{FocusGainedEvent, FocusLostEvent}
+import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import org.lwjgl.glfw.GLFW
+
+class TextInputData extends TWidgetAuxData {
+	var rawText = ""
+}
+
+case class TextInputWidget(widget : Widget) extends WidgetInstance {
+
+}
+
+object TextInputWidget extends WidgetType[TextInputWidget, TextInputData] {
+
+	override def initializeWidget(widget: Widget): TextInputWidget = {
+		widget.attachData[TextDisplay]
+		widget.attachData[TextInputData]
+		widget.acceptsFocus = true
+
+		val tid = widget[TextInputData]
+
+		widget[TextDisplay].text = Moddable(() => RichText(widget[TextInputData].rawText))
+		widget.onEvent {
+			case CharEnteredEvent(str) =>
+				tid.rawText += str
+				widget.handleEvent(TextInputChanged(tid.rawText))
+			case KeyReleaseEvent(GLFW.GLFW_KEY_BACKSPACE, _) =>
+				tid.rawText = tid.rawText.dropRight(1)
+				widget.handleEvent(TextInputChanged(tid.rawText))
+			case KeyReleaseEvent(GLFW.GLFW_KEY_ENTER, _) =>
+				widget.handleEvent(TextInputEnter(tid.rawText))
+			case FocusGainedEvent(focused) if focused == widget =>
+				widget.markModified()
+			case FocusLostEvent(focused) if focused == widget =>
+				widget.markModified()
+		}
+
+		TextInputWidget(widget)
+	}
+}
+
 
 //class TextInputWidget(parentis : Widget) extends Widget(parentis) {
 //	var cursorPosition : Option[Int] = None

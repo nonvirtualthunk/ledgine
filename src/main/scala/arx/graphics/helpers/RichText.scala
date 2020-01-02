@@ -94,6 +94,9 @@ case class RichText (sections : Seq[RichTextSection]) {
 		getFromIndex(target, (s,i) => s.colorAtIndex(i))
 	}
 	def isEmpty = sections.forall(_.isEmpty)
+
+	def append(text : String) = RichText(sections :+ TextSection(text))
+	def append(section : RichTextSection) = RichText(sections :+ section)
 }
 object RichText {
 	def apply(section : RichTextSection) = new RichText(section :: Nil)

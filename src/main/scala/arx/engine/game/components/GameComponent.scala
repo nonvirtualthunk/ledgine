@@ -1,10 +1,10 @@
 package arx.engine.game.components
 
 import arx.core.units.UnitOfTime
-import arx.engine.event.{DeferredInitializationEventBusListener, Event, EventBusListener, GameEvent}
+import arx.engine.event.{DeferredInitializationEventBusListener, DeferredInitializationEventBusSender, GameEvent}
 import arx.engine.game.GameEngine
 import arx.engine.traits.EngineComponent
-import arx.engine.world.EventState.{Ended, Started}
+import arx.engine.world.EventState.Ended
 import arx.engine.world.World
 
 abstract class GameComponent extends EngineComponent[GameEngine] {

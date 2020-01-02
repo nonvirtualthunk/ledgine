@@ -7,15 +7,16 @@ package arx.engine.graphics.components.windowing
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.math.{Rectf, Recti}
-import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2i}
+import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2f, Vec2i}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
-import arx.engine.control.components.windowing.widgets.{TextDisplay, TextDisplayRenderedGlyphData, TextDisplayWidget}
+import arx.engine.control.components.windowing.widgets.{TextDisplay, TextDisplayRenderedGlyphData, TextDisplayWidget, TextInputData, TextInputWidget}
+import arx.engine.data.Moddable
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics
 import arx.graphics.{Axis, Image}
-import arx.graphics.helpers.{ImageSectionLayer, RichText}
+import arx.graphics.helpers.{ImageSectionLayer, RGBA, RichText, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, TextLayoutResult, TextLayouter, VerticalTextAlignment}
 
 import scala.collection.mutable
@@ -52,9 +53,16 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 
 	def layout(tw : Widget, textDisplay: TextDisplay, area : Rectf) = {
 		val font = effectiveFontFor(tw, textDisplay)
-		val layout = layoutFor(tw, textDisplay, font, textDisplay.text, area)
+		val layout = layoutFor(tw, textDisplay, font, effectiveTextFor(tw, textDisplay), area)
 
 		layout
+	}
+
+	def effectiveTextFor(tw : Widget, td : TextDisplay) = {
+		td.text append TextSection(tw.dataOpt[TextInputData] match {
+			case Some(_) if tw.hasFocus => "|"
+			case _ => ""
+		}, Moddable(RGBA(0.4f,0.4f,0.4f,1.0f)))
 	}
 
 	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): Seq[WQuad] = {
@@ -64,8 +72,10 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 					val renderedData = widget[TextDisplayRenderedGlyphData]
 					renderedData.absoluteOffset = widget.drawing.absolutePosition.xy
 
-					val text = td.text
+					val text = effectiveTextFor(widget,td)
 					val renderResult = TextRenderer.render(layout(widget, td, widget.drawing.effectiveClientArea.toRectf), text)
+
+
 
 					renderResult
 				case _ => Nil

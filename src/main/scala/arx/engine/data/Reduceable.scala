@@ -8,6 +8,7 @@ case class Reduceable[T : Numeric](baseValue : T,reducedBy : T) {
 
 	def currentValue = NUM.minus(baseValue, reducedBy)
 	def maxValue = baseValue
+	def isAtMaxValue = maxValue == currentValue
 	def reduceBy(n : T, limitToZero : Boolean) = {
 		var newReducedBy = NUM.plus(reducedBy, n)
 		if (limitToZero) {

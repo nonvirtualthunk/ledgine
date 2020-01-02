@@ -371,8 +371,14 @@ abstract class EngineCore {
 	}
 }
 object EngineCore {
-	var windowWidth = 1600
-	var windowHeight = 800
+	var windowWidth = System.getProperty("windowWidth") match {
+		case null => 1600
+		case w => w.toInt
+	}
+	var windowHeight = System.getProperty("windowHeight") match {
+		case null => 800
+		case h => h.toInt
+	}
 	var pixelWidth = windowWidth
 	var pixelHeight = windowHeight
 

@@ -70,15 +70,15 @@
                     <args>
                         <arg>-nowarn</arg>
 <!--                        apparently needed post java 11 for some reason? -->
-                        <arg>-nobootcp</arg>
+<!--                        <arg>-nobootcp</arg>-->
                     </args>
                     <excludes>
                         <exclude>**/module-info.java</exclude>
                     </excludes>
 
-<!--                    <source>1.9</source>-->
-<!--                    <target>1.9</target>-->
-                    <release>8</release>
+                    <source>1.8</source>
+                    <target>1.8</target>
+<!--                    <release>8</release>-->
 
                     <recompileMode>incremental</recompileMode>
 
@@ -116,7 +116,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <release>8</release>
+<!--                    <release>8</release>-->
                     <source>8</source>
                     <target>8</target>
                 </configuration>

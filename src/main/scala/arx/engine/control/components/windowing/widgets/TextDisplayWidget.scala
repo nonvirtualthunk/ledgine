@@ -45,8 +45,10 @@ class TextDisplay extends TWidgetAuxData {
 	def effectiveFontScale = fontScale
 //	constructed = true
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
-		val defaultText = configValue.field("defaultText").strOrElse("")
-		this.text = Moddable(RichText(defaultText))
+		val defaultTextOpt = configValue.fieldOpt("defaultText")
+		for (defaultText <- defaultTextOpt) {
+			this.text = Moddable(RichText(defaultText.str))
+		}
 
 
 		for (fc <- ConfigLoadingHelper.loadColorFromConfig(configValue.fontColor, widget)) {

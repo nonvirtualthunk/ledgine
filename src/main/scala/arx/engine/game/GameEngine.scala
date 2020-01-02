@@ -13,7 +13,9 @@ class GameEngine(var realtime : Boolean, universe : Universe, val world : World)
 	world.register[TimeData]
 	world.attachWorldData(new TimeData)
 
-	world.onEventCallbacks ::= ((world, e) => this.eventBus.fireEvent(e))
+	world.onEventCallbacks ::= ((_, e: GameEvent) => {
+		this.eventBus.fireEvent(e)
+	})
 
 	override def currentTime(): UnitOfTime = {
 		if (realtime) {

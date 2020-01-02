@@ -151,6 +151,8 @@ class DeferredInitializationEventBusListener[T <: Event](sync : Boolean) {
 	def initialize(bus : EventBus[T]): Unit = {
 		if (sync) {
 			eventBusListener = bus.synchronousListener
+		} else {
+			eventBusListener = bus.createListener()
 		}
 		eventBusListener.listeners :::= pendingListeners
 		pendingListeners = Nil

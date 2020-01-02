@@ -188,6 +188,13 @@ class RGBA(ra:Float, ga:Float, ba:Float, aa:Float) extends ReadVec4f(ra,ga,ba,aa
 		val otherRGBA = other.asRGBA
 		RGBA(this.r * otherRGBA.r, this.g * otherRGBA.g, this.b * otherRGBA.b, this.a * otherRGBA.a)
 	}
+	def + (other : Color) : RGBA = {
+		val otherRGBA = other.asRGBA
+		RGBA(this.r + otherRGBA.r, this.g + otherRGBA.g, this.b + otherRGBA.b, this.a + otherRGBA.a)
+	}
+	override def / (other : Float) : RGBA = {
+		RGBA(this.r / other, this.g / other, this.b / other, this.a / other)
+	}
 	override def * (f : Float) : RGBA = {
 		RGBA(r * f, g * f, b * f, a * f)
 	}

@@ -3,7 +3,7 @@ package arx.graphics
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
 import java.io._
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{Buffer, ByteBuffer, ByteOrder}
 
 import javax.imageio.ImageIO
 import arx.application.Noto
@@ -98,7 +98,7 @@ class Image extends TSentinelable with Externalizable {
 		data.get(y * textureWidth * 4 + x * 4 + rgba) & 0xff
 	}
 	def update ( x: Int, y: Int , v : ReadVec4i) {
-		data.position(y * textureWidth * 4 + x * 4)
+		data.asInstanceOf[Buffer].position(y * textureWidth * 4 + x * 4)
 		data.put(v.r.toByte)
 		data.put(v.g.toByte)
 		data.put(v.b.toByte)

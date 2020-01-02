@@ -8,7 +8,7 @@ import arx.engine.graphics.GraphicsEngine
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.event.GraphicsEvent
 import arx.engine.traits.EngineComponent
-import arx.engine.world.World
+import arx.engine.world.{EventState, World}
 
 abstract class ControlComponent extends EngineComponent[ControlEngine] {
 	private val gameEvents = new DeferredInitializationEventBusListener[GameEvent](false)
@@ -27,6 +27,13 @@ abstract class ControlComponent extends EngineComponent[ControlEngine] {
 
 	def onGameEvent(listener: PartialFunction[Event,_]): Unit = {
 		gameEvents.onEvent(0)(listener)
+	}
+
+	def onGameEventEnd(listener: PartialFunction[Event,_]): Unit = {
+		gameEvents.onEvent(0) {
+			case ge : GameEvent if ge.state == EventState.Ended && listener.isDefinedAt(ge) => listener.apply(ge)
+			case _ => // do nothing
+		}
 	}
 
 	def onGraphicsEvent(listener : PartialFunction[Event,_]) : Unit = {

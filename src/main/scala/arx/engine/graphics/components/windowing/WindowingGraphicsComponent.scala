@@ -307,13 +307,12 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			fixedOnAxis = true
 		}
 
-
+		val inPad = widget.drawing.interiorPadding
 		widget.dimensions(axis) match {
 			case DimensionExpression.Intrinsic =>
 				val intr = calculateIntrinsicDimFor(widget, resolveFixedDimensionFor(widget, Axis.X), resolveFixedDimensionFor(widget, Axis.Y))
-				ret = intr(axis)
+				ret = intr(axis) + inPad(axis) * 2
 			case DimensionExpression.WrapContent =>
-				val inPad = widget.drawing.interiorPadding
 				var min = 0
 				var max = 0
 				widget.children.foreach(w => {
@@ -327,7 +326,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		}
 
 		val dims = Vec2i(if (axis == Axis.X) { ret } else { 0 }, if (axis == Axis.Y) { ret } else { 0 })
-		val clientArea = Recti(0,0,dims.x, dims.y)
+		val clientArea = Recti(inPad.x,inPad.y,dims.x, dims.y)
 		for (render <- renderers) {
 			render.modifyBounds(widget, axis, fixedOnAxis, clientArea, dims)
 		}
