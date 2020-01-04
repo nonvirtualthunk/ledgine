@@ -40,6 +40,11 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	} else {
 		None
 	}
+	def fieldAsList(s : String) : List[ConfigValue] = if (hasField(s)) {
+		field(s).asList
+	} else {
+		Nil
+	}
 	def expectField(s : String) : Option[ConfigValue] = if (hasField(s)) {
 		Some(field(s))
 	} else {
@@ -74,6 +79,7 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def v4: ReadVec4f
 	def arr: ConfigList
 	def arrOpt : Option[ConfigList] = if (isArr) { Some(arr) } else { None }
+	def asList : List[ConfigValue] = if (isArr) { arr.toList } else { List(this) }
 	def isObj: Boolean
 	def isStr: Boolean
 	def isArr: Boolean
