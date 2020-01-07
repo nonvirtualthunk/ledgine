@@ -464,6 +464,9 @@ class StringConfigValue(intern : String) extends ConfigValue {
 		throw new IllegalStateException("Attempting to access simple string config value in an invalid manner")
 	}
 }
+object StringConfigValue {
+	def apply(str : String) = new StringConfigValue(str)
+}
 //object Tmp {
 //	def main ( args : Array[String] ) {
 //		val conf = Hocon.parse(

@@ -163,8 +163,11 @@ object ConfigDataLoader {
 							} else if (customConfigLoaders.contains(getter.returnType)) {
 								val loader = customConfigLoaders(getter.returnType)
 								(data : AnyRef, config : ConfigValue) => {
-									val value = loader.loadFrom(config)
-									ReflectionAssistant.invoke(data, setter)(value)
+									val subField = config.field(fieldName)
+									if (subField.nonEmpty) {
+										val value = loader.loadFrom(config)
+										ReflectionAssistant.invoke(data, setter)(value)
+									}
 								} : Unit
 							} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
 								(data: AnyRef, config: ConfigValue) => {
