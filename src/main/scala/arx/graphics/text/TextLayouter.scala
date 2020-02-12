@@ -92,7 +92,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		for (section <- text.sections) {
 			val pre = rects.size
 			section match {
-				case TextSection(text, _, _) =>
+				case TextSection(text, _, _, _) =>
 					val words = text.split(TextLayouter.whitespaceArray)
 					var i = 0
 

@@ -32,6 +32,12 @@ trait TBitmappedFont {
 	def pixelFont : Boolean
 
 	def deriveWithPtSize(fontSize : Int) : TBitmappedFont
+
+	var boldFont : Option[TBitmappedFont] = None
+	def withBoldFont(b : Option[TBitmappedFont]) : this.type = {
+		boldFont = b
+		this
+	}
 }
 
 case class FontMetrics(maxAscent : Int, maxDescent : Int, lineHeight : Int, pointSize : Int, spaceSize : Int)

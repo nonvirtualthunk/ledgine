@@ -1,17 +1,18 @@
 package arx.engine.event
 
 import arx.Prelude
+import arx.core.NoAutoLoad
 import arx.engine.data.Moddable
 
 import scala.collection.mutable
 
 trait TEventUser {
 	import TEventUser.Listener
-	@transient var _eventListeners : List[Listener] = Nil
+	@NoAutoLoad @transient var _eventListeners : List[Listener] = Nil
 	def eventListeners : List[Listener] = if ( _eventListeners != null ) { _eventListeners } else { Nil }
 	def eventListeners_= ( e : List[Listener] ) { _eventListeners = e }
 
-	@transient var _successors : List[Moddable[TEventUser]] = Nil
+	@NoAutoLoad @transient var _successors : List[Moddable[TEventUser]] = Nil
 	def successors : List[Moddable[TEventUser]] = if (_successors != null) { _successors } else { Nil }
 	def successors_= (e : List[Moddable[TEventUser]]) { _successors = e }
 

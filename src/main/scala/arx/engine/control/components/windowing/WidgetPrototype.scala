@@ -4,6 +4,7 @@ import arx.application.Noto
 import arx.core.introspection.ReflectionAssistant
 import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
+import arx.engine.control.components.windowing.widgets.DynamicWidgetData
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.data.ConfigDataLoader
 import arx.resource.ResourceManager
@@ -69,6 +70,7 @@ class SMLWidgetPrototype(configFunc : () => ConfigValue) extends WidgetPrototype
 			Noto.info(s"deleting ${childrenToDelete.size} children")
 		}
 		childrenToDelete.foreach(w => w.destroy())
+		w.dataOpt[DynamicWidgetData].foreach(dyn => dyn.forceRecomputation = true)
 //		val childrenToUpdate = w.children.filter(w => w.configIdentifier.exists(ci => childIdentifiers.contains(ci)))
 //		childrenToUpdate.foreach(w => reload(w))
 //		if (childrenToUpdate.nonEmpty) { Noto.info(s"updating ${childrenToUpdate.size} children")}

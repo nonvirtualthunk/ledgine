@@ -13,7 +13,7 @@ import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.widgets.data.{DrawingData, OverlayData}
 import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.windowing.ImageDisplay
-import arx.engine.graphics.data.windowing.ImageDisplay.{Center, Scale, ScaleToFit, TopLeft}
+import arx.engine.graphics.data.windowing.ImageDisplay.{Center, Scale, ScaleToAxis, ScaleToFit, TopLeft}
 import arx.graphics.{AVBO, Axis, TextureBlock}
 import arx.graphics.helpers.Color
 //import arx.engine.control.components.windowing.widgets.ImageDisplayWidget
@@ -60,7 +60,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 		var overlayQuads = List[WQuad]()
 		for (overlayData <- widget.dataOpt[OverlayData]; od <- overlayData.overlays.values if od.drawOverlay) {
 			val pixelScale = od.pixelScale * EngineCore.pixelScaleFactor.toInt
-			overlayQuads :::= renderNineWayImage(widget, bounds, od.overlayImage, od.centerColor.resolve(), od.overlayEdgeColor.resolve(), DrawingData.AllEdges, beforeChildren, true, seg, pixelScale, od.drawCenter, od.pixelSizeDelta)
+			overlayQuads :::= renderNineWayImage(widget, bounds, od.overlayImage.resolve(), od.centerColor.resolve(), od.overlayEdgeColor.resolve(), DrawingData.AllEdges, beforeChildren, true, seg, pixelScale, od.drawCenter, od.pixelSizeDelta)
 		}
 
 		backgroundQuads ::: overlayQuads
@@ -240,6 +240,13 @@ class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer
 					}
 				case ScaleToFit =>
 					Rectf(offset.x,offset.y,dim.x,dim.y)
+				case ScaleToAxis(axis, size) =>
+					val wFract = img.width.toFloat / img.height.toFloat
+					axis match {
+						case Axis.X => Rectf(offset.x, offset.y, size, size / wFract)
+						case Axis.Y => Rectf(offset.x, offset.y, size * wFract, size)
+					}
+
 			}
 			List(WQuad(rect, img, idd.color))
 		case _ => Nil
@@ -250,6 +257,13 @@ class ImageContentRenderer(WD : WindowingGraphicsData) extends WindowingRenderer
 			case Scale(scale) =>
 				val img : Image = idd.image.resolve()
 				Some(Vec2i((img.width * scale).toInt, (img.height * scale).toInt))
+			case ScaleToAxis(axis, size) =>
+				val img : Image = idd.image.resolve()
+				val wFract = img.width.toFloat / img.height.toFloat
+				axis match {
+					case Axis.X => Some(Vec2i(size, (size / wFract).toInt))
+					case Axis.Y => Some(Vec2i((size * wFract).toInt, size))
+				}
 			case _ =>
 				None
 		}

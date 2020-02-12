@@ -1,12 +1,15 @@
 package arx.game.data
 
+import arx.application.Noto
+import arx.core.representation.ConfigValue
+import arx.engine.data.{ConfigLoadable, CustomConfigDataLoader}
 import arx.game.logic.Randomizer
 
 import scala.util.Random
 
 
 case class Die (pips : Int)
-case class DicePool (dice : List[Die]) {
+case class DicePool (dice : List[Die]) extends ConfigLoadable {
 	def roll ()(implicit randomizer : Randomizer) : DiceRoll = {
 		DiceRoll(dice.map(d => randomizer.nextInt(d.pips) + 1))
 	}
@@ -20,11 +23,31 @@ case class DicePool (dice : List[Die]) {
 	override def toString() = {
 		dice.groupBy(d => d.pips).map { case (pips, matchingDice) => s"${matchingDice.size}d$pips" }.mkString(" + ")
 	}
+
+	def isEmpty = dice.isEmpty
+	def nonEmpty = ! isEmpty
 }
-object DicePool {
+object DicePool extends CustomConfigDataLoader[DicePool] {
 	val D1 = DicePool(Die(1) :: Nil)
 	val none = DicePool(Nil)
 	def apply(n : Int) = DicePoolBuilder(n)
+
+	val regex = "([0-9]+)\\s?d\\s?([0-9]+)".r
+
+	override def loadedType: AnyRef = scala.reflect.runtime.universe.typeOf[DicePool]
+	override def loadFrom(config:  ConfigValue): DicePool = {
+		if (config.isStr) {
+			config.str match {
+				case regex(count, pips) => DicePoolBuilder(count.toInt) d pips.toInt
+				case other =>
+					Noto.warn(s"Invalid dice pool string: $other")
+					D1
+			}
+		} else {
+			Noto.warn(s"Unsupported config value for dice pool : $config")
+			D1
+		}
+	}
 }
 case class DicePoolBuilder(n : Int) {
 	def d(pips : Int) = new DicePool((0 until n).map(_ => new Die(pips)).toList)

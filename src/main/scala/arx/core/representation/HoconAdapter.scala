@@ -35,6 +35,13 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def hasField(s : String) : Boolean
 	def field(s : String) : ConfigValue
 	def fields : Map[String,ConfigValue]
+	def fieldOpt(s : String, s2 : String) : Option[ConfigValue] = if (hasField(s)) {
+		Some(field(s))
+	} else if (hasField(s2)) {
+		Some(field(s2))
+	} else {
+		None
+	}
 	def fieldOpt(s : String) : Option[ConfigValue] = if (hasField(s)) {
 		Some(field(s))
 	} else {
@@ -95,6 +102,23 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 		this
 	} else {
 		parent.rootConfigValue
+	}
+
+	def render : String = {
+		renderIntern("")
+	}
+
+	def renderIntern(indentation : String) : String = {
+		if (isArr) {
+			"[" + arr.map(_.renderIntern("")).mkString(",") + "]"
+		} else if (isObj) {
+			val newIndent = indentation + "\t"
+			"{\n" + fields.map { case (k,v) => s"$newIndent$k : ${v.renderIntern(newIndent)}" }.mkString("\n") + "\n}"
+		} else if (isStr) {
+			"\"" + str + "\""
+		} else {
+			unwrapped.toString
+		}
 	}
 }
 trait ConfigRoot extends ConfigValue {

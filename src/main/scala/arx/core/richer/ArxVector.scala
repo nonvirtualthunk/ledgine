@@ -68,4 +68,8 @@ class ArxVector[+T](val intern : Vector[T]) extends AnyVal {
 		}
 		maxElem -> maxWeight
 	}
+
+	def reduceLeftOrElse[B >: T](op: (B, T) => B, default : B) = {
+		intern.reduceLeftOption(op).getOrElse(default)
+	}
 }

@@ -5,6 +5,7 @@ package arx.core.vec
   */
 
 import arx.Prelude._
+import arx.graphics.Axis
 
 
 case class Vec2T[T](var x : T, var y : T) {

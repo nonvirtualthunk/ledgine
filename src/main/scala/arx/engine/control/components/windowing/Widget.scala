@@ -6,6 +6,7 @@ package arx.engine.control.components.windowing
 
 import arx.Prelude._
 import arx.application.Noto
+import arx.core.NoAutoLoad
 import arx.core.datastructures.Watcher
 import arx.core.introspection.{ReflectionAssistant, TEagerSingleton}
 import arx.core.macros.GenerateCompanion
@@ -22,6 +23,7 @@ import arx.engine.data.Moddable
 import arx.engine.entity.Entity
 import arx.engine.event.TEventUser
 import arx.engine.graphics.data.windowing.ImageDisplay
+import arx.graphics.Axis
 
 import scala.reflect.ClassTag
 
@@ -244,7 +246,7 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 	// must be supplied as part of creation
 	var widget : Widget = _
 	private[windowing] var _parent : Widget = _
-	var children : List[Widget] = Nil
+	@NoAutoLoad var children : List[Widget] = Nil
 
 	def parent = _parent
 	def parent_=(w : Widget) : Unit = topLevelParent.synchronized {
@@ -261,20 +263,21 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 	var identifier : Option[String] = None
 	var configIdentifier : Option[String] = None
-	var bindings : Map[String, Moddable[_]] = Map()
+	@NoAutoLoad var bindings : Map[String, Moddable[_]] = Map()
 	var dataBinding : Option[String] = None
 
 	var position = Vec2T[PositionExpression](Flow, Flow)
 	var z : Int = 0
 	var dimensions = Vec2T[DimensionExpression](Intrinsic, Intrinsic)
+	var maximumDimensions : Vec2T[Option[DimensionExpression]] = Vec2T(None, None)
 	var showing = Moddable(true)
 
 	var acceptsFocus = false
 	var hasFocus = false
 
 	private[windowing] var markedModified = false
-	var modificationCriteria = List[Widget => Boolean]()
-	var modificationWatchers = List[Watcher[_]]()
+	@NoAutoLoad var modificationCriteria = List[Widget => Boolean]()
+	@NoAutoLoad var modificationWatchers = List[Watcher[_]]()
 
 	var notConfigManaged = false
 
@@ -330,9 +333,13 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 		configValue.fieldOpt("width").flatMap(wv => DimensionExpression.parse(wv.str, widget.parent.children)).ifPresent(wv => width = wv)
 		configValue.fieldOpt("height").flatMap(hv => DimensionExpression.parse(hv.str, widget.parent.children)).ifPresent(hv => height = hv)
+		configValue.fieldOpt("maxWidth").flatMap(wv => DimensionExpression.parse(wv.str, widget.parent.children)).ifPresent(wv => maximumDimensions(Axis.X) = Some(wv))
+		configValue.fieldOpt("maxHeight").flatMap(hv => DimensionExpression.parse(hv.str, widget.parent.children)).ifPresent(hv => maximumDimensions(Axis.Y) = Some(hv))
 
 		for (showConf <- configValue.fieldOpt("showing")) {
 			showing = showConf.str match {
+				case "true" => Moddable(true)
+				case "false" => Moddable(false)
 				case Widget.bindingParser(key) => Moddable(() => widget.resolveBinding(key) match {
 					case Some(b) => b match {
 						case boolean: Boolean =>

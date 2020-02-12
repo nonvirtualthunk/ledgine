@@ -11,7 +11,7 @@ import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.data.Moddable
 import arx.engine.graphics.data.windowing.ImageDisplay.{PositionStyle, ScalingStyle}
 import arx.graphics.helpers.{Color, RGBA}
-import arx.graphics.{Image, ScaledImage, TToImage}
+import arx.graphics.{Axis, Image, ScaledImage, TToImage}
 import arx.resource.ResourceManager
 
 @GenerateCompanion
@@ -26,22 +26,7 @@ class ImageDisplay extends TWidgetAuxData {
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (cv <- configValue.fieldOpt("image")) {
-			val str = cv.str
-			image = Widget.bindingParser.findFirstMatchIn(str) match {
-				case Some(matched) => Moddable(() => widget.resolveBinding(matched.group(1)) match {
-					case Some(boundValue) => boundValue match {
-						case img : Image => img
-						case scaledImage : ScaledImage => scaledImage.image
-						case str : String => ResourceManager.image(str)
-						case timg: TToImage => timg.image
-						case other =>
-							Noto.warn(s"invalid bound value for an image display : $other")
-							ResourceManager.blankImage
-					}
-					case None => ResourceManager.blankImage
-				})
-				case None => Moddable(str : TToImage)
-			}
+			image = ConfigLoadingHelper.loadImageFromConfig(cv, widget)
 		}
 		for (ss <- configValue.fieldOpt("scalingStyle")) {
 			scalingStyle = ScalingStyle.parse(ss.str, scalingStyle)
@@ -62,13 +47,19 @@ object ImageDisplay {
 	sealed class ScalingStyle
 	case object ScaleToFit extends ScalingStyle
 	case class Scale(scaleFactor : Float) extends ScalingStyle
+	case class ScaleToAxis(axis : Axis, size : Int) extends ScalingStyle
+
 	private val scaleFractionPattern = "scale\\(([0-9.]+)\\)".r
 	private val scalePercentPattern = "scale\\(([0-9]+)%\\)".r
+	private val scaleToWidthPattern = "(?i)scale\\s?to\\s?width\\(?([0-9]+)px\\)?".r
+	private val scaleToHeightPattern = "(?i)scale\\s?to\\s?height\\(?([0-9]+)px\\)?".r
 	object ScalingStyle {
 		def parse(str : String, orElse : ScalingStyle) = str.toLowerCase.replace(" ","") match {
 			case "scaletofit" => ScaleToFit
 			case scaleFractionPattern(fract) => Scale(fract.toFloat)
 			case scalePercentPattern(pcnt) => Scale(pcnt.toFloat / 100.0f)
+			case scaleToWidthPattern(width) => ScaleToAxis(Axis.X, width.toInt)
+			case scaleToHeightPattern(height) => ScaleToAxis(Axis.Y, height.toInt)
 			case "actualsize" => Scale(1.0f)
 			case _ =>
 				Noto.warn(s"unsupported scaling style: $str")
@@ -87,6 +78,5 @@ object ImageDisplay {
 				Noto.warn(s"unsupported position style: $str")
 				orElse
 		}
-
 	}
 }

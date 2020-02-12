@@ -16,7 +16,7 @@ import arx.engine.graphics.components.DrawPriority
 import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics
 import arx.graphics.{Axis, Image}
-import arx.graphics.helpers.{ImageSectionLayer, RGBA, RichText, TextSection}
+import arx.graphics.helpers.{ImageSectionLayer, RGBA, RichText, RichTextModifier, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, TextLayoutResult, TextLayouter, VerticalTextAlignment}
 
 import scala.collection.mutable
@@ -115,7 +115,8 @@ object TextRenderer {
 
 	def render(layout : TextLayoutResult, richText : RichText) : Vector[WQuad] = {
 		val res = layout
-		val effFont = res.font
+		val baseFont = res.font
+		val boldFont = baseFont.boldFont.getOrElse(baseFont)
 
 		var si = 0
 		var pi = 0
@@ -129,6 +130,7 @@ object TextRenderer {
 			} else {
 				val rect = res.glyphRects(pi)
 				val symbol = sections.head.symbolAtIndex(si)
+				val modifiers = sections.head.modifiersAtIndex(si)
 				val x = rect.x
 				val y = rect.y
 				val w = rect.w
@@ -136,6 +138,7 @@ object TextRenderer {
 				symbol match {
 					case char : Char =>
 						if (!char.isWhitespace) {
+							val effFont = if (modifiers.contains(RichTextModifier.Bold)) { boldFont } else { baseFont }
 							val color = sections.head.colorAtIndex(si)
 //							val rawW = layouter.charWidth(char,effFont,effectiveFontScale)
 //							val rawH = layouter.charHeight(char,effFont,effectiveFontScale)

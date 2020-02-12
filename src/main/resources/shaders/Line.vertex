@@ -16,9 +16,9 @@ uniform mat4 ProjectionMatrix;
 uniform mat4 ModelViewMatrix;
 
 void main (){
-	vec3 mPrev = ModelViewMatrix * vec4(PrevVertex,1.0);
-	vec3 mCur = ModelViewMatrix * vec4(Vertex,1.0);
-	vec3 mNext = ModelViewMatrix * vec4(NextVertex,1.0);
+	vec4 mPrev = ModelViewMatrix * vec4(PrevVertex,1.0);
+	vec4 mCur = ModelViewMatrix * vec4(Vertex,1.0);
+	vec4 mNext = ModelViewMatrix * vec4(NextVertex,1.0);
 
 	vec2 deltaPrev = normalize(mCur.xy - mPrev.xy);
 	vec2 deltaNext = normalize(mNext.xy - mCur.xy);

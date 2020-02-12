@@ -302,7 +302,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	def resolveEffectiveDimensions(widget: Widget, axis : Axis) = {
 		var ret = 0
 		var fixedOnAxis = false
-		for (dim <- resolveFixedDimensionFor(widget, axis)) {
+		val maxDim = widget.widgetData.maximumDimensions(axis).flatMap(d => resolveFixedDimensionFor(widget, d, axis))
+		for (dim <- resolveFixedDimensionFor(widget, widget.dimensions(axis), axis)) {
 			ret = dim
 			fixedOnAxis = true
 		}
@@ -310,7 +311,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		val inPad = widget.drawing.interiorPadding
 		widget.dimensions(axis) match {
 			case DimensionExpression.Intrinsic =>
-				val intr = calculateIntrinsicDimFor(widget, resolveFixedDimensionFor(widget, Axis.X), resolveFixedDimensionFor(widget, Axis.Y))
+				val intr = calculateIntrinsicDimFor(widget, resolveFixedDimensionFor(widget, widget.dimensions(Axis.X), Axis.X), resolveFixedDimensionFor(widget, widget.dimensions(Axis.Y), Axis.Y))
 				ret = intr(axis) + inPad(axis) * 2
 			case DimensionExpression.WrapContent =>
 				var min = 0
@@ -325,6 +326,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 			case _ => // do nothing further
 		}
 
+		ret = ret.min(maxDim.getOrElse(Int.MaxValue))
+
 		val dims = Vec2i(if (axis == Axis.X) { ret } else { 0 }, if (axis == Axis.Y) { ret } else { 0 })
 		val clientArea = Recti(inPad.x,inPad.y,dims.x, dims.y)
 		for (render <- renderers) {
@@ -334,8 +337,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		(dims(axis), clientArea.axis(axis))
 	}
 
-	def resolveFixedDimensionFor(widget: Widget, axis: Int): Option[Int] = {
-		widget.dimensions(axis) match {
+	def resolveFixedDimensionFor(widget: Widget, expr : DimensionExpression, axis: Int): Option[Int] = {
+		expr match {
 			case DimensionExpression.Constant(constValue) =>
 				Some(constValue)
 			case DimensionExpression.Proportional(proportion) =>
@@ -358,12 +361,22 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				} else {
 					widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - constValue
 				}
-			case PositionExpression.Proportional(p, relativeTo) =>
+			case PositionExpression.Proportional(p, relativeTo, anchorTo) =>
 				val offsetExpr = widget.parent.drawing.clientDim(axis) * p
-				if (relativeTo == TopLeft || (axis == Axis.X && relativeTo == BottomLeft) || (axis == Axis.Y && relativeTo == TopRight)) {
+				val selectionPoint = if (relativeTo == TopLeft || (axis == Axis.X && relativeTo == BottomLeft) || (axis == Axis.Y && relativeTo == TopRight)) {
 					offsetExpr
 				} else {
 					widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis) - offsetExpr
+				}
+
+				anchorTo match {
+					case TopLeft =>
+						selectionPoint
+					case Center =>
+						selectionPoint - widget.drawing.effectiveDimensions(axis) * 0.5f
+					case other =>
+						Noto.error(s"Anchor points other than [TopLeft,Center] not yet supported: $other")
+						selectionPoint
 				}
 			case PositionExpression.Centered =>
 				(widget.parent.drawing.clientDim(axis) - widget.drawing.effectiveDimensions(axis)) / 2

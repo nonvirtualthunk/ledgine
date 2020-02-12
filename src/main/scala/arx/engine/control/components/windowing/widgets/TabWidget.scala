@@ -7,6 +7,7 @@ import arx.engine.data.Moddable
 import arx.graphics.helpers.{Color, RGBA, RichText}
 import arx.Prelude._
 import arx.application.Noto
+import arx.core.NoAutoLoad
 import arx.engine.control.event.{MouseButton, MouseReleaseEvent}
 
 class TabWidget(val widget: Widget) extends WidgetInstance
@@ -19,9 +20,9 @@ object TabWidget extends WidgetType[TabWidget, TabWidgetData] {
 }
 
 class TabWidgetData extends TWidgetAuxData {
-	var tabs = Vector[Widget]()
-	var activeTab: Widget = _
-	var tabHeadings = Vector[Widget]()
+	@NoAutoLoad var tabs = Vector[Widget]()
+	@NoAutoLoad var activeTab: Widget = _
+	@NoAutoLoad var tabHeadings = Vector[Widget]()
 	var tabHeight = 50
 
 	override def loadFromConfig(widget: Widget, mainConf: ConfigValue, reload: Boolean): Unit = {

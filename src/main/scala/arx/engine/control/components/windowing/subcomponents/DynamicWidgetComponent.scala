@@ -8,7 +8,7 @@ object DynamicWidgetComponent extends WindowingSystemComponent {
 	override def updateWidget(windowingSystem: WindowingSystem, widget: Widget): Unit = {
 		for (dyn <- widget.dataOpt[DynamicWidgetData]) {
 			val newChildrenData = dyn.dynWidgetFunctions.computeChildrenData(widget)
-			if (newChildrenData != dyn.lastChildrenData) {
+			if (newChildrenData != dyn.lastChildrenData || dyn.forceRecomputation) {
 				dyn.lastChildrenData = newChildrenData
 
 				recomputingDynamicWidgetMeter.mark()
@@ -18,6 +18,7 @@ object DynamicWidgetComponent extends WindowingSystemComponent {
 				val newChildren = newChildrenData.map(d => dyn.dynWidgetFunctions.createChildFromData(widget, d))
 				dyn.dynWidgetFunctions.arrangeChildren(widget, newChildren)
 				dyn.lastChildren = newChildren
+				dyn.forceRecomputation = false
 				widget.markModified()
 			}
 		}

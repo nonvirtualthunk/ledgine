@@ -36,6 +36,11 @@ class Taxon(val name : String, val namespace : String, protected var _parents : 
 	 */
 	def selfAndAncestorsUpTo(limit : Taxon) : List[Taxon] = this :: parents.filter(_ != limit).flatMap(_.selfAndAncestorsUpTo(limit))
 
+	import arx.Prelude._
+	def displayName = {
+		name.fromCamelCase.capitalizeAll
+	}
+
 	override val hashCode = (namespace, name).hashCode()
 
 	override def toString: String = name

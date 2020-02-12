@@ -14,7 +14,7 @@ import arx.core.async.KillableThread.ApplicationLevel
 import arx.core.async.{Executor, KillableThread, OnExitRegistry}
 import arx.core.macros.GenerateCompanion
 import arx.core.vec._
-import arx.engine.data.{TAuxData, TNestedData, TTestAuxData}
+import arx.engine.data.{ConfigLoadable, TAuxData, TNestedData, TTestAuxData}
 
 
 abstract class Clazz[C](val className: String, val runtimeClass: Class[C]) {
@@ -111,7 +111,8 @@ object FieldGenerator {
 	}
 
 	def generate(prefixFilter : String, testClasses : Boolean) {
-		for ((packageName, clazzes) <- (ReflectionAssistant.allSubTypesOf[TAuxData] ::: ReflectionAssistant.allSubTypesOf[TNestedData])
+		for ((packageName, clazzes) <- (ReflectionAssistant.allSubTypesOf[TAuxData] ::: ReflectionAssistant.allSubTypesOf[TNestedData] ::: ReflectionAssistant.allSubTypesOf[ConfigLoadable])
+			.distinct
 		   .filter(clazz => clazz.getPackage.getName.startsWith(prefixFilter))
 		   .filter(clazz => classOf[TTestAuxData].isAssignableFrom(clazz) == testClasses)
 			.filter(clazz => clazz.getAnnotations.exists(a => a.annotationType() == classOf[GenerateCompanion]))

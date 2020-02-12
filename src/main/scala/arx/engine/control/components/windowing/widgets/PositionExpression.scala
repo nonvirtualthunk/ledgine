@@ -23,6 +23,7 @@ case object TopLeft extends WindowingOrientation
 case object BottomRight extends WindowingOrientation
 case object TopRight extends WindowingOrientation
 case object BottomLeft extends WindowingOrientation
+case object Center extends WindowingOrientation
 object WindowingOrientation {
 	def fromString(str : String, default : WindowingOrientation) : WindowingOrientation = {
 		str.toLowerCase().replace(" ","") match {
@@ -34,6 +35,7 @@ object WindowingOrientation {
 			case "right" => TopRight
 			case "top" => TopLeft
 			case "bottom" => BottomLeft
+			case "center" => Center
 			case _ => default
 		}
 	}
@@ -47,7 +49,13 @@ object PositionExpression {
 			case _ => Nil
 		}
 	}
-	case class Proportional(proportion : Float, relativeTo : WindowingOrientation = TopLeft) extends PositionExpression {
+
+	/**
+	 * @param proportion the proportion along the relevant axis within the parent (i.e. x is 0.9 of parent width)
+	 * @param relativeTo relative to which edge of the parent
+	 * @param anchorTo what point on the child are we choosing (center, left edge, etc)
+	 */
+	case class Proportional(proportion : Float, relativeTo : WindowingOrientation = TopLeft, anchorTo : WindowingOrientation = TopLeft) extends PositionExpression {
 		override def dependsOn(w: Widget, axis : Axis) = List(w.parent -> axis)
 	}
 	case object Centered extends PositionExpression {

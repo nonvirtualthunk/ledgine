@@ -19,6 +19,7 @@ import arx.core.async.OnExitRegistry
 
 object Noto {
 	val None = -2
+	val Warn = -1
 	val Info = 0
 	val Fine = 2
 	val Finest = 4
@@ -127,6 +128,15 @@ object Noto {
 				print(msg)
 				writeToFile(msg)
 			}
+		}
+	}
+
+
+	@elidable(elidable.WARNING) def warn ( llp : TLoggingLevelProvider , msg : => String ) {
+		if ( llp.loggingLevel >= Noto.Warn ) {
+			printMsg("<warning> " + msg)
+			for ( listener <- listeners ) { listener("<warning> " + msg + "\n",None) }
+			writeToFile("<warning> " + msg + "\n")
 		}
 	}
 

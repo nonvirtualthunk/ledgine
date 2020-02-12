@@ -270,6 +270,7 @@ object ResourceManager {
 	defaultImage.sentinel = true
 
 	def blankImage = image("default/blank.png")
+	def emptyImage = image("default/blank_transparent.png")
 
 	def exists (baseResourcePath : String) : Boolean = {
 		getResourceFilePath(baseResourcePath) match {
@@ -406,10 +407,17 @@ object ResourceManager {
 
 					var basePointSize = 16.0f
 					var pixelFont = false
+					var boldFont : Option[TBitmappedFont] = None
 					if ( ResourceManager.hasResourceStream("fonts/" + fontName + ".sml") ) {
 						val sml = Hocon.parseResource("fonts/" + fontName + ".sml")
 						basePointSize = sml.basePointSize.floatOrElse(basePointSize)
 						pixelFont = sml.pixelFont.boolOrElse(pixelFont)
+						sml.fieldOpt("boldFont").foreach(f => {
+							if (backingTextureBlock == null) {
+								Noto.warn("Creating bold fonts off of a null texture block is unlikely to be effective")
+							}
+							boldFont = Some(ResourceManager.font(f.str, backingTextureBlock))
+						})
 					}
 
 
@@ -426,7 +434,7 @@ object ResourceManager {
 					if (PreRenderedGlyphSource.existsFor(fontName,basePointSize.toInt)) {
 						additionalSrcList ::= PreRenderedGlyphSource.fromFontName(fontName,basePointSize.toInt)
 					}
-					new AdaptiveBitmappedFont(font, additionalSrcList, backingTextureBlock, pixelFont)
+					new AdaptiveBitmappedFont(font, additionalSrcList, backingTextureBlock, pixelFont).withBoldFont(boldFont)
 				} catch{
 					case e : Exception => {
 						Noto.warn("Exception encountered while attempting to create font, falling back on bitmapped SansSerif")

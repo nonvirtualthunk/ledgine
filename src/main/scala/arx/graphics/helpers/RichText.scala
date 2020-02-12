@@ -14,10 +14,14 @@ import java.awt.geom.AffineTransform
 
 import arx.Prelude._
 import arx.application.Noto
+import arx.core.introspection.ReflectionAssistant
 import arx.core.math.Rectf
 import arx.core.vec.{Cardinal, Cardinals, ReadVec2f, ReadVec4f, Vec2f}
+import arx.engine.control.components.windowing.widgets.SpriteProvider
 import arx.engine.data.Moddable
+import arx.engine.entity.{Taxon, Taxonomy}
 import arx.graphics.TToImage
+import arx.graphics.helpers.RichTextModifier.Bold
 import arx.graphics.text.TBitmappedFont
 
 
@@ -27,10 +31,11 @@ sealed abstract class RichTextSection {
 	def colorAtIndex(i : Int) : Color
 	def backgroundColorAtIndex(i : Int) : Option[Color] = None
 	def scaleAtIndex(i : Int) : Float
+	def modifiersAtIndex(i : Int) : Vector[RichTextModifier] = Vector()
 	def merge (s : RichTextSection) : Option[RichTextSection] = None
 	def isEmpty : Boolean = symbolCount == 0
 }
-case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None) extends RichTextSection {
+case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None, modifiers : Vector[RichTextModifier] = Vector()) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = text(i)
 	override def symbolCount: Int = text.length
 	override def colorAtIndex(i: Int): Color = color.resolve()
@@ -40,6 +45,7 @@ case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.B
 		case ts : TextSection if ts.color == color => Some(TextSection(text + ts.text, color))
 		case _ => None
 	}
+	override def modifiersAtIndex(i: Int): Vector[RichTextModifier] = modifiers
 }
 case class HorizontalPaddingSection(width : Int) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = " "
@@ -63,6 +69,25 @@ case class ImageSection(layers : List[ImageSectionLayer], scale : Float) extends
 	override def colorAtIndex(i: Int): Color = layers.head.color
 	override def scaleAtIndex(i : Int) : Float = scale
 }
+object TaxonSections {
+	lazy val spriteLibraries = ReflectionAssistant.instancesOfSubtypesOf[SpriteProvider]
+
+	def apply(taxon : String) : List[RichTextSection] = {
+		this.apply(Taxonomy(taxon))
+	}
+	def apply(taxon : Taxon, hasFollowing : Boolean = true) : List[RichTextSection] = {
+		for (lib <- spriteLibraries; sprite <- lib.getSpriteDefinitionFor(taxon)) {
+			val mainSections = ImageSection(sprite.icon, 2.0f, Color.White)
+			if (hasFollowing) {
+				return HorizontalPaddingSection(8) :: mainSections :: HorizontalPaddingSection(8) :: Nil
+			} else {
+				return HorizontalPaddingSection(8) :: mainSections :: Nil
+			}
+		}
+		import arx.Prelude._
+		List(TextSection(" " + taxon.name.fromCamelCase.capitalizeAll + " ", modifiers = Vector(Bold)))
+	}
+}
 object ImageSection {
 	def apply(image : TToImage, scale : Float, color : Color) : ImageSection = ImageSection(ImageSectionLayer(image, color) :: Nil, scale)
 	def scaledTo(image : TToImage, scaleTo : Int, color : Color) : ImageSection = {
@@ -70,6 +95,11 @@ object ImageSection {
 		val scale = (scaleTo / img.height).toInt
 		ImageSection(img, scale, color)
 	}
+}
+
+trait RichTextModifier
+object RichTextModifier {
+	case object Bold extends RichTextModifier
 }
 
 case class RichText (sections : Seq[RichTextSection]) {
@@ -97,8 +127,37 @@ case class RichText (sections : Seq[RichTextSection]) {
 
 	def append(text : String) = RichText(sections :+ TextSection(text))
 	def append(section : RichTextSection) = RichText(sections :+ section)
+	def append(other : RichText) = RichText(sections ++ other.sections)
 }
 object RichText {
+	def parse(str: String): RichText = {
+		var sections = Vector[RichTextSection]()
+		val accum = new StringBuilder
+		var taxonMode = false
+		for (c <- str) {
+			c match {
+				case '[' =>
+					taxonMode = true
+					if (accum.nonEmpty) {
+						if (accum.endsWith(" ")) {
+							accum.deleteCharAt(accum.length-1)
+						}
+						sections :+= TextSection(accum.mkString)
+						accum.clear()
+					}
+				case ']' =>
+					taxonMode = false
+					if (accum.nonEmpty) {
+						sections ++= TaxonSections(accum.mkString)
+						accum.clear()
+					}
+				case other => accum.append(other)
+			}
+		}
+		sections :+= TextSection(accum.mkString)
+		RichText(sections)
+	}
+
 	def apply(section : RichTextSection) = new RichText(section :: Nil)
 	implicit def fromSingleSection (section : RichTextSection) = RichText(section)
 	implicit def apply (str : String) : RichText = RichText(List(TextSection(str)))

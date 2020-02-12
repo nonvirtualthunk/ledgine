@@ -1,6 +1,7 @@
 package arx.engine.control.components.windowing.widgets
 
 import arx.application.Noto
+import arx.core.geometry.{Horizontal, Orientation, Vertical}
 import arx.core.macros.GenerateCompanion
 import arx.core.representation.ConfigValue
 import arx.core.vec.Cardinals
@@ -17,14 +18,21 @@ class DynamicWidgetData extends TWidgetAuxData {
 	}
 	var lastChildrenData : List[Any] = Nil
 	var lastChildren : List[Widget] = Nil
+	var forceRecomputation : Boolean = false
+
+
+	override def autoLoadSimpleValuesFromConfig: Boolean = false
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		if (configValue.hasField("listItemArchetype")) {
 			val archRef = configValue.field("listItemArchetype").str
 			val bindingStr = configValue.field("listItemBinding").str
+			val orientation = configValue.fieldOpt("orientation").flatMap(o => Orientation.fromStringOrWarn(o.str)).getOrElse(Vertical)
+			val spacing = configValue.fieldOpt("listSpacing").flatMap(o => ListSpacing.fromStringOrWarn(o.str)).getOrElse(ListSpacing.Sequential)
+
 			bindingStr match {
 				case DynamicWidgetData.bindingParser(from, to) =>
-					widget[DynamicWidgetData].dynWidgetFunctions = new ListWidgetDynamicFunctions(archRef, from, to)
+					widget[DynamicWidgetData].dynWidgetFunctions = new ListWidgetDynamicFunctions(archRef, from, to, orientation, spacing)
 				case _ => Noto.warn(s"invalid list widget binding clause: $bindingStr")
 			}
 		}
@@ -41,7 +49,7 @@ trait DynamicWidgetFunctions {
 	def arrangeChildren(dynWidget : Widget, childWidgets : List[Widget])
 }
 
-class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, bindingTo : String) extends DynamicWidgetFunctions {
+class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, bindingTo : String, orientation : Orientation, spacing : ListSpacing) extends DynamicWidgetFunctions {
 	import arx.Prelude._
 
 	override def computeChildrenData(dynWidget: Widget): List[Any] = {
@@ -77,9 +85,64 @@ class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, binding
 
 	override def arrangeChildren(dynWidget: Widget, childWidgets: List[Widget]): Unit = {
 		val gapSize = dynWidget.dataOpt[ListWidgetData].map(_.listItemGapSize).getOrElse(2)
-		childWidgets.sliding2.foreach {
-			case (a,b) => b.widgetData.y = PositionExpression.Relative(a, gapSize, Cardinals.Bottom)
+		spacing match {
+			case ListSpacing.Sequential =>
+				childWidgets.sliding2.foreach {
+					case (a,b) => orientation match {
+						case Vertical => b.widgetData.y = PositionExpression.Relative(a, gapSize, Cardinals.Bottom)
+						case Horizontal => b.widgetData.x = PositionExpression.Relative(a, gapSize, Cardinals.Right)
+					}
+				}
+			case ListSpacing.Even =>
+				childWidgets.size match {
+					case 0 => // do nothing
+					case 1 => orientation match {
+						case Horizontal => childWidgets.head.x = PositionExpression.Centered
+						case Vertical => childWidgets.head.y = PositionExpression.Centered
+					}
+					case _ =>
+						// TODO : deal with case in which naive placement puts the first/last outside of bounds
+						val increment = 1.0f / childWidgets.size.toFloat
+
+						childWidgets.zipWithIndex.foreach {
+							case (child, index) =>
+								val fract = (index.toFloat + 0.5f) * increment
+								orientation match {
+									case Horizontal => child.widgetData.x = PositionExpression.Proportional(fract, anchorTo=Center)
+									case Vertical => child.widgetData.y = PositionExpression.Proportional(fract, anchorTo=Center)
+								}
+						}
+				}
+
+				// 0 1 2 3 4 5 6 7 8 9 0 1 2
+				//       X X X   X X X
+				// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6
+				//       X X X   X X X   X X X
+
+				// 0 1 2 3 4 5 6 7 8 9 0
+				// -----   -   -----   -
+				//   -     -     -     -
+
 		}
+	}
+}
+
+sealed trait ListSpacing
+object ListSpacing {
+	case object Sequential extends ListSpacing
+	case object Even extends ListSpacing
+
+	def fromStringOrWarn(str : String) : Option[ListSpacing] = {
+		val ret = str.toLowerCase() match {
+			case "sequential" => Some(Sequential)
+			case "even" => Some(Even)
+			case "default" => Some(Sequential)
+			case _ => None
+		}
+		if (ret.isEmpty) {
+			Noto.warn(s"Invalid list spacing string $str, valid options are ${Seq(Sequential, Even)} or Default")
+		}
+		ret
 	}
 }
 
@@ -97,8 +160,16 @@ object ListWidget extends WidgetType[ListWidget, ListWidgetData] {
 		widget.attachData[ListWidgetData]
 		new ListWidget(widget)
 	}
+}
 
 
+class DynamicWidget(val widget : Widget) extends WidgetInstance {
+}
+object DynamicWidget extends WidgetType[DynamicWidget, DynamicWidgetData] {
+	override def initializeWidget(widget: Widget): DynamicWidget = {
+		widget.attachData[DynamicWidgetData]
+		new DynamicWidget(widget)
+	}
 }
 
 case class ListItemSelected(listId : String, index : Int, data : Option[Any]) extends UIEvent

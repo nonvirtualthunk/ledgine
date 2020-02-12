@@ -10,7 +10,8 @@ import arx.core.representation.ConfigValue
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
 import arx.engine.control.components.windowing.helpers.ConfigLoadingHelper
-import arx.engine.data.{Moddable, TMutableAuxData}
+import arx.engine.data.{ConfigDataLoader, ConfigLoadable, Moddable, TMutableAuxData}
+import arx.engine.graphics.data.windowing.ImageDisplay
 import arx.graphics.TToImage
 import arx.graphics.helpers.Color
 import arx.resource.ResourceManager
@@ -36,17 +37,43 @@ object DragAndDropData {
 // +====================+
 
 case class WidgetOverlay(
-									var drawOverlay : Boolean = true,
-									var overlayImage: TToImage = ResourceManager.blankImage,
+									var drawOverlay : Moddable[Boolean] = Moddable(true),
+									@NoAutoLoad var overlayImage: Moddable[TToImage] = Moddable(ResourceManager.blankImage : TToImage),
 									var centerColor: Moddable[Color] = Moddable(Color.White),
 									var overlayEdgeColor: Moddable[Color] = Moddable(Color.White),
 									var pixelScale: Int = 1,
 									var drawCenter: Boolean = false,
 									var pixelSizeDelta: ReadVec2i = Vec2i(0,0)
-						)
+						) extends ConfigLoadable {
+}
 
 class OverlayData extends TWidgetAuxData {
-	var overlays = Map[AnyRef, WidgetOverlay]()
+	@NoAutoLoad var overlays = Map[AnyRef, WidgetOverlay]()
+
+
+	override def loadFromConfig(widget: Widget, config: ConfigValue, reload: Boolean): Unit = {
+		for (overlayConf <- config.fieldOpt("overlays")) {
+			for ((k,v) <- overlayConf.fields) {
+				val overlay = WidgetOverlay()
+				overlay.loadFromConfig(v)
+				v.fieldOpt("overlayImage", "image").foreach(cv => overlay.overlayImage = ConfigLoadingHelper.loadImageFromConfig(cv, widget))
+				for (cv <- v.fieldOpt("centerColor"); color <- ConfigLoadingHelper.loadColorFromConfig(cv, widget)) {
+					overlay.centerColor = color
+				}
+				for (cv <- v.fieldOpt("overlayEdgeColor", "edgeColor"); color <- ConfigLoadingHelper.loadColorFromConfig(cv, widget)) {
+					overlay.overlayEdgeColor = color
+				}
+				for (cv <- v.fieldOpt("drawOverlay", "draw")) {
+					overlay.drawOverlay = ConfigLoadingHelper.loadBooleanFromConfig(cv, widget, defaultValue = false)
+				}
+				overlays += k -> overlay
+			}
+		}
+	}
+
+	override def modificationSignature: AnyRef = overlays.map {
+		case (k,v) => k -> v.drawOverlay.resolve()
+	}
 }
 
 class DrawingData extends TWidgetAuxData {
@@ -92,6 +119,13 @@ class DrawingData extends TWidgetAuxData {
 		}
 		for (ec <- ConfigLoadingHelper.loadColorFromConfig(configValue.edgeColor, widget)) {
 			edgeColor = ec
+		}
+
+		for (overlayConf <- configValue.fieldOpt("overlays")) {
+			if (!widget.hasData[OverlayData]) {
+				widget.attachData[OverlayData]
+			}
+			widget.data[OverlayData].loadFromConfig(widget, configValue, reload)
 		}
 	}
 }
