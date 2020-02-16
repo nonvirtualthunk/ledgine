@@ -34,7 +34,10 @@ class Taxon(val name : String, val namespace : String, protected var _parents : 
 	/**
 	 * Gets a list consisting of this taxon and all of its ancestors, excluding any branch containing the given limit
 	 */
-	def selfAndAncestorsUpTo(limit : Taxon) : List[Taxon] = this :: parents.filter(_ != limit).flatMap(_.selfAndAncestorsUpTo(limit))
+	def selfAndAncestorsUpTo(limit : Taxon) : List[Taxon] = selfAndAncestorsUpToIntern(limit).distinct
+	private def selfAndAncestorsUpToIntern(limit : Taxon) : List[Taxon] = this :: parents.filter(_ != limit).flatMap(_.selfAndAncestorsUpToIntern(limit))
+
+	def selfAndAncestors : List[Taxon] = selfAndAncestorsUpTo(Taxonomy.UnknownThing)
 
 	import arx.Prelude._
 	def displayName = {

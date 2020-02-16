@@ -7,7 +7,7 @@ import java.awt.geom.AffineTransform
 import arx.application.Noto
 import arx.core.math.Rectf
 import arx.core.vec.{ReadVec2f, Vec2f}
-import arx.graphics.helpers.{HorizontalPaddingSection, ImageSection, LineBreakSection, RichText, TextSection}
+import arx.graphics.helpers.{EnsureHorizontalSpaceSection, HorizontalPaddingSection, ImageSection, LineBreakSection, RichText, TextSection}
 import arx.Prelude._
 import arx.engine.EngineCore
 import arx.graphics.text.VerticalTextAlignment.{Bottom, Top}
@@ -41,6 +41,8 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		var maxX = 0.0f
 		var maxY = 0.0f
 		var minRectY = 0.0f
+		var maxNonWSX = 0.0f
+		var wsX = 0.0f
 
 		var maxSpacingThisLine = 0.0f
 
@@ -50,6 +52,8 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		def jumpToNextLine(): Unit = {
 			y += lineHeight.max(maxSpacingThisLine)
 			x = 0.0f
+			maxNonWSX = 0.0f
+			wsX = 0.0f
 			maxY = math.max(maxY, y)
 			maxSpacingThisLine = 0.0f
 			lineRectStartIndices.append(rects.length)
@@ -61,9 +65,12 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 			}
 		}
 
-		def addRect(rect : Rectf): Unit = {
+		def addRect(rect : Rectf, ws : Boolean): Unit = {
 			rects :+= rect
 			minRectY = minRectY.min(rect.y)
+			if (!ws) {
+				maxNonWSX = rect.maxX
+			}
 		}
 
 		def renderWord(word: String) {
@@ -81,10 +88,11 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 					if (x == area.x && glyphRect.getX < 0.0) {
 						x += -glyphRect.getX.toFloat
 					}
-					addRect(Rectf(area.x + x + glyphRect.getX.toFloat, area.y + y, font.characterWidthPixels(word(i)) * scale, font.characterHeightPixels(word(i)) * scale))
+					addRect(Rectf(area.x + x + glyphRect.getX.toFloat, area.y + y, font.characterWidthPixels(word(i)) * scale, font.characterHeightPixels(word(i)) * scale), false)
 				}
 
 				x += wordWidth
+				wsX = x
 				maxX = maxX.max(x)
 			}
 		}
@@ -101,16 +109,18 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 							text(i) match {
 								case ' ' =>
 									val sw = spaceSize * spacingMultiple
-									addRect(Rectf(area.x + x,area.y + y, sw, lineHeight))
-									x += sw
+									addRect(Rectf(area.x + wsX,area.y + y, sw, lineHeight), true)
+									wsX += sw
+									x = x.max(wsX)
 								case '\n' => {
 									jumpToNextLine()
-									addRect(Rectf(area.x + x,area.y + y, 0.0f, lineHeight))
+									addRect(Rectf(area.x + x,area.y + y, 0.0f, lineHeight), true)
 								}
 								case '\t' =>
 									val tw = tabSize * spacingMultiple
-									addRect(Rectf(area.x + x,area.y + y, tw, lineHeight))
-									x += tw
+									addRect(Rectf(area.x + wsX,area.y + y, tw, lineHeight), true)
+									wsX += tw
+									x = x.max(wsX)
 								case _ => Noto.error("AAAAH")
 							}
 							maxX = math.max(maxX,x)
@@ -127,19 +137,23 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 						advanceThroughWitespace()
 					}
 				case ImageSection(layers, imgScale) =>
-					val width = layers.imax(l => l.image.width) * imgScale
-					val height = layers.imax(l => l.image.height) * imgScale
+					val width = layers.imax(l => l.image.width) * imgScale * scale
+					val height = layers.imax(l => l.image.height) * imgScale * scale
 					//If this is the only thing on the line and it's longer than the line, no point skipping down, otherwise
 					jumpIfNecessary(width)
 					maxSpacingThisLine = height // ensure that we don't collide with this image on the next line
 
-					addRect(Rectf(area.x + x,(area.y + y + (lineHeight - height) / 2).toInt, width, height))
+					addRect(Rectf(area.x + x,(area.y + y + (lineHeight - height) / 2).toInt, width, height), false)
 
 					x += width + minSpacing
+					wsX = x
 					maxX = math.max(maxX,x)
 				case HorizontalPaddingSection(width) =>
 					x += width
+					wsX = x
 					maxX = math.max(maxX,x)
+				case EnsureHorizontalSpaceSection(width) =>
+					x = x.max(maxNonWSX + width)
 				case LineBreakSection(gap) =>
 					jumpToNextLine()
 					y += gap

@@ -9,6 +9,7 @@ package arx.engine.entity
 
 import arx.Prelude.{toArxString, toRichTimer}
 import arx.application.Noto
+import arx.core.introspection.ReflectionAssistant
 import arx.core.macros.GenerateCompanion
 import arx.core.metrics.Metrics
 import arx.core.representation.ConfigValue
@@ -72,7 +73,10 @@ object Taxonomy {
 	}
 
 	def selfAndDescendantsOf(taxon: Taxon): List[Taxon] = {
-		taxon :: taxonsByNameAndNamespace.values.filter(t => t.isA(taxon) && t != taxon).flatMap(t => selfAndDescendantsOf(t)).toList
+		selfAndDescendantsOfIntern(taxon).distinct
+	}
+	def selfAndDescendantsOfIntern(taxon: Taxon): List[Taxon] = {
+		taxon :: taxonsByNameAndNamespace.values.filter(t => t.isA(taxon) && t != taxon).flatMap(t => selfAndDescendantsOfIntern(t)).toList
 	}
 
 	def load(config: ConfigValue): Unit = Metrics.timer("Taxonomy.load").timeStmt {
@@ -151,123 +155,6 @@ object Taxonomy {
 
 
 	loadAll()
-	//
-	//
-	//	protected trait SubTaxonomy {
-	//		private var taxonsByName = Map[String,Taxon]()
-	//		protected def createTaxon(name : String, parents : Taxon*) : Taxon = {
-	//			val t = Taxonomy.createTaxon(name, parents : _*)
-	//			taxonsByName += name.toLowerCase -> t
-	//			t
-	//		}
-	//
-	//		def byName(name : String) : Option[Taxon] = taxonsByName.get(name.toLowerCase).orElse(Taxonomy.taxonsByName.get(name.toLowerCase))
-	//	}
-	//
-	//
-	//	val UnknownThing = createTaxon("unknown thing")
-	//
-	//	val Material = createTaxon("material")
-	//
-	//	object Materials extends SubTaxonomy {
-	//		val Wood = createTaxon("wood", Material)
-	//		val Stone = createTaxon("stone", Material)
-	//		val Metal = createTaxon("metal", Material)
-	//	}
-	//
-	//	val LivingThing = createTaxon("living thing")
-	//	val Creature = createTaxon("creature", LivingThing)
-	//	val Monster = createTaxon("monster", Creature)
-	//
-	//	object Creatures extends SubTaxonomy {
-	//		val Human = createTaxon("human", Creature)
-	//
-	//		val MudMonster = createTaxon("mud monster", Monster)
-	//	}
-	//
-	//	val Item = createTaxon("item")
-	//	val Weapon = createTaxon("weapon", Item)
-	//	val Axe = createTaxon("axe", Item)
-	//
-	//	object Weapons extends SubTaxonomy {
-	//		val BattleAxe = createTaxon("battleaxe", Weapon, Axe)
-	//
-	//		val Sword = createTaxon("sword", Weapon)
-	//
-	//		val Longsword = createTaxon("longsword", Weapon, Sword)
-	//		val Shortsword = createTaxon("shortsword", Weapon, Sword)
-	//	}
-	//
-	//	val AttackType = createTaxon("attack type")
-	//	object AttackTypes extends SubTaxonomy {
-	//		val PhysicalAttack = createTaxon("physical attack", AttackType)
-	//		val SlashingAttack = createTaxon("slashing attack", PhysicalAttack)
-	//		val StabbingAttack = createTaxon("stabbing attack", PhysicalAttack)
-	//
-	//		val NaturalAttack = createTaxon("natural attack", AttackType)
-	//
-	//		val MeleeAttack = createTaxon("melee attack", AttackType)
-	//		val RangedAttack = createTaxon("ranged attack", AttackType)
-	//		val ReachAttack = createTaxon("reach attack", MeleeAttack)
-	//
-	//
-	//	}
-	//
-	//	val Terrain = createTaxon("terrain")
-	//
-	//	object Terrains extends SubTaxonomy {
-	//		val Flatland = createTaxon("flatland", Terrain)
-	//		val Hills = createTaxon("hills", Terrain)
-	//		val Mountains = createTaxon("mountains", Terrain)
-	//	}
-	//
-	//	val Vegetation = createTaxon("vegetation")
-	//
-	//	object Vegetations extends SubTaxonomy {
-	//		val Grass = createTaxon("grass", Vegetation)
-	//		val Forest = createTaxon("forest", Vegetation)
-	//		val DeciduousForest = createTaxon("deciduous forest", Forest)
-	//		val EvergreenForest = createTaxon("evergreen forest", Forest)
-	//	}
-	//
-	//	val SpeciesRoot = createTaxon("species")
-	//
-	//	object Species extends SubTaxonomy {
-	//		val Humanoid = createTaxon("humanoid", SpeciesRoot)
-	//		val Monstrous = createTaxon("monstrous", SpeciesRoot)
-	//	}
-	//
-	//	val Skill = createTaxon("skill")
-	//
-	//	object Skills extends SubTaxonomy {
-	//		val CombatSkill = createTaxon("combat skill", Skill)
-	//		val WeaponSkill = createTaxon("weapon skill", CombatSkill)
-	//		val MagicSkill = createTaxon("magic skill", Skill)
-	//		val CraftingSkill = createTaxon("crafting skill", Skill)
-	//		val MovementSkill = createTaxon("movement skill", Skill)
-	//		val SurvivalSkill = createTaxon("survival skill", Skill)
-	//		val GatheringSkill = createTaxon("gathering skill", Skill)
-	//	}
-	//
-	//	val CharacterClass = createTaxon("character class")
-	//	object CharacterClasses extends SubTaxonomy {
-	//		val CombatClass = createTaxon("combat class", CharacterClass)
-	//		val MeleeCombatClass = createTaxon("melee combat class", CombatClass)
-	//		val RangedCombatClass = createTaxon("ranged combat class", CombatClass)
-	//		val MagicClass = createTaxon("magic class", CharacterClass)
-	//
-	//
-	//	}
-	//
-	//
-	//	val Action = createTaxon("action")
-	//	object Actions extends SubTaxonomy {
-	//		val MoveAction = createTaxon("move", Action)
-	//		val AttackAction = createTaxon("attack", Action)
-	//		val GatherAction = createTaxon("gather", Action)
-	//		val SwitchActiveCharacterAction = createTaxon("switch active", Action)
-	//	}
-
 }
 
 @GenerateCompanion

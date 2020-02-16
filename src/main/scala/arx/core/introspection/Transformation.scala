@@ -116,6 +116,20 @@ object FieldOperations {
 		}
 	}
 
+	case class ChangeMaxBy[T : Numeric](delta: T, limitToZero : Boolean) extends Transformation[Reduceable[T]] {
+		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
+			oldValue.changeMaxValueBy(delta, limitToZero)
+		}
+
+		override def asSimpleString: String = s"change max by $delta"
+
+		override def impact = implicitly[Numeric[T]].compare(delta, implicitly[Numeric[T]].zero) match {
+			case i if i < 0 => Impact.Positive
+			case i if i > 0 => Impact.Negative
+			case i if i == 0 => Impact.Neutral
+		}
+	}
+
 	case class ReduceTo[T : Numeric](value: T) extends Transformation[Reduceable[T]] {
 		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
 			oldValue.reduceTo(value)
@@ -322,6 +336,8 @@ object FieldOperations {
 		def recoverBy(value: T) = FieldOperationModifier(field, RecoverBy(value))
 
 		def recoverToFull() = FieldOperationModifier(field, new RecoverToFull[T]())
+
+		def changeMaxBy(delta : T, limitToZero : Boolean) = FieldOperationModifier(field, ChangeMaxBy(delta, limitToZero))
 	}
 
 

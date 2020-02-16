@@ -22,7 +22,7 @@ import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetTy
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.entity.Taxon
 import arx.graphics.{Image, ScaledImage, TextureBlock}
-import arx.graphics.helpers.{Color, HorizontalPaddingSection, ImageSection, RGBA, RichText, RichTextRenderSettings, RichTextSection, THasRichTextRepresentation, TextSection}
+import arx.graphics.helpers.{Color, HorizontalPaddingSection, ImageSection, RGBA, RichText, RichTextRenderSettings, RichTextSection, THasRichTextRepresentation, TaxonSections, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, VerticalTextAlignment}
 import arx.resource.ResourceManager
 
@@ -58,7 +58,7 @@ class TextDisplay extends TWidgetAuxData {
 		for (cv <- configValue.fieldOpt("text")) {
 			// plaintext for now
 			if (cv.isStr) {
-				text = parseToTextSections(widget, cv.str, fontColor)
+				text = parseToTextSections(widget, cv.str, fontColor, 1.0f)
 			} else {
 				val subTexts = for (elem <- cv.arr) yield {
 					if (elem.hasField("text")) {
@@ -68,7 +68,7 @@ class TextDisplay extends TWidgetAuxData {
 							fontColor
 						}
 
-						parseToTextSections(widget, elem.text.str, color)
+						parseToTextSections(widget, elem.text.str, color, elem.scale.floatOrElse(1.0f))
 					} else if (elem.hasField("image")) {
 						val colorM = ConfigLoadingHelper.loadColorFromConfig(elem.color, widget)
 						Moddable(() => {
@@ -96,7 +96,7 @@ class TextDisplay extends TWidgetAuxData {
 	}
 
 
-	def parseToTextSections(widget : Widget, text : String, color : Moddable[Color]) : Moddable[RichText] = {
+	def parseToTextSections(widget : Widget, text : String, color : Moddable[Color], scale : Float) : Moddable[RichText] = {
 		val bindingIter = Widget.bindingParser.findAllMatchIn(text)
 		if (bindingIter.hasNext) {
 			var sections = Vector[TextDisplayWidget.TextResolutionPiece]()
@@ -124,37 +124,38 @@ class TextDisplay extends TWidgetAuxData {
 								boundObj match {
 									case img: Image =>
 										if (strAccum.nonEmpty) {
-											richTextSections :+= TextSection(strAccum.toString(), color)
+											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
-										richTextSections :+= ImageSection(img, 1.0f, color.resolve())
+										richTextSections :+= ImageSection(img, scale, color.resolve())
 									case scaledImage: ScaledImage =>
 										if (strAccum.nonEmpty) {
-											richTextSections :+= TextSection(strAccum.toString(), color)
+											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
-										richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x, color.resolve())
+										richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x * scale, color.resolve())
 									case richText: RichText =>
 										if (strAccum.nonEmpty) {
-											richTextSections :+= TextSection(strAccum.toString(), color)
+											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
 										richTextSections ++= richText.sections
 									case renderToRich: THasRichTextRepresentation =>
 										if (strAccum.nonEmpty) {
-											richTextSections :+= TextSection(strAccum.toString(), color)
+											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
-										richTextSections ++= renderToRich.toRichText(RichTextRenderSettings()).sections
+										richTextSections ++= renderToRich.toRichText(RichTextRenderSettings(scale = scale)).sections
 									case taxon : Taxon =>
-										if (strAccum.nonEmpty) {
-											richTextSections :+= TextSection(strAccum.toString(), color)
-											strAccum.clear()
-										}
-										richTextSections :+= (TextDisplayWidget.spriteProviders.findFirstWith(prov => prov.getSpriteDefinitionFor(taxon)) match {
-											case Some((_, value)) => ImageSection(value.icon, 2.0f, Color.White)
-											case None => TextSection(taxon.name)
-										})
+										richTextSections ++= TaxonSections(taxon, RichTextRenderSettings(scale = scale))
+//										if (strAccum.nonEmpty) {
+//											richTextSections :+= TextSection(strAccum.toString(), color)
+//											strAccum.clear()
+//										}
+//										richTextSections :+= (TextDisplayWidget.spriteProviders.findFirstWith(prov => prov.getSpriteDefinitionFor(taxon)) match {
+//											case Some((_, value)) => ImageSection(value.icon, 2.0f, Color.White)
+//											case None => TextSection(taxon.name)
+//										})
 									case other => strAccum.append(other.toString)
 								}
 							}
@@ -204,4 +205,6 @@ class TextDisplayRenderedGlyphData extends TWidgetAuxData {
 	var glyphRects: Vector[Rectf] = Vector[Rectf]()
 	var absoluteOffset : ReadVec2f = Vec2f.Zero
 	var lineHeight : Float = 0.0f
+
+	override def autoLoadSimpleValuesFromConfig: Boolean = false
 }

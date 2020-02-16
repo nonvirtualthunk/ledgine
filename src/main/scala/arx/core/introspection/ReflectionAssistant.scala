@@ -121,23 +121,29 @@ object ReflectionAssistant {
 
 	def isSingleton(c: Class[_]) = c.getSimpleName.endsWith("$") && !c.getSimpleName.startsWith("$") && c.getFields.exists(f => f.getName == "MODULE$")
 	def getSingleton(c: Class[_]) = {
-		var moduleField = c.getField("MODULE$").get(null)
-		if (moduleField == null) {
-			val constructor = c.getDeclaredConstructor()
-			constructor.setAccessible(true)
-			constructor.newInstance()
+		try {
+			var moduleField = c.getField("MODULE$").get(null)
+			if (moduleField == null) {
+				val constructor = c.getDeclaredConstructor()
+				constructor.setAccessible(true)
+				constructor.newInstance()
 
-			Noto.warn("null valued MODULE$ encountered while loading a singleton. \n" +
-				"Singleton : " + c.getSimpleName + "\n" +
-				"It is likely this is a result of a static initializer loop stemming from serialization. \n" +
-				"We are going to bypass this by creating a new instance, this will prevent catastrophic failure \n" +
-				"but violates the singleton contract. Game archetypes that get loaded this way will not necessarily \n" +
-				"be equal to other uses of themselves, for example. It is highly advised that you look for and \n" +
-				"remove the source of any loops/circular references that might be causing this.")
+				Noto.warn("null valued MODULE$ encountered while loading a singleton. \n" +
+					"Singleton : " + c.getSimpleName + "\n" +
+					"It is likely this is a result of a static initializer loop stemming from serialization. \n" +
+					"We are going to bypass this by creating a new instance, this will prevent catastrophic failure \n" +
+					"but violates the singleton contract. Game archetypes that get loaded this way will not necessarily \n" +
+					"be equal to other uses of themselves, for example. It is highly advised that you look for and \n" +
+					"remove the source of any loops/circular references that might be causing this.")
 
-			moduleField = c.getField("MODULE$").get(null)
+				moduleField = c.getField("MODULE$").get(null)
+			}
+			moduleField
+		} catch {
+			case e : ExceptionInInitializerError =>
+				Noto.error(s"Error initializing $c")
+				throw e
 		}
-		moduleField
 	}
 	def instancesOf[T](l: List[Class[_]]): List[T] = {
 		var ret = List[T]()

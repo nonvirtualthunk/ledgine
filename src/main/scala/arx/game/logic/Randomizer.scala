@@ -34,4 +34,11 @@ class Randomizer(private val random : Random, val style : RandomizationStyle) {
 			case RandomizationStyle.Median => maxExclusive / 2
 		}
 	}
+
+	def takeRandom[T](s : Seq[T], n : Int) = {
+		style match {
+			case RandomizationStyle.Random => random.shuffle(s).take(n)
+			case RandomizationStyle.Median => s.take(n)
+		}
+	}
 }

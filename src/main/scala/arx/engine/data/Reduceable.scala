@@ -27,6 +27,15 @@ case class Reduceable[T : Numeric](baseValue : T,reducedBy : T) {
 		new Reduceable(baseValue, newReducedBy)
 	}
 	def recoverToFull() = new Reduceable(baseValue)
+	def changeMaxValueBy(delta : T, limitToZero : Boolean) = {
+		val deltaMax = NUM.plus(baseValue, delta)
+		val newMax = if(limitToZero) {
+			NUM.max(deltaMax, NUM.zero)
+		} else {
+			deltaMax
+		}
+		new Reduceable(newMax, reducedBy)
+	}
 
 	override def toString: String = {
 		s"$currentValue ($maxValue)"

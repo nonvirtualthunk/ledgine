@@ -35,11 +35,11 @@ sealed abstract class RichTextSection {
 	def merge (s : RichTextSection) : Option[RichTextSection] = None
 	def isEmpty : Boolean = symbolCount == 0
 }
-case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None, modifiers : Vector[RichTextModifier] = Vector()) extends RichTextSection {
+case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None, modifiers : Vector[RichTextModifier] = Vector(), scale : Float = 1.0f) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = text(i)
 	override def symbolCount: Int = text.length
 	override def colorAtIndex(i: Int): Color = color.resolve()
-	override def scaleAtIndex(i : Int) : Float = 1.0f
+	override def scaleAtIndex(i : Int) : Float = scale
 	override def backgroundColorAtIndex(i : Int) : Option[Color] = backgroundColor
 	override def merge (s : RichTextSection) : Option[RichTextSection] = s match {
 		case ts : TextSection if ts.color == color => Some(TextSection(text + ts.text, color))
@@ -48,6 +48,12 @@ case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.B
 	override def modifiersAtIndex(i: Int): Vector[RichTextModifier] = modifiers
 }
 case class HorizontalPaddingSection(width : Int) extends RichTextSection {
+	override def symbolAtIndex(i: Int): Any = " "
+	override def symbolCount: Int = 0
+	override def colorAtIndex(i: Int): Color = Color.White
+	override def scaleAtIndex(i: Int): Float = 1.0f
+}
+case class EnsureHorizontalSpaceSection(width : Int) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = " "
 	override def symbolCount: Int = 0
 	override def colorAtIndex(i: Int): Color = Color.White
@@ -72,20 +78,17 @@ case class ImageSection(layers : List[ImageSectionLayer], scale : Float) extends
 object TaxonSections {
 	lazy val spriteLibraries = ReflectionAssistant.instancesOfSubtypesOf[SpriteProvider]
 
-	def apply(taxon : String) : List[RichTextSection] = {
-		this.apply(Taxonomy(taxon))
+	def apply(taxon: String, settings: RichTextRenderSettings) : List[RichTextSection] = {
+		this.apply(Taxonomy(taxon), settings)
 	}
-	def apply(taxon : Taxon, hasFollowing : Boolean = true) : List[RichTextSection] = {
+	def apply(taxon: Taxon, settings: RichTextRenderSettings): List[RichTextSection] = {
 		for (lib <- spriteLibraries; sprite <- lib.getSpriteDefinitionFor(taxon)) {
-			val mainSections = ImageSection(sprite.icon, 2.0f, Color.White)
-			if (hasFollowing) {
-				return HorizontalPaddingSection(8) :: mainSections :: HorizontalPaddingSection(8) :: Nil
-			} else {
-				return HorizontalPaddingSection(8) :: mainSections :: Nil
-			}
+			val mainSections = ImageSection.scaledTo(sprite.icon, (16 * settings.scale).toInt, Color.White)
+
+			return EnsureHorizontalSpaceSection(8) :: mainSections :: EnsureHorizontalSpaceSection(8) :: Nil
 		}
 		import arx.Prelude._
-		List(TextSection(" " + taxon.name.fromCamelCase.capitalizeAll + " ", modifiers = Vector(Bold)))
+		List(TextSection(" " + taxon.name.fromCamelCase.capitalizeAll + " ", modifiers = Vector(Bold), scale = settings.scale))
 	}
 }
 object ImageSection {
@@ -127,10 +130,12 @@ case class RichText (sections : Seq[RichTextSection]) {
 
 	def append(text : String) = RichText(sections :+ TextSection(text))
 	def append(section : RichTextSection) = RichText(sections :+ section)
+	def +(section : RichTextSection) = RichText(sections :+ section)
 	def append(other : RichText) = RichText(sections ++ other.sections)
+	def ++(other : RichText) = RichText(sections ++ other.sections)
 }
 object RichText {
-	def parse(str: String): RichText = {
+	def parse(str: String, settings: RichTextRenderSettings): RichText = {
 		var sections = Vector[RichTextSection]()
 		val accum = new StringBuilder
 		var taxonMode = false
@@ -148,7 +153,7 @@ object RichText {
 				case ']' =>
 					taxonMode = false
 					if (accum.nonEmpty) {
-						sections ++= TaxonSections(accum.mkString)
+						sections ++= TaxonSections(accum.mkString, settings)
 						accum.clear()
 					}
 				case other => accum.append(other)
@@ -178,4 +183,4 @@ object RichTextRenderDetail {
 	val High = new RichTextRenderDetail(2)
 }
 
-case class RichTextRenderSettings(noSymbols : Boolean = false, detailLevel : RichTextRenderDetail = RichTextRenderDetail.Medium)
+case class RichTextRenderSettings(noSymbols : Boolean = false, detailLevel : RichTextRenderDetail = RichTextRenderDetail.Medium, scale : Float = 1.0f)

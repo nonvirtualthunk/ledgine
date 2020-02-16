@@ -68,6 +68,7 @@ class ListWidgetDynamicFunctions(archRef : String, bindingFrom : String, binding
 					case Some(boundSeq) =>
 						boundSeq match {
 							case s : Seq[_] if s.size > index => Some(s(index))
+							case s : Seq[_] if s.isEmpty => None
 							case other =>
 								Noto.warn(s"list binding is to non sequence, that won't work: $other")
 								None
