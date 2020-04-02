@@ -13,7 +13,7 @@ import arx.core.introspection.ReflectionAssistant
 import arx.core.macros.GenerateCompanion
 import arx.core.metrics.Metrics
 import arx.core.representation.ConfigValue
-import arx.engine.data.TAuxData
+import arx.engine.data.{CustomConfigDataLoader, TAuxData}
 import arx.resource.ResourceManager
 
 

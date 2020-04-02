@@ -134,26 +134,26 @@ object Noto {
 
 	@elidable(elidable.WARNING) def warn ( llp : TLoggingLevelProvider , msg : => String ) {
 		if ( llp.loggingLevel >= Noto.Warn ) {
-			printMsg("<warning> " + msg)
+			printMsg("\u001B[33m" + msg + "\u001B[0m")
 			for ( listener <- listeners ) { listener("<warning> " + msg + "\n",None) }
 			writeToFile("<warning> " + msg + "\n")
 		}
 	}
 
 	@elidable(elidable.WARNING) def warn ( msg : => String ) {
-		printMsg("<warning> " + msg)
+		printMsg("\u001B[33m" + msg + "\u001B[0m")
 		for ( listener <- listeners ) { listener("<warning> " + msg + "\n",None) }
 		writeToFile("<warning> " + msg + "\n")
 	}
 	def error ( msg : => String ) {
-		printMsg("<error> " + msg)
+		printMsg("\u001B[31m" + msg + "\u001B[0m")
 		writeToFile("<error> " + msg + "\n")
 	}
 
 	def severeError ( msg : => String ) {
 		val e = new Exception()
 		val effectiveMessage = msg + "\nstack trace:\n" + e.getStackTraceString
-		printMsg("<error> " + effectiveMessage)
+		printMsg("\u001B[31m" + effectiveMessage + "\u001B[0m")
 		for ( listener <- listeners ) { listener("<error> " + effectiveMessage+ "\n",None) }
 		writeToFile("<error> " + effectiveMessage)
 	}

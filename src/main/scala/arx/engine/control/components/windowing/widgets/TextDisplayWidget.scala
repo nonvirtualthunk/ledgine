@@ -22,7 +22,7 @@ import arx.engine.control.components.windowing.{Widget, WidgetInstance, WidgetTy
 import arx.engine.control.components.windowing.widgets.data.TWidgetAuxData
 import arx.engine.entity.Taxon
 import arx.graphics.{Image, ScaledImage, TextureBlock}
-import arx.graphics.helpers.{Color, HorizontalPaddingSection, ImageSection, RGBA, RichText, RichTextRenderSettings, RichTextSection, THasRichTextRepresentation, TaxonSections, TextSection}
+import arx.graphics.helpers.{Color, HorizontalPaddingSection, ImageSection, RGBA, RichText, RichTextRenderSettings, RichTextScale, RichTextSection, THasRichTextRepresentation, TaxonSections, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, VerticalTextAlignment}
 import arx.resource.ResourceManager
 
@@ -73,11 +73,14 @@ class TextDisplay extends TWidgetAuxData {
 						val colorM = ConfigLoadingHelper.loadColorFromConfig(elem.color, widget)
 						Moddable(() => {
 							val color = colorM.map(_.resolve()).getOrElse(Color.White)
-							RichText(ImageSection(ResourceManager.image(elem.image.str), elem.scale.floatOrElse(1.0f), color))
+							RichText(ImageSection(ResourceManager.image(elem.image.str), RichTextScale.parse(elem.scale), color))
 						})
 					} else if (elem.hasField("horizontalPadding")) {
 						Moddable(RichText(HorizontalPaddingSection(elem.horizontalPadding.int)))
+					} else if (elem.hasField("taxon")) {
+						Moddable(RichText(TaxonSections(elem.taxon.str, settings = RichTextRenderSettings(scale = elem.scale.floatOrElse(1.0f)))))
 					} else {
+						Noto.warn(s"Invalid rich text section ${elem.render}")
 						Moddable(RichText.Empty)
 					}
 				}
@@ -127,13 +130,14 @@ class TextDisplay extends TWidgetAuxData {
 											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
-										richTextSections :+= ImageSection(img, scale, color.resolve())
+										richTextSections :+= ImageSection(img, RichTextScale.Scale(scale), color.resolve())
 									case scaledImage: ScaledImage =>
 										if (strAccum.nonEmpty) {
 											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 											strAccum.clear()
 										}
-										richTextSections :+= ImageSection(scaledImage.image, scaledImage.scale.x * scale, color.resolve())
+										// TODO: Image scaling within nested sections like this is a bit odd
+										richTextSections :+= ImageSection(scaledImage.image, RichTextScale.Scale(scaledImage.scale.x * scale), color.resolve())
 									case richText: RichText =>
 										if (strAccum.nonEmpty) {
 											richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)

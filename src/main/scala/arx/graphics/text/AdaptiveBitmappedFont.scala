@@ -134,23 +134,30 @@ class AdaptiveBitmappedFont(val font: Font, var additionalGlyphSources: List[Gly
 
 		var min = Vec2i(img.width, img.height)
 		var max = Vec2i(0, 0)
-		for ((i, rdata) <- textureBlock.subTextures) {
-			val xs = rdata.location.x
-			val ys = rdata.location.y
+		for ((subImg, rdata) <- textureBlock.subTextures) {
+			val xs = rdata.location.x + textureBlock.borderWidth
+			val ys = rdata.location.y + textureBlock.borderWidth
 			min = min.min(Vec2i(xs, ys))
-			max = max.max(Vec2i(xs + i.width, ys + i.height))
-			for (x <- xs until xs + i.width; y <- ys until ys + i.height) {
+			max = max.max(Vec2i(xs + subImg.width, ys + subImg.height))
+			for (x <- xs until xs + subImg.width; y <- ys until ys + subImg.height) {
 				for (q <- 0 until 4) {
 					img(x, y, q) = textureBlock(x, y, q)
 				}
 			}
 		}
 
-		val nImg = arx.graphics.Image.withDimensions(max.x, max.y)
+//		val nImg = arx.graphics.Image.withDimensions(max.x, max.y)
+//		nImg.setPixelsFromFunc((x, y, q) => {
+//			img(x, y, q)
+//		})
+
+		val nImg = arx.graphics.Image.withDimensions(textureBlock.width, textureBlock.height)
 		nImg.setPixelsFromFunc((x, y, q) => {
-			img(x, y, q)
+			textureBlock(x, y, q)
 		})
-		arx.graphics.Image.save(nImg, "save/caches/font_texture.png")
+
+		arx.graphics.Image.save(img, s"save/caches/${font.getFontName}_${font.getStyle}_texture.png")
+		arx.graphics.Image.save(nImg, "save/caches/full_font_texture.png")
 	}
 
 	def characterTexCoords(c: Char): Array[ReadVec2f] = {

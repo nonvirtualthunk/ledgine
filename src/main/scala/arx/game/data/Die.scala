@@ -35,17 +35,17 @@ object DicePool extends CustomConfigDataLoader[DicePool] {
 	val regex = "([0-9]+)\\s?d\\s?([0-9]+)".r
 
 	override def loadedType: AnyRef = scala.reflect.runtime.universe.typeOf[DicePool]
-	override def loadFrom(config:  ConfigValue): DicePool = {
+	override def loadFrom(config:  ConfigValue): Option[DicePool] = {
 		if (config.isStr) {
 			config.str match {
-				case regex(count, pips) => DicePoolBuilder(count.toInt) d pips.toInt
+				case regex(count, pips) => Some(DicePoolBuilder(count.toInt) d pips.toInt)
 				case other =>
 					Noto.warn(s"Invalid dice pool string: $other")
-					D1
+					None
 			}
 		} else {
 			Noto.warn(s"Unsupported config value for dice pool : $config")
-			D1
+			None
 		}
 	}
 }

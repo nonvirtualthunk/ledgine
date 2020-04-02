@@ -184,12 +184,12 @@ object FieldOperations {
 		override def impact = Impact.Positive
 	}
 
-	case class AppendVector[U](value : U) extends Transformation[Vector[U]] {
+	case class AppendVector[U](value : Vector[U]) extends Transformation[Vector[U]] {
 		override def transform(oldValue: Vector[U]): Vector[U] = {
-			oldValue :+ value
+			oldValue ++ value
 		}
 
-		override def asSimpleString: String = s":+ $value"
+		override def asSimpleString: String = s"++ $value"
 
 		override def impact = Impact.Positive
 	}
@@ -302,7 +302,8 @@ object FieldOperations {
 	}
 
 	implicit class VectorField[C,U](field : Field[C,Vector[U]]) {
-		def append(elem : U) = FieldOperationModifier(field, AppendVector(elem))
+		def append(elem : U) = FieldOperationModifier(field, AppendVector(Vector(elem)))
+		def append(elems : Vector[U]) = FieldOperationModifier(field, AppendVector(elems))
 		def remove(elem : U) = FieldOperationModifier(field, RemoveElementVector(elem))
 
 		def popBack() = FieldOperationModifier(field, new PopBackVector[U])

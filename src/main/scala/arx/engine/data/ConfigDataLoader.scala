@@ -17,8 +17,13 @@ import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 
 trait CustomConfigDataLoader[T] {
-	def loadedType : AnyRef
-	def loadFrom(config : ConfigValue) : T
+	def loadedType: AnyRef
+
+	def loadFrom(config: ConfigValue): Option[T]
+
+	def loadFromOrElse(config: ConfigValue, orElse: T): T = loadFrom(config).getOrElse(orElse)
+
+	def prettyName = this.getClass.getSimpleName.takeWhile(c => c != '$')
 }
 
 object ConfigDataLoader {
@@ -27,8 +32,8 @@ object ConfigDataLoader {
 
 	var supportedSimpleTypes = List(classOf[String], classOf[Integer], classOf[Float], classOf[Double], classOf[Boolean])
 
-	lazy val customConfigLoaders : Map[AnyRef, CustomConfigDataLoader[_]] = {
-		ReflectionAssistant.instancesOfSubtypesOf[CustomConfigDataLoader[_]].map(t => t.loadedType -> t).toMap
+	lazy val customConfigLoaders: Map[AnyRef, List[CustomConfigDataLoader[_]]] = {
+		ReflectionAssistant.instancesOfSubtypesOf[CustomConfigDataLoader[_]].groupBy(t => t.loadedType)
 	}
 
 	private def extractConfigValueFunctionForType(t: Type): Option[ConfigValue => Any] = {
@@ -61,8 +66,20 @@ object ConfigDataLoader {
 		} else if (t == typeOf[Taxon]) {
 			c => Taxonomy(c.str)
 		} else if (customConfigLoaders.contains(t)) {
-			val loader = customConfigLoaders(t)
-			c => loader.loadFrom(c)
+			val loaders = customConfigLoaders(t)
+			c => {
+				var ret: Option[_] = None
+				for (loader <- loaders if ret.isEmpty) {
+					ret = loader.loadFrom(c)
+				}
+				ret match {
+					case Some(value) =>
+						value
+					case None =>
+						Noto.warn(s"Custom config loaders ${loaders.map(_.prettyName)} could not load from config: $c")
+						null
+				}
+			}
 		} else {
 			null
 		})
@@ -121,15 +138,6 @@ object ConfigDataLoader {
 							} else if (getter.returnType.typeSymbol == typeOf[Vector[Any]].typeSymbol) {
 								val vectorType = getter.returnType.typeArgs.head
 
-								val subTypeOperations = computeOperationsForType(vectorType.typeSymbol.asClass)
-								val tmp = (data: AnyRef, config: ConfigValue) => {
-									val subConf = config.field(fieldName)
-									val subObj = ReflectionAssistant.invoke(data, getter)().asInstanceOf[AnyRef]
-									if (subConf.isObj) {
-										subTypeOperations.foreach(op => op(subObj, subConf))
-									}
-								}
-
 								extractConfigValueFunctionForType(vectorType) match {
 									case Some(f) =>
 										(data: AnyRef, config: ConfigValue) => {
@@ -146,6 +154,27 @@ object ConfigDataLoader {
 										}: Unit
 									case None =>
 										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of vector ${getter.name} : ${getter.returnType} in ${sType.name}")
+										null
+								}
+							} else if (getter.returnType.typeSymbol == typeOf[Set[Any]].typeSymbol) {
+								val setType = getter.returnType.typeArgs.head
+
+								extractConfigValueFunctionForType(setType) match {
+									case Some(f) =>
+										(data: AnyRef, config: ConfigValue) => {
+											val subConf = config.field(fieldName)
+											if (subConf.isArr) {
+												var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Set[Any]].take(0)
+												subConf.arr.foreach(v => {
+													res += f(v)
+												})
+												ReflectionAssistant.invoke(data, setter)(res)
+											} else if (subConf.nonEmpty) {
+												ReflectionAssistant.invoke(data, setter)(Set(f(subConf)))
+											}
+										}: Unit
+									case None =>
+										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of set ${getter.name} : ${getter.returnType} in ${sType.name}")
 										null
 								}
 							} else if (getter.returnType.typeSymbol == typeOf[Map[Any, Any]].typeSymbol) {
@@ -208,7 +237,7 @@ object ConfigDataLoader {
 										val curValue = ReflectionAssistant.invoke(data, getter)().asInstanceOf[ConfigLoadable]
 										curValue.loadFromConfig(subField)
 									}
-								} : Unit
+								}: Unit
 							} else if (getter.returnType.typeSymbol.isClass && getter.returnType.typeSymbol.asClass.isCaseClass) {
 								val subTypeOperations = computeOperationsForType(getter.returnType.typeSymbol.asClass)
 								(data: AnyRef, config: ConfigValue) => {
@@ -237,10 +266,19 @@ object ConfigDataLoader {
 		ops.foreach(op => op.apply(aux, config))
 	}
 
+	def loadFrom[T](config : ConfigValue)(implicit tag: TypeTag[T]) : Option[T] = {
+		extractConfigValueFunctionForType(tag.tpe).map(f => f(config).asInstanceOf[T]) match {
+			case s@ Some(_) => s
+			case None =>
+				Noto.warn(s"Could not load value of type $tag from config $config")
+				None
+		}
+	}
+
 }
 
 trait ConfigLoadable {
-	final def loadFromConfig(config : ConfigValue): this.type = {
+	final def loadFromConfig(config: ConfigValue): this.type = {
 		if (config.nonEmpty) {
 			if (autoLoadSimpleValuesFromConfig) {
 				ConfigDataLoader.loadSimpleValuesFromConfig(this, config)
@@ -249,14 +287,15 @@ trait ConfigLoadable {
 		}
 		this
 	}
-	def customLoadFromConfig(config : ConfigValue) : Unit = {}
-	def autoLoadSimpleValuesFromConfig : Boolean = true
+
+	def customLoadFromConfig(config: ConfigValue): Unit = {}
+
+	def autoLoadSimpleValuesFromConfig: Boolean = true
 }
 
 object ConfigLoadLogging extends TLoggingLevelProvider {
-	var loggingLevel : Int = Noto.Info
+	var loggingLevel: Int = Noto.Info
 }
-
 
 
 //object Tmp {

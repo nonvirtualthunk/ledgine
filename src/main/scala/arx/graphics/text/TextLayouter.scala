@@ -6,16 +6,17 @@ import java.awt.geom.AffineTransform
 
 import arx.application.Noto
 import arx.core.math.Rectf
-import arx.core.vec.{ReadVec2f, Vec2f}
-import arx.graphics.helpers.{EnsureHorizontalSpaceSection, HorizontalPaddingSection, ImageSection, LineBreakSection, RichText, TextSection}
+import arx.core.vec.{ReadVec2f, Vec2f, Vec2i}
+import arx.graphics.helpers.{EnsureHorizontalSpaceSection, HorizontalPaddingSection, ImageSection, LineBreakSection, RichText, RichTextScale, TextSection}
 import arx.Prelude._
 import arx.engine.EngineCore
+import arx.graphics.helpers.RichTextModifier.Bold
 import arx.graphics.text.VerticalTextAlignment.{Bottom, Top}
 
 import scala.collection.mutable.ArrayBuffer
 
-class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float) {
-	protected[text] val fm = font.fontMetrics
+class TextLayouter protected[text](val baseFont : TBitmappedFont, val scale : Float) {
+//	protected[text] val fm = font.fontMetrics
 	protected[text] var spacingMultiple = 1.0f
 	protected[text] var minSpacing = 0.0f
 
@@ -28,14 +29,12 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		this
 	}
 
-	def lineHeight: Float = fm.lineHeight * scale
-	def spaceSize: Float = fm.spaceSize * scale
-	def tabSize: Float = spaceSize * 3
-	def descent: Float = fm.maxDescent * scale
+	def lineHeight(font : TBitmappedFont): Float = font.fontMetrics.lineHeight * scale
+	def spaceSize(font : TBitmappedFont): Float = font.fontMetrics.spaceSize * scale
+	def tabSize(font : TBitmappedFont): Float = spaceSize(font) * 3
+	def descent(font : TBitmappedFont): Float = font.fontMetrics.maxDescent * scale
 
 	def layoutText (text : RichText, area : Rectf, horizontalAlignment : HorizontalTextAlignment = HorizontalTextAlignment.Left, verticalAlignment : VerticalTextAlignment = Bottom) : TextLayoutResult = {
-		val fm = font.fontMetrics
-
 		var x = 0.0f
 		var y = 0.0f
 		var maxX = 0.0f
@@ -49,8 +48,8 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		var rects: Vector[Rectf] = Vector()
 		val lineRectStartIndices : ArrayBuffer[Int] = ArrayBuffer(0)
 
-		def jumpToNextLine(): Unit = {
-			y += lineHeight.max(maxSpacingThisLine)
+		def jumpToNextLine(font : TBitmappedFont): Unit = {
+			y += lineHeight(font).max(maxSpacingThisLine)
 			x = 0.0f
 			maxNonWSX = 0.0f
 			wsX = 0.0f
@@ -59,9 +58,9 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 			lineRectStartIndices.append(rects.length)
 		}
 
-		def jumpIfNecessary(w : Float): Unit = {
+		def jumpIfNecessary(font : TBitmappedFont, w : Float): Unit = {
 			if (x + w >= area.w && x > area.x + 0.00001f) {
-				jumpToNextLine()
+				jumpToNextLine(font)
 			}
 		}
 
@@ -73,22 +72,22 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 			}
 		}
 
-		def renderWord(word: String) {
+		def renderWord(word: String, sectionScale : Float, font : TBitmappedFont) {
 			if (word.nonEmpty) {
-				val frc = new FontRenderContext(AffineTransform.getScaleInstance(scale * EngineCore.pixelScaleFactor, scale * EngineCore.pixelScaleFactor), !font.pixelFont, !font.pixelFont)
+				val frc = new FontRenderContext(AffineTransform.getScaleInstance(scale * EngineCore.pixelScaleFactor * sectionScale, scale * EngineCore.pixelScaleFactor * sectionScale), !font.pixelFont, !font.pixelFont)
 
 				val glyphVector = font.font.layoutGlyphVector(frc, word.toCharArray, 0, word.length, Font.LAYOUT_LEFT_TO_RIGHT)
 				val wordWidth = glyphVector.getGlyphPixelBounds(glyphVector.getNumGlyphs - 1, frc, 0, 0).x.toFloat +
-					font.characterWidthPixels(word(glyphVector.getNumGlyphs - 1)) * scale
+					font.characterWidthPixels(word(glyphVector.getNumGlyphs - 1)) * scale * sectionScale
 
-				jumpIfNecessary(wordWidth)
+				jumpIfNecessary(font, wordWidth)
 
 				for (i <- 0 until glyphVector.getNumGlyphs) {
 					val glyphRect = glyphVector.getGlyphPixelBounds(i, frc, 0, 0)
 					if (x == area.x && glyphRect.getX < 0.0) {
 						x += -glyphRect.getX.toFloat
 					}
-					addRect(Rectf(area.x + x + glyphRect.getX.toFloat, area.y + y, font.characterWidthPixels(word(i)) * scale, font.characterHeightPixels(word(i)) * scale), false)
+					addRect(Rectf(area.x + x + glyphRect.getX.toFloat, area.y + y, font.characterWidthPixels(word(i)) * scale * sectionScale, font.characterHeightPixels(word(i)) * scale * sectionScale), false)
 				}
 
 				x += wordWidth
@@ -98,27 +97,34 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		}
 
 		for (section <- text.sections) {
+			val boldFont = baseFont.boldFont.getOrElse(baseFont)
+
 			val pre = rects.size
 			section match {
-				case TextSection(text, _, _, _) =>
+				case TextSection(text, _, _, modifiers, sectionScale) =>
+					val effFont = if (modifiers.contains(Bold)) {
+						boldFont
+					} else {
+						baseFont
+					}
 					val words = text.split(TextLayouter.whitespaceArray)
 					var i = 0
 
-					def advanceThroughWitespace(): Unit = {
+					def advanceThroughWitespace(font : TBitmappedFont): Unit = {
 						while (i < text.length && TextLayouter.whitespaceSet.contains(text(i))) {
 							text(i) match {
 								case ' ' =>
-									val sw = spaceSize * spacingMultiple
-									addRect(Rectf(area.x + wsX,area.y + y, sw, lineHeight), true)
+									val sw = spaceSize(font) * spacingMultiple * sectionScale
+									addRect(Rectf(area.x + wsX,area.y + y, sw, lineHeight(font)), true)
 									wsX += sw
 									x = x.max(wsX)
 								case '\n' => {
-									jumpToNextLine()
-									addRect(Rectf(area.x + x,area.y + y, 0.0f, lineHeight), true)
+									jumpToNextLine(font)
+									addRect(Rectf(area.x + x,area.y + y, 0.0f, lineHeight(font)), true)
 								}
 								case '\t' =>
-									val tw = tabSize * spacingMultiple
-									addRect(Rectf(area.x + wsX,area.y + y, tw, lineHeight), true)
+									val tw = tabSize(font) * spacingMultiple * sectionScale
+									addRect(Rectf(area.x + wsX,area.y + y, tw, lineHeight(font)), true)
 									wsX += tw
 									x = x.max(wsX)
 								case _ => Noto.error("AAAAH")
@@ -128,22 +134,47 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 						}
 					}
 
-					advanceThroughWitespace()
+					advanceThroughWitespace(effFont)
 					for (word <- words) {
 						if (!word.isEmpty) {
-							renderWord(word)
+							renderWord(word, sectionScale, effFont)
 							i += word.length
 						}
-						advanceThroughWitespace()
+						advanceThroughWitespace(effFont)
 					}
 				case ImageSection(layers, imgScale) =>
-					val width = layers.imax(l => l.image.width) * imgScale * scale
-					val height = layers.imax(l => l.image.height) * imgScale * scale
+					val baseW = layers.imax(l => l.image.width)
+					val baseH = layers.imax(l => l.image.height)
+
+					val dims = imgScale match {
+						case RichTextScale.Scale(factor) =>
+							Vec2i((baseW * scale * factor).toInt, (baseH * scale * factor).toInt)
+						case RichTextScale.ScaleTo(target, integerScale) =>
+							val maxWH = baseW max baseH
+							val rawFract = (target.toFloat * scale) / maxWH.toFloat
+							val fract = if (integerScale) {
+								rawFract.floor
+							} else {
+								rawFract
+							}
+							Vec2i((baseW * fract).toInt, (baseH * fract).toInt)
+						case RichTextScale.ScaleToText(integerScale) =>
+							val targetY = lineHeight(baseFont) * 0.8
+							val rawFract = targetY.toFloat / baseH.toFloat
+							val fract = if (integerScale) {
+								rawFract.floor
+							} else {
+								rawFract
+							}
+							Vec2i((baseW * fract).toInt, (baseH * fract).toInt)
+					}
+					val width = dims.x
+					val height = dims.y
 					//If this is the only thing on the line and it's longer than the line, no point skipping down, otherwise
-					jumpIfNecessary(width)
+					jumpIfNecessary(baseFont, width)
 					maxSpacingThisLine = height // ensure that we don't collide with this image on the next line
 
-					addRect(Rectf(area.x + x,(area.y + y + (lineHeight - height) / 2).toInt, width, height), false)
+					addRect(Rectf(area.x + x,(area.y + y + (lineHeight(baseFont) - height) / 2).toInt, width, height), false)
 
 					x += width + minSpacing
 					wsX = x
@@ -155,7 +186,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 				case EnsureHorizontalSpaceSection(width) =>
 					x = x.max(maxNonWSX + width)
 				case LineBreakSection(gap) =>
-					jumpToNextLine()
+					jumpToNextLine(baseFont)
 					y += gap
 
 
@@ -201,7 +232,7 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 		if (verticalAlignment != VerticalTextAlignment.Bottom && rects.nonEmpty) {
 			val minY = rects.head.minY
 			val maxY = rects.last.maxY
-			val totalHeight = (maxY - minY).max(lineHeight)
+			val totalHeight = (maxY - minY).max(lineHeight(baseFont))
 			val adjustedStartY = area.y + (if (verticalAlignment == VerticalTextAlignment.Centered) {
 				(area.h - totalHeight) / 2.0f
 			} else if (verticalAlignment == VerticalTextAlignment.Top) {
@@ -249,8 +280,8 @@ class TextLayouter protected[text](val font : TBitmappedFont, val scale : Float)
 //			adjustLine()
 //		}
 
-		val lastLineHeight = lineHeight //+ descent + 4
-		TextLayoutResult(rects,Vec2f(maxX,maxY + lastLineHeight.max(maxSpacingThisLine)), font, lineHeight)
+		val lastLineHeight = lineHeight(baseFont) //+ descent + 4
+		TextLayoutResult(rects,Vec2f(maxX,maxY + lastLineHeight.max(maxSpacingThisLine)), baseFont, lineHeight(baseFont))
 	}
 }
 

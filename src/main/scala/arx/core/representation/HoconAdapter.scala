@@ -89,6 +89,7 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def asList : List[ConfigValue] = if (isArr) { arr.toList } else { List(this) }
 	def isObj: Boolean
 	def isStr: Boolean
+	def isNumber : Boolean
 	def isArr: Boolean
 	def isRoot : Boolean = false
 	def bool: Boolean
@@ -107,6 +108,9 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def render : String = {
 		renderIntern("")
 	}
+
+
+	override def toString: String = render
 
 	def renderIntern(indentation : String) : String = {
 		if (isArr) {
@@ -192,6 +196,7 @@ object ConfigValue {
 		override def arr: ConfigList = ConfigList.Sentinel
 		override def isObj: Boolean = false
 		override def isStr: Boolean = false
+		override def isNumber : Boolean = false
 		override def isArr: Boolean = false
 		override def bool: Boolean = illegalAccess()
 		override def boolOpt : Option[Boolean] = None
@@ -210,6 +215,8 @@ object ConfigValue {
 		}
 		override def fields : Map[String,ConfigValue] = Map()
 		override def unwrapped = this
+
+		override def toString: String = "{}"
 	}
 }
 
@@ -302,6 +309,7 @@ object Hocon {
 		}
 		def isArr = value.valueType() == ConfigValueType.LIST
 		def isStr = value.valueType() == ConfigValueType.STRING
+		override def isNumber = value.valueType == ConfigValueType.NUMBER
 		def isObj = value.valueType() == ConfigValueType.OBJECT
 		def arr = value match {
 			case c : HoconConfigList => new RichHoconConfigList(c,this)
@@ -428,6 +436,7 @@ object Hocon {
 		override def arr: ConfigList = this
 		override def isObj: Boolean = illegalAccess()
 		override def isStr: Boolean = illegalAccess()
+		override def isNumber: Boolean = illegalAccess()
 		override def isArr: Boolean = illegalAccess()
 		override def bool: Boolean = illegalAccess()
 		override def boolOpt : Option[Boolean] = None
@@ -475,6 +484,7 @@ class StringConfigValue(intern : String) extends ConfigValue {
 	override def arr: ConfigList = illegalAccess()
 	override def isObj: Boolean = false
 	override def isStr: Boolean = true
+	override def isNumber : Boolean = false
 	override def isArr: Boolean = false
 	override def bool: Boolean = intern.toBooleanOpt.getOrElse(illegalAccess())
 	override def boolOpt : Option[Boolean] = intern.toBooleanOpt
