@@ -308,7 +308,6 @@ object FieldOperations {
 
 		def popBack() = FieldOperationModifier(field, new PopBackVector[U])
 		def popFront() = FieldOperationModifier(field, new PopFrontVector[U])
-
 	}
 
 	implicit class MapField[C,K,V](field : Field[C,Map[K,V]]) {
