@@ -31,6 +31,14 @@ trait Transformation[T] {
 
 object FieldOperations {
 
+	case object NoOp extends Transformation[Any] {
+		/** Immutable operation returning a new value based on the old. Must not mutate given value */
+		override def transform(oldValue:  Any): Any = oldValue
+		override def asSimpleString: String = "none"
+		override def impact: Impact = Impact.Neutral
+	}
+	def noop[T] : Transformation[T] = NoOp.asInstanceOf[Transformation[T]]
+
 	case class SetTo[T](value: T) extends Transformation[T] {
 		override def transform(oldValue: T): T = {
 			value
@@ -105,6 +113,20 @@ object FieldOperations {
 	case class ReduceBy[T : Numeric](value: T, limitToZero : Boolean) extends Transformation[Reduceable[T]] {
 		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
 			oldValue.reduceBy(value, limitToZero)
+		}
+
+		override def asSimpleString: String = s"reduce by $value"
+
+		override def impact = implicitly[Numeric[T]].compare(value, implicitly[Numeric[T]].zero) match {
+			case i if i < 0 => Impact.Positive
+			case i if i > 0 => Impact.Negative
+			case i if i == 0 => Impact.Neutral
+		}
+	}
+
+	case class IncreaseBy[T : Numeric](value: T, limitToBaseValue : Boolean) extends Transformation[Reduceable[T]] {
+		override def transform(oldValue: Reduceable[T]): Reduceable[T] = {
+			oldValue.reduceBy(value, limitToBaseValue)
 		}
 
 		override def asSimpleString: String = s"reduce by $value"
@@ -328,6 +350,19 @@ object FieldOperations {
 
 	implicit class ReduceableField[C, T : Numeric](field: Field[C, Reduceable[T]]) {
 		def reduceBy(value: T) = FieldOperationModifier(field, ReduceBy(value, limitToZero = true))
+
+		def changeBy(value: T, limitToZero : Boolean, limitToBaseValue : Boolean) = {
+			val NUM = implicitly[Numeric[T]]
+			if (NUM.gt(value, NUM.zero)) {
+				increaseBy(value, limitToBaseValue)
+			} else if (NUM.lt(value, NUM.zero)) {
+				reduceBy(NUM.negate(value), limitToZero)
+			} else {
+				FieldOperationModifier(field, FieldOperations.noop)
+			}
+		}
+
+		def increaseBy(value: T, limitToBaseValue : Boolean) = FieldOperationModifier(field, IncreaseBy(value, limitToBaseValue))
 
 		def reduceBy(value: T, limitToZero : Boolean) = FieldOperationModifier(field, ReduceBy(value, limitToZero))
 

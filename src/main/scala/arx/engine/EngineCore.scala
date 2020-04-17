@@ -53,7 +53,6 @@ abstract class EngineCore {
 
 	var clearColor = Vec4f(0.0f,0.0f,0.0f,1.0f)
 
-
 	def run(): Unit = {
 		println("GLFW Version: " + GLFW.glfwGetVersionString());
 		System.setProperty("java.awt.headless", "true")

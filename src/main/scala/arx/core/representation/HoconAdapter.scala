@@ -76,6 +76,7 @@ trait ConfigValue extends TSentinelable with Dynamic with THasConfigParent {
 	def boolOrElse(orElse: Boolean): Boolean
 	def floatOrElse(f: Float): Float
 	def strOrElse(s: String): String
+	def strOpt: Option[String]
 	def intOrElse(i: Int): Int
 	def v2OrElse(v: ReadVec2f): ReadVec2f
 	def v3OrElse(v: ReadVec3f): ReadVec3f
@@ -185,6 +186,7 @@ object ConfigValue {
 		override def boolOrElse(orElse: Boolean): Boolean = orElse
 		override def floatOrElse(f: Float): Float = f
 		override def strOrElse(s: String): String = s
+		override def strOpt(): Option[String] = None
 		override def intOrElse(i: Int): Int = i
 		override def v2OrElse(v: ReadVec2f): ReadVec2f = v
 		override def v3OrElse(v: ReadVec3f): ReadVec3f = v
@@ -359,6 +361,7 @@ object Hocon {
 		def v2OrElse ( v : ReadVec2f ) = v2
 		def intOrElse ( i : Int ) = int
 		def strOrElse ( s : String ) = str
+		def strOpt(): Option[String] = Some(str)
 		def floatOrElse ( f : Float ) = float
 		def boolOrElse ( orElse : Boolean ) = bool
 		def intOrElse ( i : Moddable[Int] ) : Moddable[Int] = Moddable(int)
@@ -425,6 +428,7 @@ object Hocon {
 		override def boolOrElse(orElse: Boolean): Boolean = orElse
 		override def floatOrElse(f: Float): Float = f
 		override def strOrElse(s: String): String = s
+		override def strOpt: Option[String] = None
 		override def intOrElse(i: Int): Int = i
 		override def v2OrElse(v: ReadVec2f): ReadVec2f = v
 		override def v3OrElse(v: ReadVec3f): ReadVec3f = v
@@ -474,6 +478,7 @@ class StringConfigValue(intern : String) extends ConfigValue {
 	override def boolOrElse(orElse: Boolean): Boolean = intern.toBooleanOpt.getOrElse(orElse)
 	override def floatOrElse(f: Float): Float = intern.toFloatOpt.getOrElse(f)
 	override def strOrElse(s: String): String = intern
+	override def strOpt: Option[String] = Some(intern)
 	override def intOrElse(i: Int): Int = intern.toIntOpt.getOrElse(i)
 	override def v2OrElse(v: ReadVec2f): ReadVec2f = v
 	override def v3OrElse(v: ReadVec3f): ReadVec3f = v

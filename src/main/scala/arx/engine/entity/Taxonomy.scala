@@ -24,8 +24,8 @@ object Taxonomy {
 	protected def createTaxon(name: String, namespace: String, parents: Taxon*): Taxon = createTaxonL(name, namespace, parents.toList)
 
 	protected def createTaxonL(name: String, namespace: String, parents: List[Taxon]): Taxon = {
-		val stdName = standardizeStr(name)
-		val t = taxonsByNameAndNamespace.getOrElse(name -> namespace, Taxon(stdName, standardizeStr(namespace), parents))
+		val stdName = standardizeTaxonString(name)
+		val t = taxonsByNameAndNamespace.getOrElse(name -> namespace, Taxon(stdName, standardizeTaxonString(namespace), parents))
 		if (t.parents != parents) {
 			Noto.error(s"Two taxons with identical name.namespace have different parents: $name, $namespace")
 		}
@@ -34,14 +34,14 @@ object Taxonomy {
 		t
 	}
 
-	protected def standardizeStr(str: String) = str.fromCamelCase.toLowerCase
+	def standardizeTaxonString(str: String) = str.fromCamelCase.toLowerCase
 
-	def getByName(name: String): Option[Taxon] = taxonsByName.get(standardizeStr(name)).flatMap(_.headOption)
+	def getByName(name: String): Option[Taxon] = taxonsByName.get(standardizeTaxonString(name)).flatMap(_.headOption)
 
 	/**
 	 * Retrieves a taxon with the given name, starting looking from the provided namespace and working backwards until a taxon is found (currently jumps straight to checking base namespace)
 	 */
-	def getByName(name: String, namespace: String): Option[Taxon] = taxonsByNameAndNamespace.get(standardizeStr(name) -> standardizeStr(namespace)).orElse(taxonsByNameAndNamespace.get(standardizeStr(name), ""))
+	def getByName(name: String, namespace: String): Option[Taxon] = taxonsByNameAndNamespace.get(standardizeTaxonString(name) -> standardizeTaxonString(namespace)).orElse(taxonsByNameAndNamespace.get(standardizeTaxonString(name), ""))
 
 	def apply(name : String) : Taxon = byNameExpr(name)
 	def apply(name: String, namespace: String): Taxon = taxon(name, namespace)
@@ -88,7 +88,7 @@ object Taxonomy {
 					val newNamespace = if (namespace.isEmpty) {
 						name
 					} else {
-						namespace + "." + standardizeStr(name)
+						namespace + "." + standardizeTaxonString(name)
 					}
 					loadFromObj(value, newNamespace)
 				} else {
@@ -104,7 +104,7 @@ object Taxonomy {
 					//					}
 					//					parents.foreach(p => if (p._2.isEmpty) { Noto.warn(s"could not resolve parent taxon : ${p._1}")})
 					//					createTaxonL(name.fromCamelCase.toLowerCase, parents.flatMap(_._2).toList)
-					taxonParentPairs += (standardizeStr(name), standardizeStr(namespace)) -> parents.map(standardizeStr)
+					taxonParentPairs += (standardizeTaxonString(name), standardizeTaxonString(namespace)) -> parents.map(standardizeTaxonString)
 				}
 			}
 		}

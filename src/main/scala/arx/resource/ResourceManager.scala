@@ -99,7 +99,7 @@ object ResourceManager {
 					image.lastModified match {
 						case Some(lastModified) =>
 							val imgFile = ResourceManager.file(path)
-							if ( imgFile.lastModified() > lastModified ) {
+							if (imgFile.lastModified() > lastModified) {
 								toRemove ::= key
 							}
 						case None =>

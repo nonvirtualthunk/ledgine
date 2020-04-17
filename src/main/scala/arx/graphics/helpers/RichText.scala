@@ -35,6 +35,7 @@ sealed abstract class RichTextSection {
 	def modifiersAtIndex(i : Int) : Vector[RichTextModifier] = Vector()
 	def merge (s : RichTextSection) : Option[RichTextSection] = None
 	def isEmpty : Boolean = symbolCount == 0
+	def +(richText : RichText) : RichText = RichText(this +: richText.sections)
 }
 case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None, modifiers : Vector[RichTextModifier] = Vector(), scale : Float = 1.0f) extends RichTextSection {
 	val scaleValue = RichTextScale.Scale(scale)
@@ -90,7 +91,7 @@ object TaxonSections {
 			return EnsureHorizontalSpaceSection(8) :: mainSections :: EnsureHorizontalSpaceSection(8) :: Nil
 		}
 		import arx.Prelude._
-		List(TextSection(" " + taxon.name.fromCamelCase.capitalizeAll + " ", modifiers = Vector(Bold), scale = settings.scale))
+		EnsureHorizontalSpaceSection(8) :: TextSection(taxon.name.fromCamelCase.capitalizeAll, color = Moddable(RGBA(0.2f,0.2f,0.2f,1.0f)) , scale = settings.scale) :: EnsureHorizontalSpaceSection(8) :: Nil
 	}
 }
 object ImageSection {
@@ -160,6 +161,7 @@ case class RichText (sections : Seq[RichTextSection]) {
 		getFromIndex(target, (s,i) => s.colorAtIndex(i))
 	}
 	def isEmpty = sections.forall(_.isEmpty)
+	def nonEmpty = !isEmpty
 
 	def append(text : String) = RichText(sections :+ TextSection(text))
 	def append(section : RichTextSection) = RichText(sections :+ section)

@@ -59,10 +59,10 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 	}
 
 	def effectiveTextFor(tw : Widget, td : TextDisplay) = {
-		td.text append TextSection(tw.dataOpt[TextInputData] match {
-			case Some(_) if tw.hasFocus => "|"
-			case _ => ""
-		}, Moddable(RGBA(0.4f,0.4f,0.4f,1.0f)))
+		tw.dataOpt[TextInputData] match {
+			case Some(_) if tw.hasFocus => td.text append TextSection("|", Moddable(RGBA(0.4f,0.4f,0.4f,1.0f)))
+			case _ => td.text.resolve()
+		}
 	}
 
 	override def render(widget: Widget, beforeChildren: Boolean, bounds: Recti): Seq[WQuad] = {

@@ -16,6 +16,14 @@ case class Reduceable[T : Numeric](baseValue : T,reducedBy : T) {
 		}
 		new Reduceable(baseValue, newReducedBy)
 	}
+
+	def increaseBy(n : T, limitToBaseValue : Boolean) = {
+		var newReducedBy = NUM.minus(reducedBy, n)
+		if (limitToBaseValue) {
+			newReducedBy = NUM.min(newReducedBy, NUM.zero)
+		}
+		new Reduceable(baseValue, newReducedBy)
+	}
 	def reduceTo(n : T) = {
 		new Reduceable(baseValue, NUM.minus(baseValue, n))
 	}

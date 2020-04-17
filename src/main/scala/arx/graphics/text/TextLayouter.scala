@@ -68,7 +68,7 @@ class TextLayouter protected[text](val baseFont : TBitmappedFont, val scale : Fl
 			rects :+= rect
 			minRectY = minRectY.min(rect.y)
 			if (!ws) {
-				maxNonWSX = rect.maxX
+				maxNonWSX = rect.maxX - area.x
 			}
 		}
 
@@ -162,7 +162,7 @@ class TextLayouter protected[text](val baseFont : TBitmappedFont, val scale : Fl
 							val targetY = lineHeight(baseFont) * 0.8
 							val rawFract = targetY.toFloat / baseH.toFloat
 							val fract = if (integerScale) {
-								rawFract.floor
+								rawFract.floor.max(1)
 							} else {
 								rawFract
 							}
@@ -184,7 +184,10 @@ class TextLayouter protected[text](val baseFont : TBitmappedFont, val scale : Fl
 					wsX = x
 					maxX = math.max(maxX,x)
 				case EnsureHorizontalSpaceSection(width) =>
-					x = x.max(maxNonWSX + width)
+					// only shift over if there is something other than whitespace to our left
+					if (maxNonWSX > 0.0f) {
+						x = x.max(maxNonWSX + width)
+					}
 				case LineBreakSection(gap) =>
 					jumpToNextLine(baseFont)
 					y += gap

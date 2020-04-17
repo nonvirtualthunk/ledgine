@@ -345,8 +345,8 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				Some((widget.parent.drawing.clientDim(axis) * proportion).round)
 			case DimensionExpression.Relative(delta) =>
 				Some(widget.parent.drawing.clientDim(axis) + delta)
-			//			case DimensionExpression.ExpandToParent =>
-			//				Some( widget.parent.drawing.clientDim(axis) - widget.drawing.relativePosition)
+			case DimensionExpression.ExpandToParent =>
+				Some( widget.parent.drawing.clientDim(axis) - widget.drawing.relativePosition(axis))
 			case ExpandTo(sibling) =>
 				Some(sibling.drawing.relativePosition(axis) - widget.drawing.relativePosition(axis))
 			case _ => None

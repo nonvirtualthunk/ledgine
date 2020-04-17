@@ -167,12 +167,12 @@ class TextDisplay extends TWidgetAuxData {
 					}
 				}
 				if (strAccum.nonEmpty) {
-					richTextSections :+= TextSection(strAccum.toString(), color)
+					richTextSections :+= TextSection(strAccum.toString(), color, scale = scale)
 				}
 				RichText(richTextSections)
 			})
 		} else {
-			Moddable(() => RichText(TextSection(text, color)))
+			Moddable(() => RichText(TextSection(text, color, scale = scale)))
 		}
 	}
 }

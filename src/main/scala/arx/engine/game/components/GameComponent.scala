@@ -4,7 +4,7 @@ import arx.core.units.UnitOfTime
 import arx.engine.event.{DeferredInitializationEventBusListener, DeferredInitializationEventBusSender, GameEvent}
 import arx.engine.game.GameEngine
 import arx.engine.traits.EngineComponent
-import arx.engine.world.EventState.Ended
+import arx.engine.world.EventState.{Ended, Started}
 import arx.engine.world.World
 
 abstract class GameComponent extends EngineComponent[GameEngine] {
@@ -22,6 +22,12 @@ abstract class GameComponent extends EngineComponent[GameEngine] {
 	def onGameEventEnd(listener: PartialFunction[GameEvent,_]): Unit = {
 		gameEvents.onEvent(0) {
 			case ge : GameEvent if ge.state == Ended && listener.isDefinedAt(ge) => listener(ge)
+		}
+	}
+
+	def onGameEventStart(listener: PartialFunction[GameEvent,_]): Unit = {
+		gameEvents.onEvent(0) {
+			case ge : GameEvent if ge.state == Started && listener.isDefinedAt(ge) => listener(ge)
 		}
 	}
 
