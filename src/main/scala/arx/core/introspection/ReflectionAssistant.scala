@@ -7,7 +7,7 @@ package arx.core.introspection
   * Time: 10:42 AM
   */
 
-import java.lang.reflect
+
 import java.lang.reflect.Modifier
 import java.net.{URL, URLClassLoader}
 import java.util.concurrent.atomic.AtomicBoolean
@@ -299,14 +299,14 @@ object ReflectionAssistant {
 	} catch {
 		case e: Exception => false
 	}
-	def getterForField(field : reflect.Field)= {
+	def getterForField(field : java.lang.reflect.Field)= {
 		try {
 			Some(field.getDeclaringClass.getMethod(field.getName))
 		} catch {
 			case _: NoSuchMethodError => None
 		}
 	}
-	def setterForField(field : reflect.Field) = {
+	def setterForField(field : java.lang.reflect.Field) = {
 		try {
 			Some(field.getDeclaringClass.getMethod(field.getName + "_$eq", field.getType))
 		} catch {
@@ -317,7 +317,7 @@ object ReflectionAssistant {
 	def getFieldValue(obj: Any, field: String): Any = {
 		obj.getClass.getMethod(field).invoke(obj)
 	}
-	def getFieldValue(obj: Any, field : reflect.Field) : Any = {
+	def getFieldValue(obj: Any, field : java.lang.reflect.Field) : Any = {
 		getFieldValue(obj, field.getName)
 	}
 	def setFieldValue[T <: AnyRef : Manifest](obj: AnyRef, field: String, value: T) {
@@ -334,6 +334,9 @@ object ReflectionAssistant {
 
 	def toScalaType(clazz : Class[_]) : ClassSymbol = {
 		mirror.staticClass(clazz.getCanonicalName)
+	}
+	def toJavaClass(tpe : Type) : Class[_] = {
+		mirror.runtimeClass(tpe)
 	}
 
 	def reflectMethod[T](inst : T, methodSymbol : MethodSymbol)(implicit classTag : ClassTag[T]) = mirror.reflect(inst).reflectMethod(methodSymbol)

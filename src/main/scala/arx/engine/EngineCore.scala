@@ -307,9 +307,9 @@ abstract class EngineCore {
 
 			val curTime = GLFW.glfwGetTime()
 			val deltaSeconds = curTime - lastLoop
-			if (deltaSeconds < 0.01) {
+			if (deltaSeconds < 0.016) {
 				earlyCounter.inc()
-				LockSupport.parkNanos(100000L)
+				LockSupport.parkNanos(50000L)
 			} else {
 				notEarlyCounter.inc()
 				if (hasFocus && !fullPause && doesNeedDraw) {

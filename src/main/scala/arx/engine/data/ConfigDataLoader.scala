@@ -80,7 +80,15 @@ object ConfigDataLoader {
 						null
 				}
 			}
-		} else {
+		} else if (t.<:<(typeOf[ConfigLoadable])) {
+      val clazz = ReflectionAssistant.toJavaClass(t)
+      clazz.getConstructors.find(_.getParameterCount == 0) match {
+        case Some(_) =>
+          c => ReflectionAssistant.instantiate(clazz).asInstanceOf[ConfigLoadable].loadFromConfig(c)
+        case None =>
+          null
+      }
+    } else {
 			null
 		})
 	}
@@ -270,8 +278,8 @@ object ConfigDataLoader {
 		extractConfigValueFunctionForType(tag.tpe).map(f => f(config).asInstanceOf[T]) match {
 			case s@ Some(_) => s
 			case None =>
-				Noto.warn(s"Could not load value of type $tag from config $config")
-				None
+        Noto.warn(s"Could not load value of type $tag from config $config")
+        None
 		}
 	}
 

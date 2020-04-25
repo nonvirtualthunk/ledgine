@@ -158,8 +158,8 @@ class TextLayouter protected[text](val baseFont : TBitmappedFont, val scale : Fl
 								rawFract
 							}
 							Vec2i((baseW * fract).toInt, (baseH * fract).toInt)
-						case RichTextScale.ScaleToText(integerScale) =>
-							val targetY = lineHeight(baseFont) * 0.8
+						case RichTextScale.ScaleToText(integerScale, multiplier) =>
+							val targetY = lineHeight(baseFont) * 0.8 * multiplier
 							val rawFract = targetY.toFloat / baseH.toFloat
 							val fract = if (integerScale) {
 								rawFract.floor.max(1)

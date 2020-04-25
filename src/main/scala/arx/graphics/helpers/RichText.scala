@@ -36,6 +36,9 @@ sealed abstract class RichTextSection {
 	def merge (s : RichTextSection) : Option[RichTextSection] = None
 	def isEmpty : Boolean = symbolCount == 0
 	def +(richText : RichText) : RichText = RichText(this +: richText.sections)
+
+	def withColor(color : Moddable[Color]) : RichTextSection
+	def applyTint(tint : Moddable[Color]) : RichTextSection
 }
 case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.Black), backgroundColor : Option[Color] = None, modifiers : Vector[RichTextModifier] = Vector(), scale : Float = 1.0f) extends RichTextSection {
 	val scaleValue = RichTextScale.Scale(scale)
@@ -49,26 +52,47 @@ case class TextSection(text : String, color : Moddable[Color] = Moddable(Color.B
 		case _ => None
 	}
 	override def modifiersAtIndex(i: Int): Vector[RichTextModifier] = modifiers
+
+	override def withColor(color: Moddable[Color]) = this.copy(color = color)
+	override def applyTint(tint : Moddable[Color]) : RichTextSection = {
+		val oldColor = color
+		this.withColor(Moddable(() => (oldColor.resolve().asRGBA + tint.resolve().asRGBA) * 0.5f))
+	}
 }
 case class HorizontalPaddingSection(width : Int) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = " "
 	override def symbolCount: Int = 0
 	override def colorAtIndex(i: Int): Color = Color.White
 	override def scaleAtIndex(i: Int): RichTextScale = RichTextScale.Default
+
+	override def withColor(color: Moddable[Color]) = this
+	override def applyTint(tint : Moddable[Color]) : RichTextSection = this
 }
 case class EnsureHorizontalSpaceSection(width : Int) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = " "
 	override def symbolCount: Int = 0
 	override def colorAtIndex(i: Int): Color = Color.White
 	override def scaleAtIndex(i: Int): RichTextScale = RichTextScale.Default
+
+	override def withColor(color: Moddable[Color]) = this
+	override def applyTint(tint : Moddable[Color]) : RichTextSection = this
 }
 case class LineBreakSection(gap : Int) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = " "
 	override def symbolCount: Int = 0
 	override def colorAtIndex(i: Int): Color = Color.White
 	override def scaleAtIndex(i: Int): RichTextScale = RichTextScale.Default
+
+	override def withColor(color: Moddable[Color]) = this
+	override def applyTint(tint : Moddable[Color]) : RichTextSection = this
 }
-case class ImageSectionLayer(image : TToImage, color : Color = Color.White)
+case class ImageSectionLayer(image : TToImage, color : Moddable[Color] = Moddable(Color.White)) {
+	def withColor(color : Moddable[Color]) = this.copy(color = color)
+	def withTint(tint : Moddable[Color]) = {
+		val oldColor = color
+		withColor(Moddable(() => (oldColor.resolve().asRGBA + tint.resolve().asRGBA) * 0.5f))
+	}
+}
 case class ImageSection(layers : List[ImageSectionLayer], scale : RichTextScale) extends RichTextSection {
 	override def symbolAtIndex(i: Int): Any = i match {
 		case 0 => layers
@@ -77,6 +101,9 @@ case class ImageSection(layers : List[ImageSectionLayer], scale : RichTextScale)
 	override def symbolCount: Int = 1
 	override def colorAtIndex(i: Int): Color = layers.head.color
 	override def scaleAtIndex(i : Int) : RichTextScale = scale
+
+	override def withColor(color: Moddable[Color]) = this.copy(layers = layers.map(_.copy(color = color)))
+	override def applyTint(tint : Moddable[Color]) : RichTextSection = this.copy(layers = layers.map(l => l.copy(color = Moddable(() => l.color.resolve().asRGBA * tint.resolve().asRGBA))))
 }
 object TaxonSections {
 	lazy val spriteLibraries = ReflectionAssistant.instancesOfSubtypesOf[SpriteProvider]
@@ -86,7 +113,7 @@ object TaxonSections {
 	}
 	def apply(taxon: Taxon, settings: RichTextRenderSettings): List[RichTextSection] = {
 		for (lib <- spriteLibraries; sprite <- lib.getSpriteDefinitionFor(taxon)) {
-			val mainSections = ImageSection(sprite.icon, RichTextScale.ScaleToText(true), Color.White)
+			val mainSections = ImageSection(sprite.icon, RichTextScale.ScaleToText(true, settings.scale), Color.White)
 
 			return EnsureHorizontalSpaceSection(8) :: mainSections :: EnsureHorizontalSpaceSection(8) :: Nil
 		}
@@ -95,10 +122,10 @@ object TaxonSections {
 	}
 }
 object ImageSection {
-	def apply(image : TToImage, scale : RichTextScale, color : Color) : ImageSection = ImageSection(ImageSectionLayer(image, color) :: Nil, scale)
+	def apply(image : TToImage, scale : RichTextScale, color : Color) : ImageSection = ImageSection(ImageSectionLayer(image, Moddable(color)) :: Nil, scale)
 	def scaledTo(image : TToImage, scaleTo : Int, color : Color) : ImageSection = {
 		val img = image.image
-		ImageSection(List(ImageSectionLayer(img, color)), RichTextScale.ScaleTo(scaleTo, integerScale = true))
+		ImageSection(List(ImageSectionLayer(img, Moddable(color))), RichTextScale.ScaleTo(scaleTo, integerScale = true))
 	}
 }
 
@@ -111,7 +138,7 @@ sealed trait RichTextScale
 object RichTextScale {
 	case class Scale(factor : Float) extends RichTextScale
 	case class ScaleTo(target : Int, integerScale : Boolean) extends RichTextScale
-	case class ScaleToText(integerScale : Boolean) extends RichTextScale
+	case class ScaleToText(integerScale : Boolean, multiplier : Float) extends RichTextScale
 
 	val Default : RichTextScale = Scale(1.0f)
 
@@ -127,7 +154,7 @@ object RichTextScale {
 		} else if (conf.isStr) {
 			conf.str match {
 				case scaleToRegex(target) => ScaleTo(target.toInt, true)
-				case scaleToText => ScaleToText(true)
+				case scaleToText => ScaleToText(true, 1.0f)
 				case _ =>
 					Noto.warn(s"Invalid RichTextScale: $conf")
 					RichTextScale.Default
@@ -199,10 +226,11 @@ object RichText {
 		RichText(sections)
 	}
 
+	def apply() = RichText.Empty
 	def apply(section : RichTextSection) = new RichText(section :: Nil)
 	implicit def fromSingleSection (section : RichTextSection) = RichText(section)
 	implicit def apply (str : String) : RichText = RichText(List(TextSection(str)))
-	val Empty = RichText(Nil)
+	val Empty : RichText = new RichText(Nil)
 }
 
 trait THasRichTextRepresentation {

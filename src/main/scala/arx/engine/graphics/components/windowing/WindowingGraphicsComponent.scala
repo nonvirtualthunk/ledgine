@@ -110,7 +110,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)
 				anyChanged = true
 			}
-			anyChanged ||= checkForWidgetChanges(WD.desktop)
+			if(checkForWidgetChanges(WD.desktop)) {
+				anyChanged = true
+			}
+
 
 			if (anyChanged) {
 				updateRevision.incrementAndGet()
@@ -385,7 +388,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 					relativeTo.drawing.relativePosition
 				} else {
 					Noto.error("Temporarily disabled positioning relative to widget that does not share parent")
-					???
+					relativeTo.drawing.relativePosition
 //					relativeTo.drawing.absolutePosition - widget.parent.drawing.absolutePosition - Vec3i(widget.parent.drawing.clientOffset,0)
 				}
 

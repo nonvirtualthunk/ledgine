@@ -15,7 +15,7 @@ object DynamicWidgetComponent extends WindowingSystemComponent {
 				// TODO: This could be more efficient
 				println("remaking children")
 				dyn.lastChildren.foreach(_.destroy())
-				val newChildren = newChildrenData.map(d => dyn.dynWidgetFunctions.createChildFromData(widget, d))
+				val newChildren = newChildrenData.flatMap(d => dyn.dynWidgetFunctions.createChildrenFromData(widget, d))
 				dyn.dynWidgetFunctions.arrangeChildren(widget, newChildren)
 				dyn.lastChildren = newChildren
 				dyn.forceRecomputation = false

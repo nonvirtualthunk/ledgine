@@ -59,7 +59,9 @@ trait TEventUser {
 
 
 		for (successor <- successors ; if event.notConsumed) {
-			processed ||= successor.resolve().handleEvent(event)
+			if (successor.resolve().handleEvent(event)) {
+				processed = true
+			}
 		}
 
 		TEventUser.popEvent(event)
