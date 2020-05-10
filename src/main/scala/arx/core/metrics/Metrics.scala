@@ -13,12 +13,14 @@ import java.util.concurrent.{Callable, TimeUnit}
 import arx.Prelude._
 import arx.core.units.UnitOfTime
 import com.codahale.metrics.{ConsoleReporter, Counter, Gauge, Histogram, Meter, MetricRegistry, Timer}
+import overlock.atomicmap.AtomicMap
 
 
 object Metrics extends MetricRegistry {
 	val registry = this
 
 	private var checkpoints = List[(String, UnitOfTime)]()
+	private var transactions = AtomicMap.atomicNBHM[String, Transaction]
 
 	def stateGauge[T](name : String,initialState : T) = {
 		val tmp = new StateGauge[T](initialState)
@@ -39,7 +41,10 @@ object Metrics extends MetricRegistry {
 
 		def set (s : T) { state = s }
 	}
-	
+
+	def richTimer(name : String) : RichTimer = new RichTimer(Metrics.timer(name))
+
+	def transaction(name : String) = transactions.getOrElseUpdate(name, new Transaction(name))
 	
 	def prettyPrint (): Unit = {
 		val reporter = ConsoleReporter.forRegistry(registry)
@@ -47,6 +52,10 @@ object Metrics extends MetricRegistry {
 			.convertDurationsTo(TimeUnit.MILLISECONDS)
 			.build()
 		reporter.report(registry.getGauges,registry.getCounters,registry.getHistograms,registry.getMeters,registry.getTimers)
+
+		println("-- Transactions ----------------------------------------------------------------------")
+		transactions.values.foreach(_.prettyPrint())
+
 		println("Checkpoints:")
 		checkpoints.reverse.foreach {
 			case (name, time) => println(s"\t$name : ${time.inSeconds}s")

@@ -17,25 +17,8 @@ import arx.core.units.UnitOfTime
 
 
 object Executor {
-	protected case class ExecutorThreadFactory(name : String) extends ThreadFactory {
-		val s = System.getSecurityManager
-		val threadGroup = s match {
-			case null => Thread.currentThread().getThreadGroup
-			case _ => s.getThreadGroup
-		}
-		val threadNumber = new AtomicInteger(0)
-		val namePrefix = s"$name-thread-"
-
-		override def newThread(r: Runnable): Thread = {
-			val t = new Thread(threadGroup, r, namePrefix + threadNumber.incrementAndGet(), 0)
-			if (!t.isDaemon) {t.setDaemon(true)}
-			if (t.getPriority != Thread.NORM_PRIORITY) {t.setPriority(Thread.NORM_PRIORITY)}
-			t
-		}
-	}
-
-	val threadpool = Executors.newCachedThreadPool(ExecutorThreadFactory("ArxExecutorAsync"))
-	val scheduledThreadpool = Executors.newSingleThreadScheduledExecutor(ExecutorThreadFactory("ArxExecutorScheduled"))
+	val threadpool = Executors.newCachedThreadPool(NamedThreadFactory("ArxExecutorAsync"))
+	val scheduledThreadpool = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory("ArxExecutorScheduled"))
 	private val exited = new AtomicBoolean(false)
 
 	def submitAsync[T](func : () => T) = {

@@ -81,7 +81,7 @@ class EyeCamera(var eye : ReadVec3f = Vec3f(0,0,-1), var baseForward : ReadVec3f
 		super.look();
 	}
 
-	def update (dt: UnitOfTime) {
+	def update(): Unit {
 //		manualUpdate()
 	}
 

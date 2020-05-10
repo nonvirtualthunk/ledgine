@@ -7,7 +7,7 @@ import org.scalatest.FunSuite
 
 class WidgetTest extends FunSuite {
 	val world = new World
-	val windowingSystem = new WindowingSystem(world, _ => {})
+	val windowingSystem = new WindowingSystem(world, _ => {}, _ => {})
 
 	test("binding resolution - basic case") {
 		val w = windowingSystem.createWidget()

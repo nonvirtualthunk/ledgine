@@ -90,7 +90,7 @@ case class ImageSectionLayer(image : TToImage, color : Moddable[Color] = Moddabl
 	def withColor(color : Moddable[Color]) = this.copy(color = color)
 	def withTint(tint : Moddable[Color]) = {
 		val oldColor = color
-		withColor(Moddable(() => (oldColor.resolve().asRGBA + tint.resolve().asRGBA) * 0.5f))
+		withColor(Moddable(() => (oldColor.resolve().asRGBA * tint.resolve().asRGBA)))
 	}
 }
 case class ImageSection(layers : List[ImageSectionLayer], scale : RichTextScale) extends RichTextSection {

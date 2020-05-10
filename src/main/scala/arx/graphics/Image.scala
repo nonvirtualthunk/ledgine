@@ -40,7 +40,7 @@ class Image extends TSentinelable with Externalizable {
 
 	var revision = 0
 
-	def dimensions = Vec2i(width,height)
+	def dimensions : ReadVec2i = Vec2i(width,height)
 
 	override def writeExternal(p1: ObjectOutput): Unit = {
 		if (data != null) {

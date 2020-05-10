@@ -5,15 +5,18 @@ import arx.engine.control.components.windowing.{Widget, WindowingSystem}
 
 object DynamicWidgetComponent extends WindowingSystemComponent {
 	val recomputingDynamicWidgetMeter = Metrics.meter("DynamicWidgetComponent.recreate-children")
+	val childDataTimer = Metrics.richTimer("DynamicWidgetComponent.computeChildrenData")
 	override def updateWidget(windowingSystem: WindowingSystem, widget: Widget): Unit = {
 		for (dyn <- widget.dataOpt[DynamicWidgetData]) {
-			val newChildrenData = dyn.dynWidgetFunctions.computeChildrenData(widget)
+			val newChildrenData = childDataTimer.timeStmt {
+				dyn.dynWidgetFunctions.computeChildrenData(widget)
+			}
 			if (newChildrenData != dyn.lastChildrenData || dyn.forceRecomputation) {
 				dyn.lastChildrenData = newChildrenData
 
 				recomputingDynamicWidgetMeter.mark()
 				// TODO: This could be more efficient
-				println("remaking children")
+//				println("remaking children")
 				dyn.lastChildren.foreach(_.destroy())
 				val newChildren = newChildrenData.flatMap(d => dyn.dynWidgetFunctions.createChildrenFromData(widget, d))
 				dyn.dynWidgetFunctions.arrangeChildren(widget, newChildren)

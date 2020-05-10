@@ -202,6 +202,8 @@ class RGBA(ra:Float, ga:Float, ba:Float, aa:Float) extends ReadVec4f(ra,ga,ba,aa
 object RGBA {
 	def apply(r:Float,g:Float,b:Float,a:Float) = new RGBA(r,g,b,a)
 	def apply(rgba : ReadVec4f) = new RGBA(rgba.r, rgba.g, rgba.b, rgba.a)
+
+	val White = RGBA(1,1,1,1)
 }
 
 class RGB(ra:Float, ga:Float, ba:Float) extends ReadVec3f(ra,ga,ba) with Color {

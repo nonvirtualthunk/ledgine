@@ -22,6 +22,11 @@ class HypotheticalWorld(root : World, rootView : WorldView) extends World {
 
 	root.coreView.dataStores.foreach(r => registerClass(r._1.asInstanceOf[Class[_ <: TAuxData]]))
 
+	def clear(): Unit = {
+		coreView.dataStores.foreach(_._2.clear())
+		currentView.asInstanceOf[HypotheticalWorldView].clear()
+	}
+
 	override protected def initializeCoreView(): WorldView = {
 		new HypotheticalWorldView(root.coreView, this)
 	}
@@ -86,6 +91,12 @@ class HypotheticalWorldView(val root : WorldView, world : HypotheticalWorld) ext
 	def isHypotheticallyModified(clazz : Clazz[_ <: TAuxData]) = modifiedTypes.contains(clazz.runtimeClass)
 	def areAnyHypotheticallyModified(clazz : Clazz[_ <: TAuxData]*) = clazz.exists(c => isHypotheticallyModified(c))
 	def hasHypotheticalModifications = modifiedEntities.nonEmpty
+
+	def clear(): Unit = {
+		modifiedEntities = Set()
+		modifiedTypes = Set()
+		dataStores.values.foreach(_.clear())
+	}
 
 
 	override def entities: Iterable[Entity] = root.entities ++ super.entities

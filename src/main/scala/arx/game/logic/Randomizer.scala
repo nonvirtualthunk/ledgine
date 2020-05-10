@@ -35,6 +35,13 @@ class Randomizer(private val random : Random, val style : RandomizationStyle) {
 		}
 	}
 
+	def nextFloat01() : Float = {
+		style match {
+			case RandomizationStyle.Random => random.nextFloat()
+			case RandomizationStyle.Median => 0.5f
+		}
+	}
+
 	def takeRandom[T](s : Seq[T], n : Int) = {
 		style match {
 			case RandomizationStyle.Random => random.shuffle(s).take(n)

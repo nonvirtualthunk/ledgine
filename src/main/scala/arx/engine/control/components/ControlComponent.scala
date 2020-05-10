@@ -16,12 +16,14 @@ abstract class ControlComponent extends EngineComponent[ControlEngine] {
 	private val controlEvents = new DeferredInitializationEventBusListener[ControlEvent](true)
 
 	private val controlEventSender = new DeferredInitializationEventBusSender[ControlEvent]
+	private val graphicsEventSender = new DeferredInitializationEventBusSender[GraphicsEvent]
 
 	override protected[engine] final def internalOnInitialize(engine: ControlEngine): Unit = {
 		gameEvents.initialize(engine.gameEngine.eventBus)
 		graphicsEvents.initialize(engine.graphicsEngine.eventBus)
 		controlEvents.initialize(engine.eventBus)
 		controlEventSender.initialize(engine.eventBus)
+		graphicsEventSender.initialize(engine.graphicsEngine.eventBus)
 		listeners = List(gameEvents.eventBusListener, graphicsEvents.eventBusListener, controlEvents.eventBusListener)
 	}
 
@@ -49,6 +51,10 @@ abstract class ControlComponent extends EngineComponent[ControlEngine] {
 
 	def fireEvent(event : ControlEvent) : Unit = {
 		controlEventSender.fireEvent(event)
+	}
+
+	def fireGraphicsEvent(event : GraphicsEvent) : Unit = {
+		graphicsEventSender.fireEvent(event)
 	}
 
 	override protected final def onUpdate(controlEngine: ControlEngine, dt: UnitOfTime): Unit = {

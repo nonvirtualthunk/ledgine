@@ -16,20 +16,19 @@ import scala.collection.mutable
 
 object KeyboardMirror {
 
-	case class KeyState(var isDown: AtomicBoolean)
+//	case class KeyState(var isDown: AtomicBoolean)
+//
+//	val dummyKeyState = KeyState(isDown = new AtomicBoolean(false))
 
-	val dummyKeyState = KeyState(isDown = new AtomicBoolean(false))
 
-
-	val keyStates = AtomicMap.atomicNBHM[Int, KeyState]
+	val keyStates = AtomicMap.atomicNBHM[Int, Boolean]
 
 	def setKeyDown(k: Int, isDown: Boolean): Unit = {
-		val ks = keyStates.getOrElseUpdate(k, KeyState(new AtomicBoolean(isDown)))
-		ks.isDown.set(isDown)
+		keyStates.put(k, isDown)
 	}
 
 	def isKeyDown(k: Int) = {
-		keyStates.getOrElse(k, dummyKeyState).isDown.get()
+		keyStates.getOrElse(k, false)
 	}
 
 	def activeModifiers = KeyModifiers(ctrlActive, shiftActive, altActive)

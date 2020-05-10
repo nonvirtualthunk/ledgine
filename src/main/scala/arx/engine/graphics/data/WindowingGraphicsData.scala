@@ -63,7 +63,7 @@ class PixelPOV extends TCamera {
 
 	override def up: ReadVec3f = Vec3f.UnitY
 
-	override def update(dt: UnitOfTime): Unit = {}
+	override def update(): Unit = {}
 
 	override def moveEyeTo(eye: ReadVec3f): Unit = {}
 

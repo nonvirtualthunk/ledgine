@@ -1,7 +1,10 @@
 package arx.engine
 
+import java.util.concurrent.{ExecutorCompletionService, Executors, TimeUnit}
+
 import arx.Prelude
 import arx.application.Noto
+import arx.core.async.{NamedThreadFactory, OnExitRegistry}
 import arx.core.metrics.Metrics
 import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2i}
 import arx.engine.control.ControlEngine
@@ -140,10 +143,32 @@ class Engine extends EngineCore with TEventUser {
 		case e => e
 	}
 
+	val graphicsThread = Executors.newSingleThreadExecutor(NamedThreadFactory("graphics-thread"))
+	val controlThread = Executors.newSingleThreadExecutor(NamedThreadFactory("control-thread"))
+	val gameThread = Executors.newSingleThreadExecutor(NamedThreadFactory("game-thread"))
+
+	OnExitRegistry.register(() => {
+		for (pool <- List(graphicsThread, controlThread, gameThread)){
+			pool.shutdown()
+			if (!pool.awaitTermination(3, TimeUnit.SECONDS)) {
+				pool.shutdownNow()
+			}
+		}
+	})
+
 	override def update(deltaSeconds: Float): Unit = {
-		for (ge <- gameEngine) { ge.update(deltaSeconds) }
-		for (ge <- graphicsEngine) { ge.update(deltaSeconds) }
-		for (ce <- controlEngine) { ce.update(deltaSeconds) }
+		val tasks = List(
+			gameThread.submit((() => for (ge <- gameEngine) { ge.update(deltaSeconds) }) : Runnable),
+			graphicsThread.submit((() => for (ge <- graphicsEngine) { ge.update(deltaSeconds) }) : Runnable),
+			controlThread.submit((() => for (ge <- controlEngine) { ge.update(deltaSeconds) }) : Runnable)
+		)
+
+		tasks.foreach(_.get())
+//		// note, stack overflow
+//		for (future <- tasks) {
+//      future.get()
+//    }
+
 	}
 
 	override def draw(): Unit = {

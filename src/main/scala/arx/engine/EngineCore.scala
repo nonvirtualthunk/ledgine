@@ -22,6 +22,7 @@ import arx.core.vec.{ReadVec2i, Vec2f, Vec2i, Vec4f}
 import arx.engine.control.event.KeyboardMirror
 import arx.engine.control.event.Mouse
 import arx.engine.control.event.MouseButton
+import arx.graphics.pov.{PixelCamera, TCamera}
 import org.lwjgl.BufferUtils
 import org.lwjgl.glfw.GLFW._
 import org.lwjgl.glfw._
@@ -296,6 +297,9 @@ abstract class EngineCore {
 		val earlyCounter = Metrics.counter("EngineCore.update.early")
 		val notEarlyCounter = Metrics.counter("EngineCore.update.not-early")
 		val longUpdateMeter = Metrics.meter("EngineCore.long-update")
+		val updateDuration = Metrics.richTimer("EngineCore.total-update-duration")
+		val drawDuration = Metrics.richTimer("EngineCore.total-draw-duration")
+		val swapDuration = Metrics.richTimer("EngineCore.total-swap-duration")
 
 		// Run the rendering loop until the user has attempted to close
 		// the window or has pressed the ESCAPE key.
@@ -307,9 +311,13 @@ abstract class EngineCore {
 
 			val curTime = GLFW.glfwGetTime()
 			val deltaSeconds = curTime - lastLoop
-			if (deltaSeconds < 0.016) {
+			if (deltaSeconds < 0.0) {
 				earlyCounter.inc()
-				LockSupport.parkNanos(50000L)
+				if (deltaSeconds < 0.008) {
+//					LockSupport.parkNanos(50000L)
+				} else {
+					// loop again
+				}
 			} else {
 				notEarlyCounter.inc()
 				if (hasFocus && !fullPause && doesNeedDraw) {
@@ -330,19 +338,28 @@ abstract class EngineCore {
 
 				if (!fullPause) {
 					val t = GLFW.glfwGetTime()
-					update((t - lastUpdated).toFloat)
+					updateDuration.timeStmt {
+						update((t - lastUpdated).toFloat)
+					}
 					lastUpdated = t
 				}
 
 				if (hasFocus && !fullPause && doesNeedDraw) {
-					draw()
+					drawDuration.timeStmt {
+						draw()
+					}
 
-					glfwSwapBuffers(window) // swap the color buffers
+					swapDuration.timeStmt {
+						glfwSwapBuffers(window) // swap the color buffers
+						TCamera.cameras.foreach(_.update())
+					}
 				}
 
 				// Poll for window events. The key callback above will only be
 				// invoked during this call.
-				glfwPollEvents()
+				swapDuration.timeStmt {
+					glfwPollEvents()
+				}
 				if (!hasFocus || fullPause) {
 					LockSupport.parkNanos((0.1 * 1e9f).toLong) // wait a 10th of a second
 				} else if (!doesNeedDraw) {

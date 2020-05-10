@@ -45,8 +45,6 @@ object WidgetData extends Clazz[WidgetData]("WidgetData", classOf[WidgetData]){
 	fields += "hasFocus" -> hasFocus
 	val markedModified = Field.fromValue(Sentinel.markedModified).createField[WidgetData]("markedModified",f => f.markedModified, (f,markedModified) => f.markedModified = markedModified, WidgetData) 
 	fields += "markedModified" -> markedModified
-	val modificationCriteria = Field.fromValue(Sentinel.modificationCriteria).createField[WidgetData]("modificationCriteria",f => f.modificationCriteria, (f,modificationCriteria) => f.modificationCriteria = modificationCriteria, WidgetData) 
-	fields += "modificationCriteria" -> modificationCriteria
 	val modificationWatchers = Field.fromValue(Sentinel.modificationWatchers).createField[WidgetData]("modificationWatchers",f => f.modificationWatchers, (f,modificationWatchers) => f.modificationWatchers = modificationWatchers, WidgetData) 
 	fields += "modificationWatchers" -> modificationWatchers
 	val eventListeners = Field.fromValue(Sentinel.eventListeners).createField[WidgetData]("eventListeners",f => f.eventListeners, (f,eventListeners) => f.eventListeners = eventListeners, WidgetData) 
@@ -70,7 +68,6 @@ object WidgetData extends Clazz[WidgetData]("WidgetData", classOf[WidgetData]){
 		to.acceptsFocus = from.acceptsFocus
 		to.hasFocus = from.hasFocus
 		to.markedModified = from.markedModified
-		to.modificationCriteria = from.modificationCriteria
 		to.modificationWatchers = from.modificationWatchers
 		to.eventListeners = from.eventListeners
 		to.successors = from.successors

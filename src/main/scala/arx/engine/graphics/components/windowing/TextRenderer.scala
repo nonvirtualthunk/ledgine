@@ -4,9 +4,12 @@ package arx.engine.graphics.components.windowing
   * TODO: Add javadoc
   */
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import arx.Prelude._
 import arx.application.Noto
 import arx.core.math.{Rectf, Recti}
+import arx.core.metrics.Metrics
 import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2f, Vec2i}
 import arx.engine.EngineCore
 import arx.engine.control.components.windowing.Widget
@@ -18,12 +21,16 @@ import arx.graphics
 import arx.graphics.{Axis, Image}
 import arx.graphics.helpers.{ImageSectionLayer, RGBA, RichText, RichTextModifier, TextSection}
 import arx.graphics.text.{HorizontalTextAlignment, TBitmappedFont, TextLayoutResult, TextLayouter, VerticalTextAlignment}
+import overlock.atomicmap.AtomicMap
 
 import scala.collection.mutable
 
 class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
-	val cachedLayout = new mutable.HashMap[(TBitmappedFont, Float, RichText, Rectf), TextLayoutResult]()
+	val cachedLayout = AtomicMap.atomicNBHM[(TBitmappedFont, Float, RichText, Rectf), TextLayoutResult]
+	val cacheSize = new AtomicInteger(0)
 
+	val layoutCacheMisses = Metrics.counter("TextRenderer.layoutCacheMisses")
+	val layoutCounter = Metrics.counter("TextRenderer.layoutRequests")
 
 	def effectiveFontFor(tw : Widget, textDisplay: TextDisplay) = textDisplay.font match {
 		case Some(wrapper) => wrapper.font.apply(WD.textureBlock)
@@ -31,11 +38,13 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 	}
 
 	def layoutFor(tw : Widget, textDisplay: TextDisplay, effFont : TBitmappedFont, text : RichText, area : Rectf) : TextLayoutResult = {
-
+		layoutCounter.inc()
 
 		val ret = cachedLayout.getOrElseUpdate((effFont, textDisplay.effectiveFontScale, text, area), {
+			layoutCacheMisses.inc()
 			val layouter = TextLayouter(effFont, textDisplay.effectiveFontScale)
 			val layout = layouter.layoutText(text, area, textDisplay.textAlignment, textDisplay.verticalTextAlignment)
+			cacheSize.incrementAndGet()
 
 			layout
 		})
@@ -44,8 +53,9 @@ class TextRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(WD) {
 		renderedData.glyphRects = ret.glyphRects
 		renderedData.lineHeight = ret.lineHeight
 
-		if (cachedLayout.size > 100) {
+		if (cacheSize.get() > 1000) {
 			cachedLayout.clear()
+			cacheSize.set(0)
 		}
 
 		ret

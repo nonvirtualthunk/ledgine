@@ -1,8 +1,9 @@
 package arx.engine.simple
 
+import arx.application.Noto
 import arx.core.introspection.CopyAssistant
 import arx.core.vec.coordinates.{AxialVec, CartVec, Hex}
-import arx.core.vec.{ReadVec2f, Vec2f}
+import arx.core.vec.{ReadVec2f, ReadVec2i, Vec2f, Vec2i}
 import arx.graphics.Image
 import arx.graphics.attributeprofiles.HexAttributeProfile
 import arx.graphics.helpers.Color
@@ -33,6 +34,9 @@ class HexQuadBuilder(hexSize : Int, blankTC : Array[ReadVec2f]) extends TQuadBui
 	protected var _layer : DrawLayer = DrawLayer.Terrain
 	protected var _hexOffset : CartVec = CartVec.Zero
 
+	protected var _textureDimensions : ReadVec2i = Vec2i.Zero
+	protected var _drawCentered : Boolean = true
+
 	def copy() = CopyAssistant.copyShallow(this)
 
 
@@ -43,19 +47,32 @@ class HexQuadBuilder(hexSize : Int, blankTC : Array[ReadVec2f]) extends TQuadBui
 	def dimensions(w : Float, h : Float) = { _dimensions = Vec2f(w,h); this }
 	def dimensions(v : ReadVec2f) = { _dimensions = v; this }
 	def color(color : Color) = { _color = color; this }
-	def texture(t : String) = { _texCoords = textureBlock.getOrElseUpdate(ResourceManager.image(t)); this }
-	def texture(t : Image) = { _texCoords = textureBlock.getOrElseUpdate(t); this }
-	def texture(t : String, scale : Int) : this.type = {texture(ResourceManager.image(t), scale)}
+	def texture(t : String) : this.type = { texture(ResourceManager.image(t)) }
+	def texture(t : Image) : this.type = {
+		_texCoords = textureBlock.getOrElseUpdate(t)
+		_textureDimensions = t.dimensions
+		this
+	}
+	def texture(t : String, scale : Int) : this.type = { texture(ResourceManager.image(t), scale) }
 	def texture(t : Image, scale : Int) : this.type = {
+		_textureDimensions = t.dimensions
 		_texCoords = textureBlock.getOrElseUpdate(t)
 		_dimensions = Vec2f(t.width * scale, t.height * scale)
 		this
 	}
+	
+	def centered(truth : Boolean) : this.type = {
+		this._drawCentered = truth
+		this
+	}
+
 	def texCoords(tc : Array[ReadVec2f]) = { _texCoords = tc; this }
 	def textureIndexRotation(tir : Int) = { _textureIndexRotation = tir; this }
 	def position(v : AxialVec) = { _position = v.asCartesian(hexSize); this }
 	def position(v : CartVec) = { _position = v * hexSize; this }
 	def position(v : ReadVec2f) = { _position = v; this }
+//	def position() = _position
+//	def offset() = _position
 	def visionPcnt(p : Float) = { _visionPcnt = p; this }
 	def lightColor(c : Color) = { _lightColor = c; this }
 	def hexBottomOrigin(offsetX : Float = 0.0f, offsetY : Float = 0.0f) = { _hexBottomOrigin = true; _relativeOrigin = Vec2f(0.0f,-1.0f); _hexOffset = CartVec(offsetX, offsetY); this }
@@ -82,22 +99,42 @@ class HexQuadBuilder(hexSize : Int, blankTC : Array[ReadVec2f]) extends TQuadBui
 		val originX = (posX + _forward.x * _dimensions.x * _relativeOrigin.x * -0.5f + _ortho.x  * _dimensions.y * _relativeOrigin.y * -0.5f + _hexOffset.x * hexSize).toInt
 		val originY = (posY + _forward.y * _dimensions.x * _relativeOrigin.x * -0.5f + _ortho.y  * _dimensions.y * _relativeOrigin.y * -0.5f + _hexOffset.y * Hex.heightForSize(hexSize)).toInt
 
-		vbo.setA(HexAttributeProfile.VertexAttribute, vi + 0,
-			((originX + _forward.x * _dimensions.x * -0.5f + _ortho.x * _dimensions.y * -0.5f).toInt / 2) * 2,
-			((originY + _forward.y * _dimensions.x * -0.5f + _ortho.y * _dimensions.y * -0.5f).toInt / 2) * 2,
-			_layer.depth)
-		vbo.setA(HexAttributeProfile.VertexAttribute, vi + 1,
-			((originX + _forward.x * _dimensions.x * +0.5f + _ortho.x * _dimensions.y * -0.5f).toInt / 2) * 2,
-			((originY + _forward.y * _dimensions.x * +0.5f + _ortho.y * _dimensions.y * -0.5f).toInt / 2) * 2,
-			_layer.depth)
-		vbo.setA(HexAttributeProfile.VertexAttribute, vi + 2,
-			((originX + _forward.x * _dimensions.x * +0.5f + _ortho.x * _dimensions.y * +0.5f).toInt / 2) * 2,
-			((originY + _forward.y * _dimensions.x * +0.5f + _ortho.y * _dimensions.y * +0.5f).toInt / 2) * 2,
-			_layer.depth)
-		vbo.setA(HexAttributeProfile.VertexAttribute, vi + 3,
-			((originX + _forward.x * _dimensions.x * -0.5f + _ortho.x * _dimensions.y * +0.5f).toInt / 2) * 2,
-			((originY + _forward.y * _dimensions.x * -0.5f + _ortho.y * _dimensions.y * +0.5f).toInt / 2) * 2,
-			_layer.depth)
+		if (_drawCentered) {
+			// TODO: / 2) * 2 should not be necessary, and we have disabled it for non-centered things
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 0,
+				((originX + _forward.x * _dimensions.x * -0.5f + _ortho.x * _dimensions.y * -0.5f).toInt / 2) * 2,
+				((originY + _forward.y * _dimensions.x * -0.5f + _ortho.y * _dimensions.y * -0.5f).toInt / 2) * 2,
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 1,
+				((originX + _forward.x * _dimensions.x * +0.5f + _ortho.x * _dimensions.y * -0.5f).toInt / 2) * 2,
+				((originY + _forward.y * _dimensions.x * +0.5f + _ortho.y * _dimensions.y * -0.5f).toInt / 2) * 2,
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 2,
+				((originX + _forward.x * _dimensions.x * +0.5f + _ortho.x * _dimensions.y * +0.5f).toInt / 2) * 2,
+				((originY + _forward.y * _dimensions.x * +0.5f + _ortho.y * _dimensions.y * +0.5f).toInt / 2) * 2,
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 3,
+				((originX + _forward.x * _dimensions.x * -0.5f + _ortho.x * _dimensions.y * +0.5f).toInt / 2) * 2,
+				((originY + _forward.y * _dimensions.x * -0.5f + _ortho.y * _dimensions.y * +0.5f).toInt / 2) * 2,
+				_layer.depth)
+		} else {
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 0,
+				((originX + _forward.x * _dimensions.x * 0.0f + _ortho.x * _dimensions.y * 0.0f).toInt),
+				((originY + _forward.y * _dimensions.x * 0.0f + _ortho.y * _dimensions.y * 0.0f).toInt),
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 1,
+				((originX + _forward.x * _dimensions.x * +1.0f + _ortho.x * _dimensions.y * 0.0f).toInt),
+				((originY + _forward.y * _dimensions.x * +1.0f + _ortho.y * _dimensions.y * 0.0f).toInt),
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 2,
+				((originX + _forward.x * _dimensions.x * +1.0f + _ortho.x * _dimensions.y * +1.0f).toInt),
+				((originY + _forward.y * _dimensions.x * +1.0f + _ortho.y * _dimensions.y * +1.0f).toInt),
+				_layer.depth)
+			vbo.setA(HexAttributeProfile.VertexAttribute, vi + 3,
+				((originX + _forward.x * _dimensions.x * 0.0f + _ortho.x * _dimensions.y * +1.0f).toInt),
+				((originY + _forward.y * _dimensions.x * 0.0f + _ortho.y * _dimensions.y * +1.0f).toInt),
+				_layer.depth)
+		}
 		var i = 0
 		while (i < 4) {
 			vbo.setA(HexAttributeProfile.VisionAttribute, vi + i, _visionPcnt)

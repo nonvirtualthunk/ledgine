@@ -70,6 +70,12 @@ class EntityDataStore[T](val clazz : Class[T]) extends TEntityDataStore[T] {
 		hasOverlay = false
 	}
 
+	def clear(): Unit = {
+		values.clear()
+		overlay.clear()
+		hasOverlay = false
+	}
+
 	def getOpt(entity : Entity) : Option[T] = {
 		if (hasOverlay) {
 			overlay.get(entity.id).orElse(values.get(entity.id).map(v => v.data))

@@ -8,6 +8,7 @@ package arx.engine.graphics.components
  */
 
 import arx.core.units.UnitOfTime
+import arx.engine.control.event.ControlEvent
 import arx.engine.event.{DeferredInitializationEventBusListener, Event, GameEvent}
 import arx.engine.graphics.GraphicsEngine
 import arx.engine.graphics.event.GraphicsEvent

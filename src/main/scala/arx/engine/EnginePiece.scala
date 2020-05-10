@@ -73,17 +73,25 @@ abstract class EnginePiece[T <: EnginePiece[T, Component, EventType], Component 
 	}
 
 	def update(deltaSeconds: Float, nSteps : Int = 1): Unit = {
-		if (!initialized) {
-			Noto.severeError("Attempted to update engine piece without initializing first")
-		}
-		if (serial) {
-			for (n <- 0 until nSteps) {
-				components.foreach(c => {
-					Metrics.timer(c.getClass.getSimpleName + ".updateDuration").timeStmt {
-						updateComponent(c,deltaSeconds.seconds)
-					}
-				})
+		try {
+			if (!initialized) {
+				Noto.severeError("Attempted to update engine piece without initializing first")
 			}
+			if (serial) {
+				for (n <- 0 until nSteps) {
+					components.foreach(c => {
+						Metrics.timer(c.getClass.getSimpleName + ".updateDuration").timeStmt {
+							updateComponent(c, deltaSeconds.seconds)
+						}
+					})
+				}
+			}
+		} catch {
+			case soe : StackOverflowError =>
+				println("Stack overflow")
+				for (elem <- soe.getStackTrace) {
+					println(elem.toString)
+				}
 		}
 	}
 

@@ -274,14 +274,16 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 	var acceptsFocus = false
 	var hasFocus = false
+	var acceptsMouseInteraction = true
+
+	var closed = false
 
 	private[windowing] var markedModified = false
-	@NoAutoLoad var modificationCriteria = List[Widget => Boolean]()
 	@NoAutoLoad var modificationWatchers = List[Watcher[_]]()
 
 	var notConfigManaged = false
 
-	def isModified = markedModified || modificationCriteria.exists(criteria => criteria(widget)) || modificationWatchers.exists(w => w.hasChanged)
+	def isModified = markedModified || modificationWatchers.exists(w => w.hasChanged)
 	def markModified() { markedModified = true }
 	def unmarkModified() { markedModified = false }
 
@@ -308,9 +310,11 @@ class WidgetData extends TWidgetAuxData with TEventUser {
 
 	def onClose(): Unit = {
 		parent = new Widget(Entity.Sentinel, widget.windowingSystem)
+		closed = true
 	}
 
 	override def modificationSignature: AnyRef = (position, dimensions, showing.resolve())
+	override def hasModificationSignature : Boolean = true
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (pos <- configValue.fieldOpt("position")) {

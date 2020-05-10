@@ -99,171 +99,177 @@ object ConfigDataLoader {
 	}
 
 	private def computeOperationsForType(sType: ClassSymbol): List[(AnyRef, ConfigValue) => Unit] = {
-		val javaClass = getClass.getClassLoader.loadClass(sType.fullName)
-		val operations: List[(AnyRef, ConfigValue) => Unit] = sType.selfType.members.collect {
-			case setter: MethodSymbol if setter.isSetter =>
-				val getter = setter.getter.asInstanceOf[MethodSymbol]
-				val fieldName = getter.name.toString
+		try {
+			val javaClass = getClass.getClassLoader.loadClass(sType.fullName)
+			val operations: List[(AnyRef, ConfigValue) => Unit] = sType.selfType.members.collect {
+				case setter: MethodSymbol if setter.isSetter =>
+					val getter = setter.getter.asInstanceOf[MethodSymbol]
+					val fieldName = getter.name.toString
 
-				val annotationsByMember = sType.selfType.members.map(s => s -> s.annotations)
+					val annotationsByMember = sType.selfType.members.map(s => s -> s.annotations)
 
-				val constructorParams = sType.asClass.primaryConstructor.typeSignature.paramLists.head
-				val noAutoLoad = constructorParams.find(_.name.toString == fieldName).map(_.annotations.exists(f => f.toString.contains("NoAutoLoad"))).getOrElse(false) ||
-					javaClass.getDeclaredFields.find(f => f.getName.endsWith(fieldName)).exists(f => f.getAnnotation(classOf[NoAutoLoad]) != null)
+					val constructorParams = sType.asClass.primaryConstructor.typeSignature.paramLists.head
+					val noAutoLoad = constructorParams.find(_.name.toString == fieldName).map(_.annotations.exists(f => f.toString.contains("NoAutoLoad"))).getOrElse(false) ||
+						javaClass.getDeclaredFields.find(f => f.getName.endsWith(fieldName)).exists(f => f.getAnnotation(classOf[NoAutoLoad]) != null)
 
-				if (noAutoLoad) {
-					null
-				} else {
-					extractConfigValueFunctionForType(getter.returnType) match {
-						case Some(extractor) => (data: AnyRef, config: ConfigValue) => config.field(fieldName).ifPresent(c => ReflectionAssistant.invoke(data, setter)(extractor(c)))
-						case None => {
-							if (getter.returnType.typeSymbol == typeOf[Moddable[Any]].typeSymbol) {
-								val moddableOf = getter.returnType.typeArgs.head
-								extractConfigValueFunctionForType(moddableOf) match {
-									case Some(extractor) => (data: AnyRef, config: ConfigValue) => config.field(fieldName).ifPresent(c => ReflectionAssistant.invoke(data, setter)(Moddable(extractor(c))))
-									case None => null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[List[Any]].typeSymbol) {
-								val listType = getter.returnType.typeArgs.head
-								extractConfigValueFunctionForType(listType) match {
-									case Some(f) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subConf = config.field(fieldName)
-											if (subConf.isArr) {
-												var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[List[Any]].take(0)
-												subConf.arr.foreach(v => {
-													res ::= f(v)
-												})
-												ReflectionAssistant.invoke(data, setter)(res.reverse)
-											} else if (subConf.nonEmpty) {
-												ReflectionAssistant.invoke(data, setter)(List(f(subConf)))
-											}
-										}: Unit
-									case None =>
-										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of list ${getter.name} : ${getter.returnType} in ${sType.name}")
-										null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[Vector[Any]].typeSymbol) {
-								val vectorType = getter.returnType.typeArgs.head
-
-								extractConfigValueFunctionForType(vectorType) match {
-									case Some(f) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subConf = config.field(fieldName)
-											if (subConf.isArr) {
-												var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Vector[Any]].take(0)
-												subConf.arr.foreach(v => {
-													res :+= f(v)
-												})
-												ReflectionAssistant.invoke(data, setter)(res)
-											} else if (subConf.nonEmpty) {
-												ReflectionAssistant.invoke(data, setter)(Vector(f(subConf)))
-											}
-										}: Unit
-									case None =>
-										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of vector ${getter.name} : ${getter.returnType} in ${sType.name}")
-										null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[Set[Any]].typeSymbol) {
-								val setType = getter.returnType.typeArgs.head
-
-								extractConfigValueFunctionForType(setType) match {
-									case Some(f) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subConf = config.field(fieldName)
-											if (subConf.isArr) {
-												var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Set[Any]].take(0)
-												subConf.arr.foreach(v => {
-													res += f(v)
-												})
-												ReflectionAssistant.invoke(data, setter)(res)
-											} else if (subConf.nonEmpty) {
-												ReflectionAssistant.invoke(data, setter)(Set(f(subConf)))
-											}
-										}: Unit
-									case None =>
-										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of set ${getter.name} : ${getter.returnType} in ${sType.name}")
-										null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[Map[Any, Any]].typeSymbol) {
-								val keyType = getter.returnType.typeArgs(0)
-								val valueType = getter.returnType.typeArgs(1)
-
-								(extractConfigValueFunctionForType(keyType), extractConfigValueFunctionForType(valueType)) match {
-									case (Some(keyFunc), Some(valueFunc)) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subConf = config.field(fieldName)
-											if (subConf.isObj) {
-												var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Map[Any, Any]].take(0)
-												for ((k, v) <- subConf.fields) {
-													val key = keyFunc(new StringConfigValue(k))
-													val value = valueFunc(v)
-													res += key -> value
-												}
-
-												ReflectionAssistant.invoke(data, setter)(res)
-											}
-										}: Unit
-									case _ =>
-										Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for key/value pairs of map ${getter.name} : ${getter.returnType} in ${sType.name}")
-										null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[Reduceable[Any]].typeSymbol) {
-								val reduceableType = getter.returnType.typeArgs.head
-								extractConfigValueFunctionForType(reduceableType) match {
-									case Some(f) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subField = config.field(fieldName)
-											if (subField.nonEmpty) {
-												val base = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Reduceable[Any]]
-												ReflectionAssistant.invoke(data, setter)(base.withBaseValue(f(subField)))
-											}
-										}: Unit
-									case None => null
-								}
-							} else if (getter.returnType.typeSymbol == typeOf[Option[Any]].typeSymbol) {
-								val optionType = getter.returnType.typeArgs.head
-								extractConfigValueFunctionForType(optionType) match {
-									case Some(f) =>
-										(data: AnyRef, config: ConfigValue) => {
-											val subField = config.field(fieldName)
-											if (subField.nonEmpty) {
-												val substr = subField.str
-												if (substr == "none" || substr == "None") {
-													ReflectionAssistant.invoke(data, setter)(None)
-												} else {
-													ReflectionAssistant.invoke(data, setter)(Some(f(subField)))
-												}
-											}
-										}: Unit
-									case None => null
-								}
-							} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
-								(data: AnyRef, config: ConfigValue) => {
-									val subField = config.field(fieldName)
-									if (subField.nonEmpty) {
-										val curValue = ReflectionAssistant.invoke(data, getter)().asInstanceOf[ConfigLoadable]
-										curValue.loadFromConfig(subField)
+					if (noAutoLoad) {
+						null
+					} else {
+						extractConfigValueFunctionForType(getter.returnType) match {
+							case Some(extractor) => (data: AnyRef, config: ConfigValue) => config.field(fieldName).ifPresent(c => ReflectionAssistant.invoke(data, setter)(extractor(c)))
+							case None => {
+								if (getter.returnType.typeSymbol == typeOf[Moddable[Any]].typeSymbol) {
+									val moddableOf = getter.returnType.typeArgs.head
+									extractConfigValueFunctionForType(moddableOf) match {
+										case Some(extractor) => (data: AnyRef, config: ConfigValue) => config.field(fieldName).ifPresent(c => ReflectionAssistant.invoke(data, setter)(Moddable(extractor(c))))
+										case None => null
 									}
-								}: Unit
-							} else if (getter.returnType.typeSymbol.isClass && getter.returnType.typeSymbol.asClass.isCaseClass) {
-								val subTypeOperations = computeOperationsForType(getter.returnType.typeSymbol.asClass)
-								(data: AnyRef, config: ConfigValue) => {
-									val subConf = config.field(fieldName)
-									val subObj = ReflectionAssistant.invoke(data, getter)().asInstanceOf[AnyRef]
-									if (subConf.isObj) {
-										subTypeOperations.foreach(op => op(subObj, subConf))
+								} else if (getter.returnType.typeSymbol == typeOf[List[Any]].typeSymbol) {
+									val listType = getter.returnType.typeArgs.head
+									extractConfigValueFunctionForType(listType) match {
+										case Some(f) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subConf = config.field(fieldName)
+												if (subConf.isArr) {
+													var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[List[Any]].take(0)
+													subConf.arr.foreach(v => {
+														res ::= f(v)
+													})
+													ReflectionAssistant.invoke(data, setter)(res.reverse)
+												} else if (subConf.nonEmpty) {
+													ReflectionAssistant.invoke(data, setter)(List(f(subConf)))
+												}
+											}: Unit
+										case None =>
+											Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of list ${getter.name} : ${getter.returnType} in ${sType.name}")
+											null
 									}
+								} else if (getter.returnType.typeSymbol == typeOf[Vector[Any]].typeSymbol) {
+									val vectorType = getter.returnType.typeArgs.head
+
+									extractConfigValueFunctionForType(vectorType) match {
+										case Some(f) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subConf = config.field(fieldName)
+												if (subConf.isArr) {
+													var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Vector[Any]].take(0)
+													subConf.arr.foreach(v => {
+														res :+= f(v)
+													})
+													ReflectionAssistant.invoke(data, setter)(res)
+												} else if (subConf.nonEmpty) {
+													ReflectionAssistant.invoke(data, setter)(Vector(f(subConf)))
+												}
+											}: Unit
+										case None =>
+											Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of vector ${getter.name} : ${getter.returnType} in ${sType.name}")
+											null
+									}
+								} else if (getter.returnType.typeSymbol == typeOf[Set[Any]].typeSymbol) {
+									val setType = getter.returnType.typeArgs.head
+
+									extractConfigValueFunctionForType(setType) match {
+										case Some(f) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subConf = config.field(fieldName)
+												if (subConf.isArr) {
+													var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Set[Any]].take(0)
+													subConf.arr.foreach(v => {
+														res += f(v)
+													})
+													ReflectionAssistant.invoke(data, setter)(res)
+												} else if (subConf.nonEmpty) {
+													ReflectionAssistant.invoke(data, setter)(Set(f(subConf)))
+												}
+											}: Unit
+										case None =>
+											Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for values of set ${getter.name} : ${getter.returnType} in ${sType.name}")
+											null
+									}
+								} else if (getter.returnType.typeSymbol == typeOf[Map[Any, Any]].typeSymbol) {
+									val keyType = getter.returnType.typeArgs(0)
+									val valueType = getter.returnType.typeArgs(1)
+
+									(extractConfigValueFunctionForType(keyType), extractConfigValueFunctionForType(valueType)) match {
+										case (Some(keyFunc), Some(valueFunc)) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subConf = config.field(fieldName)
+												if (subConf.isObj) {
+													var res = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Map[Any, Any]].take(0)
+													for ((k, v) <- subConf.fields) {
+														val key = keyFunc(new StringConfigValue(k))
+														val value = valueFunc(v)
+														res += key -> value
+													}
+
+													ReflectionAssistant.invoke(data, setter)(res)
+												}
+											}: Unit
+										case _ =>
+											Noto.warn(ConfigLoadLogging, s"Could not find extraction functions for key/value pairs of map ${getter.name} : ${getter.returnType} in ${sType.name}")
+											null
+									}
+								} else if (getter.returnType.typeSymbol == typeOf[Reduceable[Any]].typeSymbol) {
+									val reduceableType = getter.returnType.typeArgs.head
+									extractConfigValueFunctionForType(reduceableType) match {
+										case Some(f) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subField = config.field(fieldName)
+												if (subField.nonEmpty) {
+													val base = ReflectionAssistant.invoke(data, getter)().asInstanceOf[Reduceable[Any]]
+													ReflectionAssistant.invoke(data, setter)(base.withBaseValue(f(subField)))
+												}
+											}: Unit
+										case None => null
+									}
+								} else if (getter.returnType.typeSymbol == typeOf[Option[Any]].typeSymbol) {
+									val optionType = getter.returnType.typeArgs.head
+									extractConfigValueFunctionForType(optionType) match {
+										case Some(f) =>
+											(data: AnyRef, config: ConfigValue) => {
+												val subField = config.field(fieldName)
+												if (subField.nonEmpty) {
+													val substr = subField.str
+													if (substr == "none" || substr == "None") {
+														ReflectionAssistant.invoke(data, setter)(None)
+													} else {
+														ReflectionAssistant.invoke(data, setter)(Some(f(subField)))
+													}
+												}
+											}: Unit
+										case None => null
+									}
+								} else if (getter.returnType <:< typeOf[ConfigLoadable]) {
+									(data: AnyRef, config: ConfigValue) => {
+										val subField = config.field(fieldName)
+										if (subField.nonEmpty) {
+											val curValue = ReflectionAssistant.invoke(data, getter)().asInstanceOf[ConfigLoadable]
+											curValue.loadFromConfig(subField)
+										}
+									}: Unit
+								} else if (getter.returnType.typeSymbol.isClass && getter.returnType.typeSymbol.asClass.isCaseClass) {
+									val subTypeOperations = computeOperationsForType(getter.returnType.typeSymbol.asClass)
+									(data: AnyRef, config: ConfigValue) => {
+										val subConf = config.field(fieldName)
+										val subObj = ReflectionAssistant.invoke(data, getter)().asInstanceOf[AnyRef]
+										if (subConf.isObj) {
+											subTypeOperations.foreach(op => op(subObj, subConf))
+										}
+									}
+								} else {
+									null
 								}
-							} else {
-								null
 							}
 						}
 					}
-				}
-		}.filterNot(_ == null).toList
+			}.filterNot(_ == null).toList
 
-		operations
+			operations
+		} catch {
+			case cnf : ClassNotFoundException =>
+				Noto.error(s"Class not found : $cnf")
+				Nil
+		}
 	}
 
 	/**

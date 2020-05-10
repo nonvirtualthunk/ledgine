@@ -324,6 +324,16 @@ object GL {
  */
 	}
 
+
+	def project (world : ReadVec3f, model : ReadMat4x4,proj : ReadMat4x4,viewport : Recti) = {
+
+		val projected = Vec4f(world.x, world.y, world.z, 1.0f) * model * proj
+		val adjustedByW = Vec3f(projected(0) / projected(3), projected(1) / projected(3), projected(2) / projected(3))
+		val shifted = (adjustedByW + 1.0f) * 0.5f
+		val windowCoords = Vec2f(viewport.x + viewport.width * shifted.x, viewport.y + viewport.height * shifted.y)
+		windowCoords
+	}
+
 	/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		A useful note for future me, the code we worked from apparently does not so much correspond
 		with the way that we do our matrix multiplication. To be honest, none of it makes any sense:

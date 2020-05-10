@@ -60,7 +60,7 @@ object Taxonomy {
 	}
 	def taxon(name: String, namespace: String): Taxon = {
 		getByName(name, namespace).getOrElse {
-			Noto.warn(s"expected to get existing taxon with name $name but none found")
+			Noto.warn(s"expected to get existing taxon with name $name but none found in namespace $namespace")
 			Taxon(name.fromCamelCase.toLowerCase, "", Taxon("unknown thing", ""))
 		}
 	}

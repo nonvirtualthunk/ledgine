@@ -22,10 +22,11 @@ import arx.engine.control.event._
 import arx.engine.entity.Entity
 import arx.engine.event.{Event, EventBus}
 import arx.engine.graphics.data.WindowingGraphicsData
+import arx.engine.graphics.event.GraphicsEvent
 import arx.engine.world.World
 import arx.graphics.GL
 
-class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event, _] => Unit) {
+class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event, _] => Unit, eventOut : ControlEvent => Unit) {
 	val WD = displayWorld.worldData[WindowingControlData]
 	WD.desktop = new Widget(displayWorld.createEntity(), this)
 	WD.desktop.parent = new Widget(Entity.Sentinel, this)
@@ -116,32 +117,39 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 
 
 	def createWidget() = {
-		val w = new Widget(displayWorld.createEntity(), this)
-		w.parent = desktop
-		w
+		desktop.synchronized {
+			val w = new Widget(displayWorld.createEntity(), this)
+			w.parent = desktop
+			w
+		}
 	}
 
 	def createWidget(resourcePath : String, key : String) : Widget = {
-		val prototype = WidgetPrototype.fromConfig(resourcePath, key)
-		val w = prototype.instantiate(this)
-		w.configIdentifier = Some(key)
-		prototype.load(w)
-		w
+		desktop.synchronized {
+			val prototype = WidgetPrototype.fromConfig(resourcePath, key)
+			val w = prototype.instantiate(this)
+			w.configIdentifier = Some(key)
+			prototype.load(w)
+			w
+		}
 	}
 
 	def destroyWidget(widget : Widget) : Unit = {
-		if (widget == WD.desktop) {
-			Noto.error("You can't delete the root Desktop widget")
-		} else {
-			WD.focusedWidget = WD.focusedWidget.filterNot(_ == widget)
-			WD.currentPressedWidget = WD.currentPressedWidget.filterNot(_ == widget)
-			WD.draggingWidget = WD.draggingWidget.filterNot(_ == widget)
-			WD.lastWidgetUnderMouse = WD.lastWidgetUnderMouse.filterNot(_ == widget)
-			WD.modalWidgetStack = WD.modalWidgetStack.filterNot(_.widget == widget)
-			for (child <- widget.children) {
-				destroyWidget(child)
+		desktop.synchronized {
+			if (widget == WD.desktop) {
+				Noto.error("You can't delete the root Desktop widget")
+			} else {
+				WD.focusedWidget = WD.focusedWidget.filterNot(_ == widget)
+				WD.currentPressedWidget = WD.currentPressedWidget.filterNot(_ == widget)
+				WD.draggingWidget = WD.draggingWidget.filterNot(_ == widget)
+				WD.lastWidgetUnderMouse = WD.lastWidgetUnderMouse.filterNot(_ == widget)
+				WD.modalWidgetStack = WD.modalWidgetStack.filterNot(_.widget == widget)
+				for (child <- widget.children) {
+					destroyWidget(child)
+				}
+				displayWorld.destroyEntity(widget.entity)
+				eventOut(WidgetDestroyedEvent(widget))
 			}
-			displayWorld.destroyEntity(widget.entity)
 		}
 	}
 
@@ -196,7 +204,8 @@ class WindowingSystem(val displayWorld : World, onEvent : PartialFunction[Event,
 				}
 			}
 
-			if (apos.x <= clickedPos.x && apos.y <= clickedPos.y &&
+			if ( w.acceptsMouseInteraction &&
+				apos.x <= clickedPos.x && apos.y <= clickedPos.y &&
 				apos.x + adim.x >= clickedPos.x && apos.y + adim.y >= clickedPos.y) {
 				Some(w)
 			} else {

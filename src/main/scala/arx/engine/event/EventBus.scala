@@ -84,7 +84,7 @@ class EventBusListener[T <: Event](val bus : EventBus[T]) extends TSentinelable 
 					if (event == null) {
 						Noto.error(s"Somehow ended up with a null event in a bus listener: $cursor, $lastReadOffset")
 					}
-					toProcess +:= event.asInstanceOf[T]
+					toProcess :+= event.asInstanceOf[T]
 					lastReadOffset = bus.offsets(cursor)
 					cursor = (cursor + 1) & bus.capAND
 				}

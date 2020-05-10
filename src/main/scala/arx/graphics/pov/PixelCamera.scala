@@ -6,8 +6,8 @@ import arx.core.units.UnitOfTime
 import arx.core.vec.{ReadVec3f, Vec2f, Vec2i, Vec3f}
 import arx.graphics.GL
 import org.lwjgl.glfw.GLFW
-
 import arx.Prelude._
+import arx.application.Noto
 import arx.engine.control.event.Keymap
 
 import scala.language.postfixOps
@@ -38,34 +38,45 @@ class PixelCamera(pixelsPerSecond : Int, secondsToFullSpeed : Float) extends TCa
 
 	override def up: ReadVec3f = Vec3f.UnitY
 
-	override def update(dt: UnitOfTime): Unit = {}
+	override def update(): Unit = {
+		manualUpdate()
+	}
 
 	override def look(): Unit = {
-		manualUpdate()
 		super.look()
 	}
 
 	def manualUpdate(): Unit = {
-		val curTime = GLFW.glfwGetTime()
+		val rawTime = (GLFW.glfwGetTime() * 1e6).toInt // microseconds
+		val curTime = (((rawTime / 16666)+1) * 16666).toFloat / 1e6.toFloat
+//		val curTime = rawTime.toFloat / 1e6
+//		val dt = (curTime - lastUpdatedTime).toFloat // in seconds
+//
+//		offset += Vec2f(0.0f,5f * (dt / 0.0166667f))
+//		lastUpdatedTime = curTime
+
+//		val curTime = GLFW.glfwGetTime()
 		val dt = (curTime - lastUpdatedTime).toFloat // in seconds
 
-		offsetTargetVelocity.x = deltaFromMappings(MoveRight, MoveLeft, 1.0f)
-		offsetTargetVelocity.y = deltaFromMappings(MoveUp, MoveDown, 1.0f)
+		if (dt > 0.001f) {
+			offsetTargetVelocity.x = deltaFromMappings(MoveRight, MoveLeft, 1.0f)
+			offsetTargetVelocity.y = deltaFromMappings(MoveUp, MoveDown, 1.0f)
 
-		offset += offsetVelocity * moveSpeedMultiplier * dt
-		for (axis <- 0 until 2) {
-			if (offsetVelocity(axis) != offsetTargetVelocity(axis)) {
-				val targetDv = offsetTargetVelocity(axis) - offsetVelocity(axis)
-				val normTargetDv = signN0(targetDv)
-				val magDv = targetDv.abs
-				if (magDv < offsetAcceleration * dt) {
-					offsetVelocity(axis) = offsetTargetVelocity(axis)
-				} else {
-					offsetVelocity(axis) += normTargetDv * offsetAcceleration * dt
+			offset += offsetVelocity * moveSpeedMultiplier * dt
+			for (axis <- 0 until 2) {
+				if (offsetVelocity(axis) != offsetTargetVelocity(axis)) {
+					val targetDv = offsetTargetVelocity(axis) - offsetVelocity(axis)
+					val normTargetDv = signN0(targetDv)
+					val magDv = targetDv.abs
+					if (magDv < offsetAcceleration * dt) {
+						offsetVelocity(axis) = offsetTargetVelocity(axis)
+					} else {
+						offsetVelocity(axis) += normTargetDv * offsetAcceleration * dt
+					}
 				}
 			}
+			lastUpdatedTime = curTime
 		}
-		lastUpdatedTime = curTime
 	}
 
 	override def moveEyeTo(eye: ReadVec3f): Unit = {
@@ -78,6 +89,8 @@ class PixelCamera(pixelsPerSecond : Int, secondsToFullSpeed : Float) extends TCa
 	}
 
 	override def keymapNamespace: String = PixelCamera.namespace
+
+	TCamera.cameras ::= this
 }
 
 

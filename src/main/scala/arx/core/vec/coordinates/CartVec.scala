@@ -1,6 +1,6 @@
 package arx.core.vec.coordinates
 
-import arx.core.vec.{ReadVec2f, ReadVec3f, Vec2f, Vec3f}
+import arx.core.vec.{ReadVec2f, ReadVec3f, Vec2f, Vec2i, Vec3f}
 
 /**
   * Represents a hex-size agnostic cartesian coordinate
@@ -14,6 +14,7 @@ class CartVec(x_ : Float, y_ : Float) extends Vec2f(x_, y_) {
 	override def *(f : Float) : CartVec = new CartVec(x * f, y * f)
 
 	def asAxialVec = AxialVec.fromCartesian(this)
+	def asPixels(hexSize : Int) = Vec2i(this * hexSize)
 }
 
 

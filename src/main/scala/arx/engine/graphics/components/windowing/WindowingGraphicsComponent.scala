@@ -11,6 +11,7 @@ import arx.application.Noto
 import arx.core.datastructures.{Watcher, Watcher2, Watcher3}
 import arx.core.introspection.ReflectionAssistant
 import arx.core.math.{Rectf, Recti}
+import arx.core.metrics.Metrics
 import arx.core.units.UnitOfTime
 import arx.core.vec._
 import arx.engine.control.components.windowing.Widget
@@ -24,6 +25,7 @@ import arx.engine.graphics.data.WindowingGraphicsData
 import arx.graphics.helpers.{Color, RGBA}
 import arx.graphics.{AVBO, Axis, GL, VBO}
 import arx.engine.graphics.data.WindowingSystemAttributeProfile._
+import arx.engine.graphics.event.WidgetDestroyedGraphicsEvent
 import arx.engine.world.World
 import arx.resource.ResourceManager
 import org.lwjgl.opengl.GL11
@@ -63,6 +65,11 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 		renderers = ReflectionAssistant.allSubTypesOf[WindowingRenderer]
 			.map(c => ReflectionAssistant.instantiate(c, display.worldData[WindowingGraphicsData]))
 			.sortBy(c => c.drawPriority)
+
+		onGraphicsEvent {
+			case WidgetDestroyedGraphicsEvent(widget) =>
+				watchers.remove(widget)
+		}
 	}
 
 	override def draw(game: World, graphics: World): Unit = {
@@ -100,45 +107,69 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	}
 
 
+	val actuallyChangedCounter = Metrics.counter("WindowingGraphicsComponent.anyChangeCount")
+	val notChangedCounter = Metrics.counter("WindowingGraphicsComponent.noChangeCount")
+
+	val updateTxn = Metrics.transaction("WindowingGraphicsComponent.onUpdate")
+
 	override protected def onUpdate(game: World, graphics: World, dt: UnitOfTime, time: UnitOfTime): Unit = {
+		val txn = updateTxn.start()
+
 		val WD = graphics.worldData[WindowingGraphicsData]
 		val vbo = WD.vbo
+
+		txn.timeSegment("windowingSystem.update") {
+			WD.desktop.windowingSystem.update()
+		}
+
 		WD.desktop.synchronized {
 			var anyChanged = false
-			if (viewportWatcher.hasChanged) {
-				WD.desktop.width = DimensionExpression.Constant(GL.viewport.width)
-				WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)
-				anyChanged = true
-			}
-			if(checkForWidgetChanges(WD.desktop)) {
-				anyChanged = true
+			txn.timeSegment("check for changes") {
+				if (viewportWatcher.hasChanged) {
+					WD.desktop.width = DimensionExpression.Constant(GL.viewport.width)
+					WD.desktop.height = DimensionExpression.Constant(GL.viewport.height)
+					anyChanged = true
+				}
+				if (checkForWidgetChanges(WD.desktop)) {
+					anyChanged = true
+				}
 			}
 
 
 			if (anyChanged) {
-				updateRevision.incrementAndGet()
-				if (!vbo.changeState(AVBO.Updated, AVBO.Dirty) && !vbo.changeState(AVBO.Clean, AVBO.Dirty)) {
-					Noto.info(s"Could not change to dirty on update, currently is : ${vbo.state.get()}")
+				txn.timeSegment("update resolved widget variables") {
+					actuallyChangedCounter.inc()
+					updateRevision.incrementAndGet()
+					if (!vbo.changeState(AVBO.Updated, AVBO.Dirty) && !vbo.changeState(AVBO.Clean, AVBO.Dirty)) {
+						Noto.info(s"Could not change to dirty on update, currently is : ${vbo.state.get()}")
+					}
+
+					for (axis <- Axis.XYZ) {
+						updateResolvedWidgetVariablesForAxis(WD.desktop, axis, Set(), new mutable.HashSet())
+					}
 				}
 
-				for (axis <- Axis.XYZ) {
-					updateResolvedWidgetVariablesForAxis(WD.desktop, axis, Set(), new mutable.HashSet())
+				txn.timeSegment("precompute mositions, unmark") {
+					precomputeAbsolutePosition(WD.desktop)
+					unmarkAllModified(WD.desktop)
 				}
 
-				precomputeAbsolutePosition(WD.desktop)
-				unmarkAllModified(WD.desktop)
-			}
+				txn.timeSegment("update vbo") {
+					if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
+						vbo.softClear()
 
-			if (vbo.changeState(AVBO.Dirty, AVBO.Updating)) {
-				vbo.softClear()
-
-				customVBOs = Nil
-				updateWindowingDrawData(WD, WD.desktop, Recti(0, 0, GL.viewport.w, GL.viewport.h))
-				vbo.state.set(VBO.Updated)
-				needsRedraw = true
+						customVBOs = Nil
+						updateWindowingDrawData(WD, WD.desktop, Recti(0, 0, GL.viewport.w, GL.viewport.h), RGBA(1, 1, 1, 1))
+						vbo.state.set(VBO.Updated)
+						needsRedraw = true
+					}
+				}
+			} else {
+				notChangedCounter.inc()
 			}
 		}
 
+		txn.end()
 	}
 
 	def unmarkAllModified(w : Widget): Unit = {
@@ -152,9 +183,10 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 	var windowDrawRecurseDepth = 0
 	var colors = List(Color.Red, Color.Green, Color.Blue, Color(128,255,128,255), Color(255,128,255,255), Color(255,255,128,255), Color(128,128,128,255), Color(128, 128, 255, 255), Color(255, 128, 128), Color(255,0,255,255))
 
-	def updateWindowingDrawData(WD : WindowingGraphicsData, w: Widget, bounds: Recti): Unit = {
+	def updateWindowingDrawData(WD : WindowingGraphicsData, w: Widget, bounds: Recti, tintIn : RGBA): Unit = {
 		val vbo = WD.vbo
 		val textureBlock = WD.textureBlock
+		val tint = tintIn * w.drawing.tintColor.resolve().getOrElse(RGBA.White)
 
 		if (!w.showing) {
 			return
@@ -189,7 +221,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 				if (quad.rotation != 0) {
 					val toff = 3 + quad.rotation / 90
 					for (q <- 0 until 4) {
-						vbo.setA(C, vi + q, quad.color.asRGBA)
+						vbo.setA(C, vi + q, quad.color.asRGBA * tint)
 						if (tcs((q + toff) % 4) == null) {
 							println("BAD")
 						}
@@ -212,13 +244,13 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 							tcy = minTC.y + (maxTC.y - tcy)
 						}
 
-						vbo.setA(C, vi + q, quad.color.asRGBA)
+						vbo.setA(C, vi + q, quad.color.asRGBA * tint)
 						vbo.setA(TC, vi + q, tcx, tcy)
 						vbo.setA(B, vi + q, bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h)
 					}
 				} else {
 					for (q <- 0 until 4) {
-						vbo.setA(C, vi + q, quad.color.asRGBA)
+						vbo.setA(C, vi + q, quad.color.asRGBA * tint)
 						vbo.setA(TC, vi + q, tcs((q + 3) % 4))
 						vbo.setA(B, vi + q, bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h)
 					}
@@ -254,7 +286,7 @@ class WindowingGraphicsComponent extends GraphicsComponent {
 //		}
 
 		for (child <- w.children.sortBy(_.drawing.absolutePosition.z)) {
-			updateWindowingDrawData(WD, child, newBounds)
+			updateWindowingDrawData(WD, child, newBounds, tint)
 		}
 
 		selfArea.x = 0

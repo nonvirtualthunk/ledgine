@@ -18,7 +18,11 @@ class GraphicsEngine(val gameEngine : GameEngine, universe : Universe, val displ
 
 	def draw(): Unit = {
 		components = components.sortBy(_.drawPriority)
-		components.foreach(_.draw(this))
+		components.foreach(c => {
+			Metrics.richTimer(c.getClass.getSimpleName + ".drawDuration").timeStmt {
+				c.draw(this)
+			}
+		})
 
 		if (first) {
 			Metrics.checkpoint("first frame drawn")

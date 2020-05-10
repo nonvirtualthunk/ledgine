@@ -40,6 +40,7 @@ class ImageDisplay extends TWidgetAuxData {
 	}
 
 	override def modificationSignature: AnyRef = (image.resolve(), color.resolve(), positionStyle, scalingStyle)
+	override def hasModificationSignature : Boolean = true
 }
 
 

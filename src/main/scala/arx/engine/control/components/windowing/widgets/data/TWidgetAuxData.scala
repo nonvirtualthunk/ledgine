@@ -22,6 +22,7 @@ trait TWidgetAuxData extends TMutableAuxData {
 	def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {}
 
 	def modificationSignature : AnyRef = None
+	def hasModificationSignature : Boolean = false
 }
 
 class DragAndDropData extends TWidgetAuxData {
@@ -74,6 +75,7 @@ class OverlayData extends TWidgetAuxData {
 	override def modificationSignature: AnyRef = overlays.map {
 		case (k,v) => k -> v.drawOverlay.resolve()
 	}
+	override def hasModificationSignature : Boolean = true
 }
 
 class DrawingData extends TWidgetAuxData {
@@ -86,6 +88,9 @@ class DrawingData extends TWidgetAuxData {
 	var backgroundColor = Moddable(Color.White)
 	@NoAutoLoad
 	var edgeColor = Moddable(Color.White)
+	@NoAutoLoad
+	var tintColor : Moddable[Option[Color]] = Moddable(None)
+
 	var drawCenterBackground = true
 	// note, these won't necessarily take effect if changed
 	var interiorPadding : ReadVec2i = Vec2i.Zero
@@ -101,7 +106,8 @@ class DrawingData extends TWidgetAuxData {
 	def clientDim = effectiveClientArea.dimensions
 	def clientOffset: ReadVec2i = effectiveClientArea.position
 
-	override def modificationSignature: AnyRef = (backgroundColor.resolve())
+	override def modificationSignature: AnyRef = (backgroundColor.resolve(), tintColor.resolve())
+	override def hasModificationSignature : Boolean = true
 
 	override def loadFromConfig(widget: Widget, configValue: ConfigValue, reload: Boolean): Unit = {
 		for (bcv <- configValue.fieldOpt("background")) {
@@ -119,6 +125,9 @@ class DrawingData extends TWidgetAuxData {
 		}
 		for (ec <- ConfigLoadingHelper.loadColorFromConfig(configValue.edgeColor, widget)) {
 			edgeColor = ec
+		}
+		for (tc <- ConfigLoadingHelper.loadColorFromConfig(configValue.tintColor, widget)) {
+			tintColor = Moddable(() => Some(tc.resolve()))
 		}
 
 		for (overlayConf <- configValue.fieldOpt("overlays")) {

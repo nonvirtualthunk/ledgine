@@ -160,7 +160,7 @@ class BackgroundRenderer(WD : WindowingGraphicsData) extends WindowingRenderer(W
 			if (edgesActive(2) && edgesActive(3)) {
 				ret ::= WQuad(Rectf(bounds.x + ww - cornerWidth,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = true, flipY = true, 0, cornerTR)
 			}
-			if (edgesActive(3) && edgesActive(1)) {
+			if (edgesActive(3) && edgesActive(0)) {
 				ret ::= WQuad(Rectf(bounds.x,bounds.y + wh - cornerHeight,cornerWidth,cornerHeight), img, edgeColor, flipX = false, flipY = true, 0, cornerTR)
 			}
 

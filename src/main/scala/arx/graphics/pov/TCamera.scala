@@ -14,7 +14,7 @@ import arx.core.math.Recti
 import arx.core.traits.TSentinel
 import arx.core.traits.TSentinelable
 import arx.core.units.UnitOfTime
-import arx.core.vec.{ReadVec2f, ReadVec3f, Vec3f, Vec4f}
+import arx.core.vec.{ReadVec2f, ReadVec3f, Vec2f, Vec3f, Vec4f}
 import arx.engine.EngineCore
 import arx.engine.control.event.Keymap
 import arx.engine.event.TEventUser
@@ -42,7 +42,7 @@ trait TCamera extends TEventUser with TSentinelable {
 
 	var fovy = 50.0f
 
-	def update(dt: UnitOfTime)
+	def update(): Unit
 
 	def moveEyeTo(eye : ReadVec3f)
 	def setMoveSpeed(multiplier : ReadVec3f)
@@ -79,9 +79,11 @@ trait TCamera extends TEventUser with TSentinelable {
 	}
 
 	def project(worldCoord : ReadVec3f, viewport : Recti) = {
-//		val xyzw = modelviewMatrix(viewport) * projectionMatrix(viewport) * Vec4f(worldCoord, 1.0f)
-//		xyzw.rgb / xyzw.a
-		(Vec4f(worldCoord, 1.0f) * modelviewMatrix(viewport) * projectionMatrix(viewport)).rg * viewport.dimensions * 0.5f
+		val rawProjected = GL.project(worldCoord, modelviewMatrix(viewport), projectionMatrix(viewport), viewport)
+		Vec2f(rawProjected.x / EngineCore.pixelScaleFactor, (viewport.height - rawProjected.y - 1.0f) / EngineCore.pixelScaleFactor)
+////		val xyzw = modelviewMatrix(viewport) * projectionMatrix(viewport) * Vec4f(worldCoord, 1.0f)
+////		xyzw.rgb / xyzw.a
+//		(Vec4f(worldCoord, 1.0f) * modelviewMatrix(viewport) * projectionMatrix(viewport)).rg * viewport.dimensions / EngineCore.pixelScaleFactor
 	}
 
 	def keymapNamespace : String
@@ -101,4 +103,6 @@ trait TCamera extends TEventUser with TSentinelable {
 
 object TCamera {
 	val Sentinel = new EyeCamera() with TSentinel
+
+	var cameras : List[TCamera] = Nil
 }

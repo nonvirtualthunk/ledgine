@@ -41,6 +41,7 @@ class TextDisplay extends TWidgetAuxData {
 	var orientFromTop = Moddable(true)
 
 	override def modificationSignature: AnyRef = (text.resolve(), fontScale, fontColor.resolve(), font, textAlignment, verticalTextAlignment)
+	override def hasModificationSignature : Boolean = true
 
 	def effectiveFontScale = fontScale
 //	constructed = true
